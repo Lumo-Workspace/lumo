@@ -1,5 +1,5 @@
 {
-  "cliVersion": "2.3.0",
+  "cliVersion": "2.4.0",
   "globalFlags": {
     "--no-hints": {
       "long": "--no-hints",
@@ -141,10 +141,35 @@
     },
     "auth login": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--no-bind": {
+          "long": "--no-bind",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Store the login without pointing the current repository at it (the first login still becomes the default)"
+        },
+        "--no-paste": {
+          "long": "--no-paste",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Fail instead of asking for a key when the server does not issue one (for scripts); never opens a browser"
+        },
+        "--url": {
+          "long": "--url",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The Lumo server to log in to, e.g. http://localhost:3000 (default: LUMO_API_URL, else the hosted service)"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Log in to Lumo by pasting an API key",
+      "description": "Log in to Lumo: a self-hosted server in local mode issues the key itself; otherwise paste an API key",
       "codex": {
         "serverOnly": false,
         "localFiles": "writes",
@@ -153,14 +178,52 @@
     },
     "auth logout": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--url": {
+          "long": "--url",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The server whose login to remove"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Log out and remove local credentials",
+      "description": "Remove one login: the server given by --url, else the one this directory uses",
       "codex": {
         "serverOnly": false,
         "localFiles": "writes",
-        "detail": "deletes ~/.lumo credentials"
+        "detail": "deletes a login from ~/.lumo credentials"
+      }
+    },
+    "auth use": {
+      "arguments": [{ "name": "url", "required": false, "variadic": false }],
+      "flags": {
+        "--default": {
+          "long": "--default",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Make it the default login instead of binding this repository"
+        },
+        "--unbind": {
+          "long": "--unbind",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Drop this repository's binding so it uses the default login"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Point this repository (or, with --default, every unbound one) at a server you are logged in to",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "writes the repository binding to ~/.lumo credentials"
       }
     },
     "crossing": {
@@ -1592,6 +1655,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Also add pre-commit and pre-push hooks that run lumo security scan; they block only on a finding that would block DONE"
+        },
+        "--scan-log": {
+          "long": "--scan-log",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --scan-hooks: also record each commit’s local scan result on the Lumo server (post-commit + pre-push, in the background; the workspace must opt in; off: git config lumo.scanLog false)"
         }
       },
       "hasSubcommands": false,
@@ -3035,6 +3106,14 @@
     "security scan": {
       "arguments": [],
       "flags": {
+        "--commit": {
+          "long": "--commit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Scan one commit against its first parent (merge commits are skipped)"
+        },
         "--deps": {
           "long": "--deps",
           "short": null,
@@ -3066,6 +3145,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Emit the list envelope ({ version, findings[], summary, … })"
+        },
+        "--log": {
+          "long": "--log",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Record each scanned commit’s result on the Lumo server (needs --commit, or --until for a range; the workspace must opt in). Offline: queued under .git/lumo and sent by the next --log run. Recorded results are labelled LOCAL and never block or clear DONE"
         },
         "--offline": {
           "long": "--offline",
@@ -3137,8 +3224,8 @@
       "description": "Scan changes with the PR scan's rules (merge-base to working tree, untracked included), labelled with the server's baseline, rulings and policy. --deps sends package names/versions to api.osv.dev.",
       "codex": {
         "serverOnly": false,
-        "localFiles": "none",
-        "detail": "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH"
+        "localFiles": "writes",
+        "detail": "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH; --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot (--offline: queued only)"
       }
     },
     "session": {
@@ -5410,7 +5497,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Also print workspace name, key name and API URL"
+          "description": "Also print workspace name, key name, API URL and binding"
         },
         "--json": {
           "long": "--json",
@@ -5423,7 +5510,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the logged-in identity from local credentials (one line; no network call)",
+      "description": "Show every login and mark (*) the one this directory uses (no network call)",
       "codex": {
         "serverOnly": false,
         "localFiles": "none",
@@ -5688,6 +5775,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Which repositories’ learnings the AI review reads (default auto): local = the reviewed repository, global = every repository in this workspace, auto = local for public / global for private repositories"
+        },
+        "--local-scan-log": {
+          "long": "--local-scan-log",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Log local scan results per commit (`lumo security scan --log`, the scan-log hooks) on the server (default off); turning it on needs --confirm"
         },
         "--override-reviewers-only": {
           "long": "--override-reviewers-only",

@@ -361,6 +361,14 @@ export interface RetentionContributor {
     repos?: string[] | undefined
   }): Promise<Record<string, number>>
   /**
+   * LUM-1259 — the daily retention sweep of this plugin's data, run by the
+   * core prune cron (`/api/cron/prune-hook-event-payloads`) after the core
+   * steps. Returns counts by noun for the cron's response (e.g.
+   * `{ localScanRuns: 3 }`). A sweep that throws fails the cron run after
+   * every other step has run.
+   */
+  sweep?(now: Date): Promise<Record<string, number>>
+  /**
    * LUM-1062 — the public retention copy for this plugin's data (the
    * /security page): one paragraph `security.retention.<paragraph>`, placed
    * right after the core paragraph `after`, with the ICU figures it quotes

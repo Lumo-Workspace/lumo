@@ -10,8 +10,9 @@ import {
   sandboxed,
   writesLocal,
 } from './lib/command-class'
-import { authLogin } from './commands/auth-login'
-import { authLogout } from './commands/auth-logout'
+import { authLogin, type AuthLoginOptions } from './commands/auth-login'
+import { authLogout, type AuthLogoutOptions } from './commands/auth-logout'
+import { authUse, type AuthUseOptions } from './commands/auth-use'
 import { whoami } from './commands/whoami'
 import { installAuthFailureTracker } from './lib/auth-failure'
 import { installSandboxNetworkTracker } from './lib/sandbox-network-hint'
@@ -475,14 +476,52 @@ const auth = program.command('auth').description('Manage Lumo authentication')
 auth
   .command('login')
   .codex(writesLocal('writes ~/.lumo credentials and opens a browser'))
-  .description('Log in to Lumo by pasting an API key')
-  .action(wrap(authLogin))
+  .description(
+    'Log in to Lumo: a self-hosted server in local mode issues the key itself; otherwise paste an API key'
+  )
+  .option(
+    '--url <url>',
+    'The Lumo server to log in to, e.g. http://localhost:3000 (default: LUMO_API_URL, else the hosted service)'
+  )
+  .option(
+    '--no-paste',
+    'Fail instead of asking for a key when the server does not issue one (for scripts); never opens a browser'
+  )
+  .option(
+    '--no-bind',
+    'Store the login without pointing the current repository at it (the first login still becomes the default)'
+  )
+  .action(wrap((opts: unknown) => authLogin(opts as AuthLoginOptions)))
 
 auth
   .command('logout')
-  .codex(writesLocal('deletes ~/.lumo credentials'))
-  .description('Log out and remove local credentials')
-  .action(wrap(authLogout))
+  .codex(writesLocal('deletes a login from ~/.lumo credentials'))
+  .description(
+    'Remove one login: the server given by --url, else the one this directory uses'
+  )
+  .option('--url <url>', 'The server whose login to remove')
+  .action(wrap((opts: unknown) => authLogout(opts as AuthLogoutOptions)))
+
+auth
+  .command('use')
+  .codex(writesLocal('writes the repository binding to ~/.lumo credentials'))
+  .description(
+    'Point this repository (or, with --default, every unbound one) at a server you are logged in to'
+  )
+  .argument('[url]', 'A server from `lumo whoami`, e.g. http://localhost:3000')
+  .option(
+    '--default',
+    'Make it the default login instead of binding this repository'
+  )
+  .option(
+    '--unbind',
+    "Drop this repository's binding so it uses the default login"
+  )
+  .action(
+    wrap((url: unknown, opts: unknown) =>
+      authUse(url as string | undefined, opts as AuthUseOptions)
+    )
+  )
 
 program
   .command('whoami')
@@ -492,9 +531,9 @@ program
     )
   )
   .description(
-    'Show the logged-in identity from local credentials (one line; no network call)'
+    'Show every login and mark (*) the one this directory uses (no network call)'
   )
-  .option('--full', 'Also print workspace name, key name and API URL')
+  .option('--full', 'Also print workspace name, key name, API URL and binding')
   .option('--json', 'Emit the identity as JSON (never includes the token)')
   .action(
     wrap(options => whoami(options as { full?: boolean; json?: boolean }))
@@ -528,6 +567,10 @@ function registerInit(): void {
       '--scan-hooks',
       'Also add pre-commit and pre-push hooks that run lumo security scan; they block only on a finding that would block DONE'
     )
+    .option(
+      '--scan-log',
+      'With --scan-hooks: also record each commit’s local scan result on the Lumo server (post-commit + pre-push, in the background; the workspace must opt in; off: git config lumo.scanLog false)'
+    )
     // LUM-1118: removed; kept hidden only to print the migration error.
     .addOption(new Option('--upgrade').hideHelp())
     .action(
@@ -538,6 +581,7 @@ function registerInit(): void {
             upgrade?: boolean
             dryRun?: boolean
             scanHooks?: boolean
+            scanLog?: boolean
           }
         )
       )
@@ -831,8 +875,8 @@ const security = program
 security
   .command('scan')
   .codex(
-    sandboxed(
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH'
+    writesLocal(
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH; --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot (--offline: queued only)'
     )
   )
   .description(
@@ -886,6 +930,16 @@ security
     '--repo <owner/repo>',
     "The repository to read server context for, instead of origin's"
   )
+  .option(
+    '--commit <ref>',
+    'Scan one commit against its first parent (merge commits are skipped)'
+  )
+  .option(
+    '--log',
+    'Record each scanned commit’s result on the Lumo server (needs --commit, or --until for a range; the workspace must opt in). Offline: queued under .git/lumo and sent by the next --log run. Recorded results are labelled LOCAL and never block or clear DONE'
+  )
+  // LUM-1259: which git hook runs --log (recorded as the run's trigger).
+  .addOption(new Option('--hook <name>').hideHelp())
   .action(wrap(options => securityScanCommand(options as SecurityScanOptions)))
 
 // LUM-1333: was `security import` (tombstoned in removed-commands.ts).
@@ -2148,6 +2202,10 @@ securityScanCmd
   .option(
     '--auto-pause-after <n>',
     'Every push to a PR gets an automatic AI review until N commits are reviewed (default 5, 0 = never pause; a PR’s own `pr review --resume --limit` wins)'
+  )
+  .option(
+    '--local-scan-log <on|off>',
+    'Log local scan results per commit (`lumo security scan --log`, the scan-log hooks) on the server (default off); turning it on needs --confirm'
   )
   .option(
     '--agent-review-blocks <off|high|medium|low>',

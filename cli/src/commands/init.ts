@@ -1,7 +1,7 @@
 import { EXIT_USAGE } from '../lib/exit-codes'
 import * as fs from 'fs'
 import * as path from 'path'
-import { execSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 import {
   CODEX_HOOK_EVENTS,
   type mergeLumoHooks,
@@ -27,7 +27,11 @@ import {
   PREPARE_COMMIT_MSG_HOOK,
   type GitHookSpec,
 } from '../lib/git-hook-template'
-import { SCAN_HOOKS } from '../lib/scan-hook-template'
+import {
+  SCAN_HOOKS,
+  SCAN_LOG_CONFIG,
+  SCAN_LOG_HOOKS,
+} from '../lib/scan-hook-template'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
 import { fetchSessionRecordNotice } from '../lib/session-record-notice'
@@ -53,6 +57,8 @@ export type InitOptions = {
   dryRun?: boolean
   /** LUM-1258: also install the pre-commit / pre-push scan hooks (opt-in). */
   scanHooks?: boolean
+  /** LUM-1259: with --scan-hooks, also record each commit's scan on the server. */
+  scanLog?: boolean
 }
 
 /** Test seams: everything defaults to the real environment. */
@@ -146,6 +152,12 @@ export async function init(
     )
     return EXIT_USAGE
   }
+  if (options.scanLog && !options.scanHooks) {
+    process.stderr.write(
+      'Error: --scan-log extends the scan hooks; pass it with --scan-hooks.\n'
+    )
+    return EXIT_USAGE
+  }
   const cliVersion =
     deps.cliVersion !== undefined ? deps.cliVersion : readCliVersion()
 
@@ -154,6 +166,7 @@ export async function init(
       tokens,
       root,
       scanHooks: options.scanHooks === true,
+      scanLog: options.scanLog === true,
     })
     process.stdout.write(
       renderInitPlan(items, {
@@ -218,6 +231,19 @@ export async function init(
       process.stdout.write(
         '  Scan hooks block only on a finding that would block DONE; skip once with --no-verify.\n'
       )
+    if (options.scanLog) {
+      // The switch goes on only with its post-commit hook in place: a
+      // printed-out block (husky / core.hooksPath) or a failed write would
+      // leave the pre-push block logging on its own.
+      let logHooks = 0
+      for (const spec of SCAN_LOG_HOOKS)
+        if (installGitHook(root, spec)) logHooks++
+      if (logHooks === SCAN_LOG_HOOKS.length) enableScanLog(root)
+      else
+        process.stdout.write(
+          `ℹ local scan log not turned on: the post-commit hook is not installed. Once its block is in place, run: git config ${SCAN_LOG_CONFIG} true\n`
+        )
+    }
   }
   await printSessionRecordNotice()
   process.stdout.write(commitBlock(root, written, folder))
@@ -428,6 +454,31 @@ export function mergeHooksFile(
     )
   if (tracked && changed > 0) process.stdout.write(gitDiffNote(settingsPath))
   return { path: settingsPath, stats }
+}
+
+/**
+ * LUM-1259 — turn the local scan log on for this repo (`git config
+ * lumo.scanLog true`, repo-local): the post-commit and pre-push hooks then
+ * record each commit's scan on the server. The server stores it only when
+ * the workspace opted in.
+ */
+function enableScanLog(root: string): void {
+  const r = spawnSync('git', ['config', SCAN_LOG_CONFIG, 'true'], {
+    cwd: root,
+    encoding: 'utf8',
+  })
+  if (r.status !== 0) {
+    process.stdout.write(
+      `⚠ could not set git config ${SCAN_LOG_CONFIG}: ${(r.stderr || '').trim() || 'git config failed'}\n`
+    )
+    return
+  }
+  process.stdout.write(
+    `✓ local scan log on for this repo (git config ${SCAN_LOG_CONFIG} true)\n` +
+      '  Each commit’s scan result is recorded on the Lumo server once your workspace opts in\n' +
+      '  (an OWNER: lumo workspace security-scan update --local-scan-log on). Results are LOCAL:\n' +
+      `  they never block or clear DONE. Off: git config ${SCAN_LOG_CONFIG} false\n`
+  )
 }
 
 /**

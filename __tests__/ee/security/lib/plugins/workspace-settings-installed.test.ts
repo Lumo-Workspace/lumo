@@ -29,6 +29,8 @@ const SECURITY_COLUMNS = [
   'securityLearningsScope',
   // LUM-1137: pause automatic review after N reviewed commits.
   'securityReviewAutoPauseAfter',
+  // LUM-1259: log local scan results per commit (opt-in).
+  'securityLocalScanLogEnabled',
 ]
 
 describe('installed (the security plugin)', () => {
@@ -141,6 +143,7 @@ describe('installed (the security plugin)', () => {
         'securityAllowAuthorApproval',
         'securityLearningsScope',
         'securityReviewAutoPauseAfter',
+        'securityLocalScanLogEnabled',
       ].sort()
     )
     expect(audited['workspace.retention_updated']).toContain(

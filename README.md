@@ -76,6 +76,10 @@ the real service (database, file storage, email, Redis, realtime, public
 URL) and prints ✓ / ✗ with what to fix. Open <http://localhost:3000/signin>, choose **No account yet? Create one**,
 then create a workspace.
 
+Just trying it on your own machine? `scripts/self-host/setup.sh --local`
+skips the sign-in: open <http://localhost:3000> and you are in
+([details](docs/self-hosting/README.md#trying-it-on-your-own-machine-no-sign-in)).
+
 On a real domain with HTTPS (DNS pointed at the server, ports 80 and 443
 open), with live updates (Soketi) turned on:
 

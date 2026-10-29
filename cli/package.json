@@ -1,6 +1,6 @@
 {
   "name": "@lumoai/cli",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Lumo CLI — manage tasks and sessions from the terminal",
   "license": "MIT",
   "author": "cli@uselumo.ai",

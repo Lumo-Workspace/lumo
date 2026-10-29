@@ -44,6 +44,8 @@ export interface GitHookSpec {
   block: string
   /** What the block does, for the hand-install instructions. */
   purpose: string
+  /** The `lumo init` flags that install it (doctor's refresh hint); none = prepare-commit-msg. */
+  initFlags?: string
 }
 
 export const PREPARE_COMMIT_MSG_HOOK: GitHookSpec = {

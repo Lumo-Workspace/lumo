@@ -13,7 +13,12 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'auth logout': {
     serverOnly: false,
     localFiles: 'writes',
-    detail: 'deletes ~/.lumo credentials',
+    detail: 'deletes a login from ~/.lumo credentials',
+  },
+  'auth use': {
+    serverOnly: false,
+    localFiles: 'writes',
+    detail: 'writes the repository binding to ~/.lumo credentials',
   },
   'crossing disposition': {
     serverOnly: false,
@@ -133,9 +138,9 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   },
   'security scan': {
     serverOnly: false,
-    localFiles: 'none',
+    localFiles: 'writes',
     detail:
-      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH',
+      'reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH; --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot (--offline: queued only)',
   },
   'session attach': {
     serverOnly: false,

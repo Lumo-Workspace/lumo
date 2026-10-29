@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1325, LUM-1332 — scripts/self-host/setup.sh, run for real with /bin/sh
+ * LUM-1325, LUM-1332, LUM-1335 — scripts/self-host/setup.sh, run for real with /bin/sh
  * against a copy of the repo's .env.example in a temp directory. `run` adds
  * --no-start (only .env); `runWithDocker` puts a fake `docker` on PATH that
  * logs its arguments.
@@ -10,6 +10,8 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import {
   copyFileSync,
+  existsSync,
+  realpathSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -66,9 +68,19 @@ function run(...args: string[]): string {
  * setup.sh with a fake `docker` first on PATH: it appends each call's
  * arguments to docker.log and exits with $FAKE_EXEC_EXIT for `compose exec`.
  */
+/**
+ * PATH without any directory that holds a real `lumo` (LUM-1335): setup.sh
+ * --local runs the one on PATH, and the developer's own must never be touched.
+ */
+const PATH_WITHOUT_LUMO = (process.env.PATH ?? '')
+  .split(':')
+  .filter(d => d && !existsSync(join(d, 'lumo')))
+  .join(':')
+
 function runWithDocker(
   args: string[],
-  execExit = 0
+  execExit = 0,
+  lumoScript?: string
 ): { status: number | null; out: string; calls: string[] } {
   const bin = join(dir, 'fake-bin')
   mkdirSync(bin, { recursive: true })
@@ -84,6 +96,9 @@ function runWithDocker(
     ].join('\n'),
     { mode: 0o755 }
   )
+  if (lumoScript !== undefined) {
+    writeFileSync(join(bin, 'lumo'), lumoScript, { mode: 0o755 })
+  }
   const res = spawnSync(
     'sh',
     [join(dir, 'scripts', 'self-host', 'setup.sh'), ...args],
@@ -92,7 +107,7 @@ function runWithDocker(
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        PATH: `${bin}:${process.env.PATH ?? ''}`,
+        PATH: `${bin}:${PATH_WITHOUT_LUMO}`,
         FAKE_EXEC_EXIT: String(execExit),
       },
     }
@@ -350,6 +365,167 @@ describe('scripts/self-host/setup.sh', () => {
     run('--caddy')
     expect(env().get('COMPOSE_PROFILES')).toBe('mail,caddy')
     expect(countLines('COMPOSE_PROFILES')).toBe(1)
+  })
+
+  it('LUM-1335: --local / --no-local toggle LUMO_MODE; a later run keeps it', () => {
+    expect(run()).toContain('Local mode (no sign-in): off')
+    expect(env().get('LUMO_MODE')).toBeUndefined()
+    expect(run('--local')).toContain('Local mode (no sign-in): on')
+    expect(env().get('LUMO_MODE')).toBe('local')
+    expect(run()).toContain('Local mode (no sign-in): on')
+    run('--no-local')
+    expect(env().get('LUMO_MODE')).toBe('')
+    run('--local')
+    expect(countLines('LUMO_MODE')).toBe(1)
+  })
+
+  it('LUM-1335: --local starts the stack and says no sign-in is needed', () => {
+    const { status, out } = runWithDocker(['--local'])
+    expect(status).toBe(0)
+    expect(out).toContain('Lumo is running at http://localhost:3000')
+    expect(out).toContain('no sign-in needed')
+    // No lumo on PATH: how to get it, and the command.
+    expect(out).toContain(
+      'npm install -g @lumoai/cli, then lumo auth login --url http://localhost:3000'
+    )
+    expect(runWithDocker(['--check', '--local']).status).toBe(2)
+  })
+
+  /** A fake lumo: logs its arguments; whoami answers WHOAMI, login exits LOGIN_EXIT. */
+  const fakeLumo = (whoami: string | null, loginExit = 0) =>
+    [
+      '#!/bin/sh',
+      `echo "lumo $*" >> '${join('$DIR', 'lumo.log')}'`,
+      'case "$1 $2" in',
+      whoami === null
+        ? '  "whoami --json") echo "Not logged in"; exit 1 ;;'
+        : `  "whoami --json") echo '${whoami}' ;;`,
+      `  "auth login") exit ${loginExit} ;;`,
+      '  "init ") echo "lumo init in $PWD" >> "$(dirname "$0")/../lumo.log" ;;',
+      'esac',
+      '',
+    ].join('\n')
+  const lumoCalls = () => {
+    try {
+      return readFileSync(join(dir, 'lumo.log'), 'utf8').trim().split('\n')
+    } catch {
+      return []
+    }
+  }
+  const withDir = (script: string) => script.replace(/\$DIR/g, dir)
+
+  it('LUM-1335: --local connects a lumo that is not logged in', () => {
+    const { status, out } = runWithDocker(
+      ['--local'],
+      0,
+      withDir(fakeLumo(null))
+    )
+    expect(status).toBe(0)
+    expect(out).toContain('✓ lumo CLI connected to http://localhost:3000')
+    expect(lumoCalls()).toEqual([
+      'lumo whoami --json',
+      'lumo auth login --url http://localhost:3000 --no-paste',
+    ])
+  })
+
+  it('LUM-1335: --local reconnects a lumo already logged in to this same URL', () => {
+    const same = '{"version":1,"apiUrl":"http://localhost:3000/"}'
+    const { out } = runWithDocker(['--local'], 0, withDir(fakeLumo(same)))
+    expect(out).toContain('✓ lumo CLI connected')
+    expect(lumoCalls()).toContain(
+      'lumo auth login --url http://localhost:3000 --no-paste'
+    )
+  })
+
+  it('LUM-1335: --local never replaces a login to another server', () => {
+    const hosted = '{"version":1,"apiUrl":"https://www.uselumo.ai"}'
+    const { status, out } = runWithDocker(
+      ['--local'],
+      0,
+      withDir(fakeLumo(hosted))
+    )
+    expect(status).toBe(0)
+    expect(out).toContain(
+      'The lumo CLI is logged in to https://www.uselumo.ai; left as it is.'
+    )
+    expect(out).toContain(
+      '(replaces that login): lumo auth login --url http://localhost:3000'
+    )
+    expect(lumoCalls()).toEqual(['lumo whoami --json'])
+  })
+
+  it('LUM-1335: a failed connect prints the command and does not fail setup', () => {
+    const { status, out } = runWithDocker(
+      ['--local'],
+      0,
+      withDir(fakeLumo(null, 1))
+    )
+    expect(status).toBe(0)
+    expect(out).toContain(
+      'Could not connect the lumo CLI automatically; run: lumo auth login --url http://localhost:3000'
+    )
+  })
+
+  /** A throwaway git repository to point --init at. */
+  const gitRepo = () => {
+    const repo = join(dir, 'my-app')
+    mkdirSync(repo)
+    execFileSync('git', ['init', '-q', repo])
+    return repo
+  }
+
+  it('LUM-1335: --local alone prints the next step for your own repo', () => {
+    const { out } = runWithDocker(['--local'], 0, withDir(fakeLumo(null)))
+    expect(out).toContain('Next, in your own project')
+    expect(out).toContain('cd <your repo> && lumo init')
+  })
+
+  it('LUM-1335: --local --init <repo> runs lumo init there once the CLI is connected', () => {
+    const repo = gitRepo()
+    const { status, out } = runWithDocker(
+      ['--local', '--init', repo],
+      0,
+      withDir(fakeLumo(null))
+    )
+    expect(status).toBe(0)
+    expect(out).toContain(`✓ ${realpathSync(repo)} is set up (lumo init)`)
+    const calls = lumoCalls()
+    expect(calls.indexOf('lumo init')).toBeGreaterThan(
+      calls.indexOf('lumo auth login --url http://localhost:3000 --no-paste')
+    )
+    expect(calls).toContain(`lumo init in ${realpathSync(repo)}`)
+  })
+
+  it('LUM-1335: --init is skipped when the CLI is logged in elsewhere', () => {
+    const repo = gitRepo()
+    const hosted = '{"version":1,"apiUrl":"https://www.uselumo.ai"}'
+    const { status, out } = runWithDocker(
+      ['--local', '--init', repo],
+      0,
+      withDir(fakeLumo(hosted))
+    )
+    expect(status).toBe(0)
+    expect(out).toContain('Skipped lumo init in')
+    expect(lumoCalls()).not.toContain('lumo init')
+  })
+
+  it('LUM-1335: --init refuses a non-repository before writing .env, and needs --local', () => {
+    const plain = join(dir, 'not-a-repo')
+    mkdirSync(plain)
+    const bad = runWithDocker(['--local', '--init', plain])
+    expect(bad.status).toBe(2)
+    expect(bad.out).toContain('--init needs a git repository')
+    expect(() => statSync(join(dir, '.env'))).toThrow()
+    const noLocal = runWithDocker(['--init', gitRepo()])
+    expect(noLocal.status).toBe(2)
+    expect(noLocal.out).toContain('add --local')
+    // Only the docker presence check ran; nothing was started.
+    expect(noLocal.calls.some(c => c.startsWith('compose up'))).toBe(false)
+  })
+
+  it('LUM-1335: without --local the CLI is never touched', () => {
+    runWithDocker([], 0, withDir(fakeLumo(null)))
+    expect(lumoCalls()).toEqual([])
   })
 
   it('warns when caddy is on without a domain', () => {

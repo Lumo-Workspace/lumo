@@ -1,5 +1,5 @@
 import { configDir, readCredentials, type Credentials } from './config'
-import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
+import { resolveAuthedApiUrl, serverLabel, trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
 import { sanitizeField } from './sanitize'
 import { readCliVersion } from './cli-version'
@@ -376,6 +376,8 @@ export interface CliIdentity {
   version: string | null
   email?: string | null
   workspaceSlug?: string | null
+  /** LUM-1335: the server this login talks to; named when not the hosted one. */
+  apiUrl?: string | null
 }
 
 const STATUS_LINE_PREFIX = '[Lumo] session_id='
@@ -394,7 +396,9 @@ export function withCliIdentity(lines: string[], id: CliIdentity): string[] {
   const who = id.email
     ? ` · ${sanitizeField(id.email)}${id.workspaceSlug ? ` (${sanitizeField(id.workspaceSlug)})` : ''}`
     : ''
-  const tag = `${id.version ? `lumo ${sanitizeField(id.version)}` : 'lumo'}${who}`
+  const server = id.apiUrl ? serverLabel(id.apiUrl) : null
+  const where = server ? ` · ${sanitizeField(server)}` : ''
+  const tag = `${id.version ? `lumo ${sanitizeField(id.version)}` : 'lumo'}${who}${where}`
   const cut = first.indexOf(' | ')
   const decorated =
     cut === -1
@@ -519,7 +523,7 @@ function sessionStartLines(
   responseBody: unknown,
   hookBody: string,
   agentEnum: string | null,
-  creds: Pick<Credentials, 'email' | 'workspaceSlug'>
+  creds: Pick<Credentials, 'email' | 'workspaceSlug' | 'apiUrl'>
 ): string[] {
   const base = resolveSessionStartStdout(responseBody, {
     extractTask: () => extractTaskFromGit(),
@@ -539,6 +543,7 @@ function sessionStartLines(
         version,
         email: creds.email,
         workspaceSlug: creds.workspaceSlug,
+        apiUrl: creds.apiUrl,
       }),
       notes
     ),
@@ -881,7 +886,12 @@ async function runHookBody(
   stdoutState: { written: boolean }
 ): Promise<void> {
   try {
-    const creds = readCredentials()
+    // LUM-1337: the login of the repository the event came from. A binding
+    // to a server that is no longer logged in falls back to the default,
+    // noted in hook.log.
+    const creds = readCredentials(payloadCwd(body), {
+      onNote: note => logHookError(`[${path}]`, note),
+    })
     if (!creds) {
       logHookError(`[${path}]`, 'no credentials; skipping')
       return
@@ -947,7 +957,11 @@ async function runHookBody(
           const responseBody = await res.json()
           const lines =
             path === 'session-start'
-              ? sessionStartLines(responseBody, body, agentEnum, creds)
+              ? sessionStartLines(responseBody, body, agentEnum, {
+                  email: creds.email,
+                  workspaceSlug: creds.workspaceSlug,
+                  apiUrl,
+                })
               : formatHookStdoutLines(path, responseBody)
           // LUM-1054: Codex rejects text + JSON on one run. PreToolUse is
           // already a single Codex-valid object, so only SessionStart folds.

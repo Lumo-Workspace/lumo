@@ -34,6 +34,13 @@ jest.mock('@/ee/security/repositories/pr-review-control.repository', () => ({
     get: jest.fn().mockResolvedValue({ reviewPaused: false, reviewHeads: [] }),
   },
 }))
+// LUM-1259: no local history in these reads.
+jest.mock('@/ee/security/repositories/local-scan-log.repository', () => ({
+  localScanLogRepository: {
+    findRepoSpellings: jest.fn().mockResolvedValue([]),
+    findHistoryForCommit: jest.fn().mockResolvedValue([]),
+  },
+}))
 
 import {
   prScanReadoutService,
@@ -42,6 +49,7 @@ import {
 import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { securityColumnsRepository } from '@/ee/security/repositories/security-columns.repository'
+import { localScanLogRepository } from '@/ee/security/repositories/local-scan-log.repository'
 
 const listScans = prSecurityScanRepository.listByPullRequest as jest.Mock
 const taskPrs =
@@ -279,5 +287,53 @@ describe('prScanReadoutService.getForTask', () => {
     })
     expect(out.redactedSecrets).toBe(2)
     expect(JSON.stringify(out)).not.toContain(SAMPLE_TOKEN)
+  })
+})
+
+describe('LUM-1259: the PR head’s local history', () => {
+  it('rides on each PR read-out, read for that PR’s repo and head (LOCAL, never a gate)', async () => {
+    taskPrs.mockResolvedValue([pr({})])
+    listScans.mockResolvedValue([scan({ findings: [] })])
+    ;(localScanLogRepository.findRepoSpellings as jest.Mock).mockResolvedValue([
+      'Lumo-Workspace/lumo',
+    ])
+    ;(
+      localScanLogRepository.findHistoryForCommit as jest.Mock
+    ).mockResolvedValue([
+      {
+        id: 'r1',
+        commitSha: 'aaaaaaa1',
+        patchId: 'p',
+        branch: 'feature',
+        actor: 'AGENT',
+        trigger: 'POST_COMMIT',
+        scanners: ['SECRETS'],
+        findingCount: 1,
+        scannedAt: new Date('2026-10-19T12:00:00Z'),
+        createdAt: new Date('2026-10-19T12:00:01Z'),
+        findings: [],
+      },
+    ])
+    const out = await prScanReadoutService.getForTask('ws-1', TASK, {
+      all: false,
+    })
+    expect(localScanLogRepository.findRepoSpellings).toHaveBeenCalledWith(
+      'ws-1',
+      'Lumo-Workspace/lumo'
+    )
+    expect(localScanLogRepository.findHistoryForCommit).toHaveBeenCalledWith(
+      'ws-1',
+      ['Lumo-Workspace/lumo'],
+      'aaaaaaa1',
+      20
+    )
+    const [only] = out.pullRequests
+    expect(only!.localHistory).toMatchObject({
+      source: 'LOCAL',
+      headSha: 'aaaaaaa1',
+      flaggedAt: ['aaaaaaa1'],
+    })
+    // Counts that feed DONE are untouched by the local history.
+    expect(only!.scans[0]!.counts.blocking).toBe(0)
   })
 })

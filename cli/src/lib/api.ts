@@ -86,6 +86,93 @@ export function resolveApiUrl(): string {
   return resolved
 }
 
+/** The local-mode refusal codes the server answers with (LUM-1335). */
+const LOCAL_MODE_ERROR_PREFIX = 'local_mode_'
+
+/** How long `auth login` waits for a local-mode key before pasting instead. */
+export const LOCAL_CLI_KEY_TIMEOUT_MS = 15_000
+
+/**
+ * LUM-1335 — ask a self-hosted server in local mode (`LUMO_MODE=local`) for
+ * an API key, so `lumo auth login` needs no copy-paste there. `refused` is
+ * only a local-mode server's own refusal (several accounts), with its reason;
+ * any other answer — 404 from the hosted service or a normal self-host, or an
+ * unrelated error — is `unavailable`, which means "paste a key".
+ */
+export type LocalCliKeyResult =
+  | { status: 'issued'; key: string }
+  | { status: 'unavailable' }
+  | { status: 'refused'; message: string }
+
+export async function requestLocalCliKey(
+  apiUrl: string
+): Promise<LocalCliKeyResult> {
+  let res: Response
+  try {
+    res = await fetch(
+      `${trimTrailingSlash(apiUrl)}/api/auth/lumo/local-cli-key`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+        signal: AbortSignal.timeout(LOCAL_CLI_KEY_TIMEOUT_MS),
+      }
+    )
+  } catch (err) {
+    // A server that does not answer in time is not a local-mode one.
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      return { status: 'unavailable' }
+    }
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Could not reach Lumo API at ${apiUrl} (${msg})`)
+  }
+  let body: { key?: unknown; error?: unknown; message?: unknown }
+  try {
+    body = (await res.json()) as typeof body
+  } catch {
+    return { status: 'unavailable' }
+  }
+  if (res.status === 201 && typeof body.key === 'string' && body.key) {
+    return { status: 'issued', key: body.key }
+  }
+  if (
+    typeof body.error === 'string' &&
+    body.error.startsWith(LOCAL_MODE_ERROR_PREFIX)
+  ) {
+    const reason = typeof body.message === 'string' ? body.message : body.error
+    return { status: 'refused', message: reason }
+  }
+  return { status: 'unavailable' }
+}
+
+/**
+ * LUM-1335 — how to name a server that is not the hosted service, so a login
+ * to a self-hosted Lumo is never mistaken for the hosted one: `local · <url>`
+ * for this machine, `self-hosted · <url>` for any other host; null for the
+ * hosted service (and for a URL that does not parse).
+ */
+export function serverLabel(apiUrl: string): string | null {
+  let parsed: URL
+  try {
+    parsed = new URL(apiUrl)
+  } catch {
+    return null
+  }
+  const hosted = new URL(DEFAULT_API_URL).hostname
+  const host = parsed.hostname
+  // Only the hosted service itself: https on its default port.
+  if (
+    (host === hosted || `www.${host}` === hosted) &&
+    parsed.protocol === 'https:' &&
+    parsed.port === ''
+  ) {
+    return null
+  }
+  const url = trimTrailingSlash(apiUrl)
+  const local = LOCALHOST_HOSTNAMES.has(host) || host.endsWith('.localhost')
+  return `${local ? 'local' : 'self-hosted'} · ${url}`
+}
+
 export function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '')
 }

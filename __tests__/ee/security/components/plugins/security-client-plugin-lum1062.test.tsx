@@ -228,6 +228,8 @@ describe('settings slots', () => {
         // LUM-1134: absent on the row ⇒ auto (the column default).
         securityLearningsScope: 'auto',
         securityReviewAutoPauseAfter: 5,
+        // LUM-1259: absent on the row ⇒ off (the column default).
+        securityLocalScanLogEnabled: false,
       },
       huntAvailable: true,
       rewardHackAvailable: true,

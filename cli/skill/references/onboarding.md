@@ -13,7 +13,7 @@ lumo skill read references/tasks.md     # one reference
 
 The Lumo SessionStart context tells the agent to run it before other `lumo` commands when a request involves Lumo.
 
-## `lumo init [--agent <token>] [--dry-run] [--scan-hooks]` — set up this repo
+## `lumo init [--agent <token>] [--dry-run] [--scan-hooks [--scan-log]]` — set up this repo
 
 Run inside the git repository (or, see below, a plain folder). Without `--agent` it sets up **Claude Code and Codex** at once:
 
@@ -25,6 +25,8 @@ Run inside the git repository (or, see below, a plain folder). Without `--agent`
 `--agent <token>` narrows to one agent (`claude-code` → `.claude/` only, `codex` → `.codex/` and `.agents/` only) and is baked into every hook command (`lumo hook <slug> --agent <token>`) so sessions and memories are attributed to that agent. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini`, `copilot` accepted); other agents use the Claude Code layout. An unknown token aborts before writing anything.
 
 `--scan-hooks` (opt-in) also adds `pre-commit` / `pre-push` hooks running `lumo security scan` ([security-scan.md](security-scan.md#git-hooks)): they block only on a finding that would block DONE; a failed scan, no network or no `lumo` on PATH never blocks; `git commit|push --no-verify` skips them. A re-run without the flag leaves installed scan hooks alone.
+
+`--scan-log` (with `--scan-hooks`) also records each commit's local scan on the Lumo server: a `post-commit` hook and the `pre-push` hook run `lumo security scan --log` in the background, never blocking or failing a commit or push, and `git config lumo.scanLog true` is set for the repo (the switch; `false` pauses it, `lumo uninstall` removes the hook and unsets it). The server keeps the results only once an OWNER opted the workspace in (`lumo workspace security-scan update --local-scan-log on`). Without `--scan-hooks` it exits 2. See [security-scan.md](scan-log.md).
 
 `--dry-run` writes nothing and prints, per file, `would install` / `would update` / `·` (up to date) / `⚠ skip` / `✗ cannot plan` (exit 1) with a diff. Settings and `hooks.json` diffs show **only** the `lumo hook …` entries (everything else folded to `"… N other …"`); a Codex change is flagged `⚠ Codex will ask to trust these hooks again — events: …`. It ends with `N of M would change` and the command to apply.
 
@@ -39,6 +41,7 @@ lumo init --agent codex         # Codex only (then trust the hooks in /hooks, re
 lumo init --agent claude-code   # Claude Code only
 lumo init --agent cursor        # bake agent=cursor into the hook commands
 lumo init --scan-hooks          # also pre-commit / pre-push security scans
+lumo init --scan-hooks --scan-log  # …and record each commit's scan on the server (opt-in)
 ```
 
 **When to suggest:** the user asks how to set up Lumo in a repo; a repo has no Lumo hooks yet; the user works in Codex; a `lumo` command in Codex fails with `fetch failed` (rules missing or from an older CLI — re-run `lumo init`, restart Codex, run `lumo` unpiped); before re-running on hand-edited hook files (`--dry-run` first, show the diff); the user wants secrets caught on every commit/push (`--scan-hooks`, never on your own).
@@ -70,13 +73,19 @@ lumo uninstall --agent codex --confirm
 
 ```bash
 lumo auth login     # opens the API Keys page; paste a key starting with lum_
-lumo auth logout    # clears ~/.lumo/credentials.json (idempotent)
-lumo whoami         # cli@uselumo.ai · workspace lumo · key lum_68d4...
-lumo whoami --full  # + workspace name, key name, API URL
+lumo auth login --url http://localhost:3000   # a self-hosted server; in local mode it issues the key itself
+lumo auth use http://localhost:3000           # this repository uses that login (--default: every unbound repo; --unbind)
+lumo auth logout    # removes the login this directory uses (--url <url>: that server's); others stay
+lumo whoami         # every login; * = the one this directory uses
+lumo whoami --full  # + workspace name, key name, API URL, this repository's binding
 ```
 
+- **Several logins side by side** (one per server, e.g. the hosted service and a local `http://localhost:3000`), all in `~/.lumo/credentials.json` (user-level, 0600, never committed). Which one a command **and every Claude Code / Codex hook** uses, by the directory it runs in: `LUMO_API_URL` when it names a server you are logged in to (that login's own token) → the repository's binding (keyed by the repo's main work tree, so all its worktrees share it) → the default (the first login; change with `auth use <url> --default`). A binding to a server no longer logged in — or git failing in that directory — falls back to the default (hooks note it in `hook.log`, never fail). A repository can only be bound to a server you logged in to yourself — nothing in a repo can redirect tokens or session records. `LUMO_CONFIG_DIR` still swaps the whole directory. A single-login file from an older CLI is read as the default, no re-login.
+- `--url <url>` logs in to that server (a self-hosted Lumo) instead of `LUMO_API_URL` / the hosted service; https only, http for localhost. When the server runs `LUMO_MODE=local` (`setup.sh --local`), it issues an API key for its one account (creating the account if nobody opened the app yet) and nothing is pasted (`Local mode: <url> issued an API key for this machine.`). Any other server — the hosted one, a normal self-host, an older one — gets the usual paste flow. A local-mode server that refuses (several accounts) prints `Local mode did not issue a key: <reason>` first. `--no-paste` exits 1 instead of prompting or opening a browser when no key is issued (for scripts). Logging in replaces only an earlier login **to the same server**. Run inside a git repository, a login that is not the default also binds that repository to it (`Used by: <repo>`); re-logging in to the default there drops the binding. `--no-bind` stores the login without binding (scripts; `setup.sh --local` uses it). Outside a repo a non-default login prints `Not used yet — …` with the `auth use` commands.
+- `auth use [url]` never logs in: an unknown server exits 1 with `Hint: lumo auth login --url <url>`; outside a git repository (without `--default`) exits 1; no URL and no `--unbind` exits 2.
+- `auth logout` without `--url` removes the login this directory resolves to; with `--url`, that server's (not logged in there → `Not logged in to <url>`, exit 0). Bindings to it are dropped; when the default goes and other logins remain, the first by URL becomes the default (`Default login is now <url>` — say so; change it with `auth use <url> --default`).
 - `auth login` is the only auth path (no `--token`). Suggest it when a command reports `not logged in`, `API key invalid or revoked`, or ends with the `Hint: … HTTP 401 … lumo auth login` line, and when the user switches workspaces.
-- `whoami` reads local credentials only (no network — it does not prove the key works); `--json` prints `{ version, email, workspace: { slug, name }, apiKey: { name, prefix }, apiUrl }` (never the token). **Not a pre-flight check** — don't run it (or `lumo --version`) before other commands. Use it when the user asks which account/workspace this is, or before a destructive command on a shared machine.
+- `whoami` reads local credentials only (no network — it does not prove the key works); a login to a self-hosted Lumo ends with ` · local · <url>` (this machine) or ` · self-hosted · <url>` (`--full`: a `Server:` line), the hosted one with nothing — tell the user which server they are on when it matters (their session records go there). With several logins each gets its own line, `* ` marking the one used here and tags `(default)` / `(this repo)` / `(LUMO_API_URL)`; one login prints exactly one line as before. `--json` prints `{ version, email, workspace: { slug, name }, apiKey: { name, prefix }, apiUrl, logins: [{ apiUrl, email, workspace, apiKey, default, used }] }` — the top-level fields are the login used here (never the token). **Not a pre-flight check** — don't run it (or `lumo --version`) before other commands. Use it when the user asks which account/workspace this is, or before a destructive command on a shared machine.
 
 ## `lumo update [--auto on|off]` — upgrade the CLI
 

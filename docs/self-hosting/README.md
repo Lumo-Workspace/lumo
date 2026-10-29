@@ -60,10 +60,12 @@ scripts/self-host/setup.sh         # writes .env, starts the stack, checks the c
   – Redis         not configured (rate limits kept in memory)
   – Realtime      off (the UI refreshes on focus and every minute)
   – Public URL    http://localhost:3000 is local to this machine; open it in a browser
+  ✓ Sign-in       accounts (sign-in required)
 ```
 
 `✓` works, `–` not configured (fine for optional components), `✗` configured
-but not working, with what to fix. Email is checked by signing in to the
+but not working, with what to fix; `⚠` works but deserves a look (local mode
+on a public URL) and does not fail the run. Email is checked by signing in to the
 SMTP server (or the Resend relay) without sending anything; S3 by writing,
 reading and deleting one object; the public URL by fetching it from the
 server. `setup.sh` exits non-zero when any check fails. `--no-start` stops
@@ -76,13 +78,74 @@ account creation.) The first
 account is an ordinary user: whoever creates a workspace owns it. To stop
 strangers from signing up on a public instance, see [Sign-in](#sign-in).
 
+### Trying it on your own machine (no sign-in)
+
+```bash
+scripts/self-host/setup.sh --local
+```
+
+`--local` sets `LUMO_MODE=local` in `.env` and asks nothing. Open
+<http://localhost:3000>: the first visit creates this instance's one account
+and signs you in, so you land straight in the app. Everyone who opens the URL
+is signed in as that account, so use it only where nobody else can reach
+the app — on a URL other machines can reach, the app logs a warning and the
+check shows `⚠ Sign-in`.
+
+The first visit (or the first CLI connect) also gives the account a
+workspace, **My workspace**, with one project, **My project**, so there is no
+onboarding step and tasks can be filed right away.
+
+`setup.sh --local` also connects the `lumo` CLI when it is installed. The
+CLI keeps one login per server, so this login is added next to any other
+(the hosted service, another server) and moves no repository off it — only
+a repository you bind (below) uses this Lumo. To connect it yourself:
+
+```bash
+lumo auth login --url http://localhost:3000
+```
+
+In local mode the server issues an API key for the account itself — no
+browser, nothing to copy, and no need to open the app first (the account is
+created if there is none). On any other server the same command falls back
+to pasting a key from Settings → API Keys (`--no-paste` makes it fail
+instead, for scripts). Anyone who can reach a local-mode instance can get
+such a key, exactly as they can sign in.
+
+To give Claude Code and Codex the Lumo skill and hooks in your own project,
+point it at this Lumo and run `lumo init` there (setup prints the commands),
+or let setup do both once the CLI is connected:
+
+```bash
+cd ~/code/my-app && lumo auth use http://localhost:3000 && lumo init
+scripts/self-host/setup.sh --local --init ~/code/my-app   # the same, from setup
+```
+
+`--init` needs a git repository and local mode. `lumo auth use` binds only
+that repository: its commands and agent sessions go to this Lumo, while your
+other repositories keep using the hosted service (`lumo whoami` shows which
+login a directory uses). Commit what `lumo init` adds in that repository.
+
+The account is an ordinary one (`local@lumo.localhost`, no password), so
+everything you create stays when you leave local mode. If the instance
+already has one account (you signed up before), local mode signs you in as
+that one; with several accounts it refuses (`HTTP 409`) and the check fails —
+a team instance never opens without a sign-in. To go back to normal sign-in,
+run `setup.sh --no-local`. The local account's data stays in the database,
+but the account has no password and cannot be signed in to yet: claiming it
+(giving it your email and a password) is not built yet, so for now leave
+local mode only for an instance you are done trying. Any other `LUMO_MODE`
+value is refused rather than guessed at: every request answers HTTP 500,
+`docker compose logs app` names the variable, and `setup.sh` reports the app
+as unhealthy.
+
 Optional components (email, your own Redis or S3, OAuth, AI keys) are
 configured after the first start: set them in `.env` and run `setup.sh`
 again, which restarts what changed and checks it.
 
 `setup.sh` creates `.env` readable by its owner only (mode 600) and is safe
 to re-run: it keeps realtime and caddy as chosen earlier unless you pass
-`--realtime` / `--no-realtime` or `--caddy` / `--no-caddy`, fills only
+`--realtime` / `--no-realtime`, `--caddy` / `--no-caddy` or `--local` /
+`--no-local`, fills only
 secrets that are still empty and never replaces one that has a value
 (changing `BETTER_AUTH_SECRET` signs everybody out; the database password
 must keep matching its volume).

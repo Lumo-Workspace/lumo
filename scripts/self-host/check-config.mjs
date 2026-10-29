@@ -10,7 +10,7 @@
  * the check.
  */
 
-const MARK = { ok: '✓', failed: '✗', skipped: '–' }
+const MARK = { ok: '✓', failed: '✗', skipped: '–', warning: '⚠' }
 
 const LABEL = {
   database: 'Database',
@@ -19,12 +19,13 @@ const LABEL = {
   redis: 'Redis',
   realtime: 'Realtime',
   public_url: 'Public URL',
+  sign_in: 'Sign-in',
 }
 
 /**
  * The report lines for the checks, and the exit code they add up to.
  *
- * @param {{ id: string, status: 'ok' | 'failed' | 'skipped', detail: string, hint?: string }[]} checks
+ * @param {{ id: string, status: 'ok' | 'failed' | 'skipped' | 'warning', detail: string, hint?: string }[]} checks
  * @returns {{ lines: string[], exitCode: number }}
  */
 export function formatReport(checks) {

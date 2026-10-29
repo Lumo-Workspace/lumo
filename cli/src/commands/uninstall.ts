@@ -4,7 +4,8 @@ import * as path from 'path'
 import { configDir } from '../lib/config'
 import { emitConfirmation, isConfirmed } from '../lib/confirmation'
 import { removeGitHookBlock } from '../lib/git-hook-template'
-import { scanHookFor } from '../lib/scan-hook-template'
+import { SCAN_LOG_CONFIG, scanHookFor } from '../lib/scan-hook-template'
+import { spawnSync } from 'child_process'
 import { removeLumoHooks } from '../lib/hooks-template'
 import { classifyCodexRules } from '../lib/codex-rules'
 import { removeSkillStub } from '../lib/skill-stub'
@@ -153,13 +154,27 @@ function readJsonObject(file: string): Record<string, unknown> {
   return v as Record<string, unknown>
 }
 
+/**
+ * LUM-1259 — unset `lumo.scanLog` in the repository at `repo` (not in the
+ * hooks dir: `core.hooksPath` may point outside the repository); returns
+ * the note to append ('' when it was not set or there is no repository).
+ */
+function disableScanLog(repo: string | null): string {
+  if (!repo) return ''
+  const r = spawnSync('git', ['config', '--unset', SCAN_LOG_CONFIG], {
+    cwd: repo,
+    encoding: 'utf8',
+  })
+  return r.status === 0 ? `; local scan log off (${SCAN_LOG_CONFIG} unset)` : ''
+}
+
 /** Result of one applied action; `changed: false` means nothing was touched. */
 interface Applied {
   line: string
   changed: boolean
 }
 
-function applyAction(a: PlannedAction): Applied {
+function applyAction(a: PlannedAction, repo: string | null): Applied {
   const { row } = a
   switch (a.action) {
     case 'strip-settings': {
@@ -189,15 +204,25 @@ function applyAction(a: PlannedAction): Applied {
           line: `No complete Lumo block in ${row.path}; left as is`,
           changed: false,
         }
+      // LUM-1259: the post-commit log hook goes with its switch, so the
+      // pre-push hook stops logging too.
+      const logOff =
+        a.action === 'strip-scan-hook' &&
+        scanHookFor(row.path)?.hook === 'post-commit'
+          ? disableScanLog(repo)
+          : ''
       if (content === null) {
         fs.unlinkSync(row.path)
         return {
-          line: `Deleted ${row.path} (only the Lumo block was in it)`,
+          line: `Deleted ${row.path} (only the Lumo block was in it)${logOff}`,
           changed: true,
         }
       }
       fs.writeFileSync(row.path, content)
-      return { line: `Removed the Lumo block from ${row.path}`, changed: true }
+      return {
+        line: `Removed the Lumo block from ${row.path}${logOff}`,
+        changed: true,
+      }
     }
     case 'strip-codex': {
       const data = readJsonObject(row.path)
@@ -288,7 +313,7 @@ export async function uninstall(
   let failures = 0
   for (const a of plan.actions) {
     try {
-      const applied = applyAction(a)
+      const applied = applyAction(a, plan.repo)
       out.push(`${applied.changed ? '✓' : '-'} ${applied.line}`)
     } catch (err) {
       failures++

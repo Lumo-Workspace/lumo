@@ -52,3 +52,25 @@ describe('whoami output', () => {
     }
   })
 })
+
+describe('whoami names a self-hosted server (LUM-1335)', () => {
+  const local = {
+    ...creds,
+    apiUrl: 'http://localhost:3000',
+    email: 'local@lumo.localhost',
+    workspaceSlug: 'my-workspace',
+  }
+  it('the one-line form ends with "local · <url>"', () => {
+    expect(formatWhoami(local)).toEqual([
+      'local@lumo.localhost · workspace my-workspace · key lum_68d4 · local · http://localhost:3000',
+    ])
+  })
+  it('--full adds a Server line; the hosted login has none', () => {
+    expect(formatWhoami(local, { full: true })).toContain(
+      '  Server: local · http://localhost:3000'
+    )
+    expect(formatWhoami(creds, { full: true }).join('\n')).not.toContain(
+      'Server:'
+    )
+  })
+})

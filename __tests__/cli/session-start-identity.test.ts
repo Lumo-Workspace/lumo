@@ -55,3 +55,30 @@ describe('session-start status line carries the cli version and identity', () =>
     expect(readCliVersion('/')).toBeNull()
   })
 })
+
+describe('session-start status line names a self-hosted server (LUM-1335)', () => {
+  const line = '[Lumo] session_id=s1 | Current task: LUM-1 - x'
+  it('adds "local · <url>" for a login to this machine', () => {
+    const [out] = withCliIdentity([line], {
+      version: '2.3.0',
+      email: 'local@lumo.localhost',
+      workspaceSlug: 'my-workspace',
+      apiUrl: 'http://localhost:3000',
+    })
+    expect(out).toBe(
+      '[Lumo] session_id=s1 | lumo 2.3.0 · local@lumo.localhost (my-workspace) · local · http://localhost:3000 | Current task: LUM-1 - x'
+    )
+  })
+
+  it('says nothing more for the hosted service', () => {
+    const [out] = withCliIdentity([line], {
+      version: '2.3.0',
+      email: 'cli@uselumo.ai',
+      workspaceSlug: 'lumo',
+      apiUrl: 'https://www.uselumo.ai',
+    })
+    expect(out).toBe(
+      '[Lumo] session_id=s1 | lumo 2.3.0 · cli@uselumo.ai (lumo) | Current task: LUM-1 - x'
+    )
+  })
+})
