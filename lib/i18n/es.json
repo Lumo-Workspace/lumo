@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "Un caso de prueba superado y una revisión en el último commit de cada pull request",
   "record.gate.requirements.clear.testCase": "Un caso de prueba superado en el último commit de cada pull request",
   "record.gate.requirements.clear.review": "Una revisión en el último commit de cada pull request",
+  "record.gate.requirements.unconfirmed": "No se pudieron comprobar los casos de prueba y las revisiones requeridos; actualiza para volver a intentarlo",
+  "record.gate.unconfirmed": "Aún no se puede confirmar si la tarea puede marcarse como terminada",
   "testCases.caseLabel": "Caso de prueba {n}",
   "testCases.lightbox.preview": "Vista previa de {label}",
   "testCases.lightbox.prev": "Anterior",

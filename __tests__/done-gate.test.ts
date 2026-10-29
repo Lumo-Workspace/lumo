@@ -179,4 +179,21 @@ describe('deriveDoneGate — requirements row (LUM-1334)', () => {
     expect(gate.headline).toBe('ready')
     expect(gate.requirements?.state).toBe('clear')
   })
+
+  it('never reads as ready when the requirements could not be read', () => {
+    const gate = deriveDoneGate(gaps(), {
+      securityScanned: true,
+      requirements: 'unconfirmed',
+    })
+    expect(gate.headline).toBe('unconfirmed')
+    expect(gate.blockingTotal).toBe(0)
+    expect(gate.requirements?.state).toBe('unconfirmed')
+    // A known blocker still wins the headline.
+    expect(
+      deriveDoneGate(gaps({ testsBlocking: 1 }), {
+        securityScanned: true,
+        requirements: 'unconfirmed',
+      }).headline
+    ).toBe('blocked')
+  })
 })

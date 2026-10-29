@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "每個 PR 的最新提交都有通過的測試案例與審查",
   "record.gate.requirements.clear.testCase": "每個 PR 的最新提交都有通過的測試案例",
   "record.gate.requirements.clear.review": "每個 PR 的最新提交都有審查",
+  "record.gate.requirements.unconfirmed": "無法檢查所需的測試案例與審查，請重新整理再試",
+  "record.gate.unconfirmed": "暫時無法確認任務能否標記為完成",
   "testCases.caseLabel": "測試案例 {n}",
   "testCases.lightbox.preview": "預覽 {label}",
   "testCases.lightbox.prev": "上一張",

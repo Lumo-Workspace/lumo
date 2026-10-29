@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "すべてのプルリクエストの最新コミットに、成功したテストケースとレビューがあります",
   "record.gate.requirements.clear.testCase": "すべてのプルリクエストの最新コミットに、成功したテストケースがあります",
   "record.gate.requirements.clear.review": "すべてのプルリクエストの最新コミットに、レビューがあります",
+  "record.gate.requirements.unconfirmed": "必要なテストケースとレビューを確認できませんでした。再読み込みしてください",
+  "record.gate.unconfirmed": "タスクを完了にできるかまだ確認できません",
   "testCases.caseLabel": "テストケース {n}",
   "testCases.lightbox.preview": "{label} をプレビュー",
   "testCases.lightbox.prev": "前へ",

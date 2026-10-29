@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "Kes ujian yang lulus dan semakan pada commit terkini setiap pull request",
   "record.gate.requirements.clear.testCase": "Kes ujian yang lulus pada commit terkini setiap pull request",
   "record.gate.requirements.clear.review": "Semakan pada commit terkini setiap pull request",
+  "record.gate.requirements.unconfirmed": "Tidak dapat menyemak kes ujian dan semakan yang diperlukan — muat semula untuk cuba lagi",
+  "record.gate.unconfirmed": "Belum dapat mengesahkan sama ada tugasan boleh ditanda selesai",
   "testCases.caseLabel": "Kes ujian {n}",
   "testCases.lightbox.preview": "Pratonton {label}",
   "testCases.lightbox.prev": "Sebelumnya",

@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "Ein bestandener Testfall und ein Review auf dem neuesten Commit jedes Pull Requests",
   "record.gate.requirements.clear.testCase": "Ein bestandener Testfall auf dem neuesten Commit jedes Pull Requests",
   "record.gate.requirements.clear.review": "Ein Review auf dem neuesten Commit jedes Pull Requests",
+  "record.gate.requirements.unconfirmed": "Erforderliche Testfälle und Reviews konnten nicht geprüft werden – zum erneuten Versuch neu laden",
+  "record.gate.unconfirmed": "Noch nicht bestätigt, ob die Aufgabe als erledigt markiert werden kann",
   "testCases.caseLabel": "Testfall {n}",
   "testCases.lightbox.preview": "Vorschau: {label}",
   "testCases.lightbox.prev": "Zurück",

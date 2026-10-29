@@ -124,17 +124,40 @@ describe('approvalCoversHead', () => {
     expect(approvalCoversHead([review({ commitSha: OLD })], pr())).toBe(false)
   })
 
-  it("the reviewer's later change request or dismissal withdraws it", () => {
-    for (const state of ['CHANGES_REQUESTED', 'DISMISSED'])
-      expect(
-        approvalCoversHead(
-          [
-            review(),
-            review({ state, submittedAt: new Date('2026-10-28T11:00:00Z') }),
-          ],
-          pr()
-        )
-      ).toBe(false)
+  it("the reviewer's later change request withdraws it", () => {
+    expect(
+      approvalCoversHead(
+        [
+          review(),
+          review({
+            state: 'CHANGES_REQUESTED',
+            submittedAt: new Date('2026-10-28T11:00:00Z'),
+          }),
+        ],
+        pr()
+      )
+    ).toBe(false)
+  })
+
+  it('a dismissed approval does not count', () => {
+    expect(approvalCoversHead([review({ state: 'DISMISSED' })], pr())).toBe(
+      false
+    )
+  })
+
+  it("dismissing a later review leaves the reviewer's earlier approval standing", () => {
+    expect(
+      approvalCoversHead(
+        [
+          review(),
+          review({
+            state: 'DISMISSED',
+            submittedAt: new Date('2026-10-28T11:00:00Z'),
+          }),
+        ],
+        pr()
+      )
+    ).toBe(true)
   })
 
   it("another reviewer's change request does not withdraw an approval", () => {

@@ -52,6 +52,7 @@ import { RecordTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailT
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
 import type { TaskStatusView } from '@/app/workspace/[workspaceUrl]/types'
+import { deriveDoneGate } from '@/lib/acceptance/done-gate'
 
 const mockStatus = useTaskStatus as jest.Mock
 const mockCrossings = useBoundaryCrossings as jest.Mock
@@ -65,6 +66,22 @@ function statusView(over: Partial<TaskStatusView> = {}): TaskStatusView {
     trend: {
       cost: [],
       rework: { reopens: 1, extraPrCycles: 1, total: 2 },
+    },
+    // The server's confirmed gate with both requirement switches off — the
+    // tab takes only its requirements row (LUM-1334).
+    doneGate: {
+      confirmed: true,
+      ...deriveDoneGate(
+        {
+          crossingsOpen: 0,
+          crossingsBlocking: 0,
+          crossingsTotal: 0,
+          securityBlocking: 0,
+          testsBlocking: 0,
+          taskDone: false,
+        },
+        { securityScanned: false }
+      ),
     },
     ...over,
   }
@@ -130,6 +147,25 @@ beforeEach(() => {
 })
 
 describe('the Done gate', () => {
+  it('cannot confirm, never ready, when the server sends no confirmed gate', () => {
+    const { doneGate: _confirmed, ...noGate } = statusView()
+    for (const view of [
+      noGate,
+      statusView({
+        doneGate: { confirmed: false, unconfirmed: ['security findings'] },
+      }),
+    ]) {
+      setStatus(view)
+      const { unmount } = renderTab()
+      const gate = screen.getByTestId('record-done-gate')
+      expect(gate).toHaveAttribute('data-headline', 'unconfirmed')
+      expect(gate).not.toHaveTextContent(
+        'Nothing left — the task can be marked Done'
+      )
+      unmount()
+    }
+  })
+
   it('is always drawn, even with no crossings and no scanned PR', () => {
     setStatus(statusView())
     renderTab()

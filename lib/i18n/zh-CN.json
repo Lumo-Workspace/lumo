@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "每个 PR 的最新提交都有通过的测试用例和 review",
   "record.gate.requirements.clear.testCase": "每个 PR 的最新提交都有通过的测试用例",
   "record.gate.requirements.clear.review": "每个 PR 的最新提交都有 review",
+  "record.gate.requirements.unconfirmed": "无法检查所需的测试用例和评审，请刷新重试",
+  "record.gate.unconfirmed": "暂时无法确认任务能否标记为完成",
   "testCases.caseLabel": "测试用例 {n}",
   "testCases.lightbox.preview": "预览 {label}",
   "testCases.lightbox.prev": "上一张",

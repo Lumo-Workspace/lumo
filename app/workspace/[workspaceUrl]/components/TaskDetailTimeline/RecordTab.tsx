@@ -151,19 +151,24 @@ export function RecordTab({
     testsBlocking,
   })
   // LUM-1334: the requirement switches live on the server; take its row.
+  // Fail-closed: without a confirmed server gate they are unknown, so the
+  // headline must not say the task is ready.
   const serverRequirements = data.doneGate?.confirmed
     ? data.doneGate.requirements
-    : null
+    : 'unconfirmed'
   const gate = deriveDoneGate(gaps, {
     securityScanned,
     showSecurity: showSecurityGate,
     tests: testsSummary,
-    requirements: serverRequirements
-      ? {
-          switches: serverRequirements.switches,
-          missing: serverRequirements.missing,
-        }
-      : null,
+    requirements:
+      serverRequirements === 'unconfirmed'
+        ? 'unconfirmed'
+        : serverRequirements
+          ? {
+              switches: serverRequirements.switches,
+              missing: serverRequirements.missing,
+            }
+          : null,
   })
   const showSecurityQueue = gaps.securityBlocking > 0
   const showTestsQueue = gaps.testsBlocking > 0

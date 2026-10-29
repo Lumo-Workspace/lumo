@@ -77,9 +77,11 @@ export function runCoversPullRequest(
 }
 
 /**
- * A GitHub approval covers the PR's head when some reviewer's latest stored
- * review is APPROVED on that head commit. A later change request or a
- * dismissal by the same reviewer withdraws it.
+ * A GitHub approval covers the PR's head when some reviewer's latest review
+ * that is not dismissed is APPROVED on that head commit. A later change
+ * request by the same reviewer withdraws it, and so does dismissing that
+ * approval. A dismissal counts for nothing else: dismissing a later review
+ * leaves the reviewer's earlier approval standing, as on GitHub.
  */
 export function approvalCoversHead(
   reviews: StoredReview[],
@@ -89,7 +91,7 @@ export function approvalCoversHead(
   if (!head) return false
   const latest = new Map<string, StoredReview>()
   for (const r of reviews) {
-    if (r.pullRequestId !== pr.id) continue
+    if (r.pullRequestId !== pr.id || r.state === 'DISMISSED') continue
     const prev = latest.get(r.reviewerLogin)
     if (!prev || r.submittedAt.getTime() >= prev.submittedAt.getTime())
       latest.set(r.reviewerLogin, r)

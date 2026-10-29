@@ -127,28 +127,30 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
   const requirementsDetail =
     requirements === null
       ? null
-      : requirements.state === 'blocked'
-        ? requirements.missing
-            .map(m =>
-              intl.formatMessage(
-                {
-                  id:
-                    m.requirement === 'TEST_CASE'
-                      ? 'record.gate.requirements.missingTestCase'
-                      : 'record.gate.requirements.missingReview',
-                },
-                { number: m.prNumber }
+      : requirements.state === 'unconfirmed'
+        ? intl.formatMessage({ id: 'record.gate.requirements.unconfirmed' })
+        : requirements.state === 'blocked'
+          ? requirements.missing
+              .map(m =>
+                intl.formatMessage(
+                  {
+                    id:
+                      m.requirement === 'TEST_CASE'
+                        ? 'record.gate.requirements.missingTestCase'
+                        : 'record.gate.requirements.missingReview',
+                  },
+                  { number: m.prNumber }
+                )
               )
-            )
-            .join(' · ')
-        : intl.formatMessage({
-            id:
-              requirements.switches.testCase && requirements.switches.review
-                ? 'record.gate.requirements.clear.both'
-                : requirements.switches.testCase
-                  ? 'record.gate.requirements.clear.testCase'
-                  : 'record.gate.requirements.clear.review',
-          })
+              .join(' · ')
+          : intl.formatMessage({
+              id:
+                requirements.switches.testCase && requirements.switches.review
+                  ? 'record.gate.requirements.clear.both'
+                  : requirements.switches.testCase
+                    ? 'record.gate.requirements.clear.testCase'
+                    : 'record.gate.requirements.clear.review',
+            })
 
   if (gate.headline === 'accepted') {
     return (
@@ -177,7 +179,9 @@ export function RecordDoneGate({ gate, queueAnchor }: RecordDoneGateProps) {
           { id: 'record.gate.blocked' },
           { count: gate.blockingTotal }
         )
-      : intl.formatMessage({ id: 'record.gap.none' })
+      : gate.headline === 'unconfirmed'
+        ? intl.formatMessage({ id: 'record.gate.unconfirmed' })
+        : intl.formatMessage({ id: 'record.gap.none' })
 
   return (
     <section

@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "Một ca kiểm thử đạt và một lần review trên commit mới nhất của mọi pull request",
   "record.gate.requirements.clear.testCase": "Một ca kiểm thử đạt trên commit mới nhất của mọi pull request",
   "record.gate.requirements.clear.review": "Một lần review trên commit mới nhất của mọi pull request",
+  "record.gate.requirements.unconfirmed": "Không thể kiểm tra các test case và review bắt buộc — hãy tải lại để thử lại",
+  "record.gate.unconfirmed": "Chưa thể xác nhận tác vụ có thể đánh dấu hoàn thành hay không",
   "testCases.caseLabel": "Ca kiểm thử {n}",
   "testCases.lightbox.preview": "Xem trước {label}",
   "testCases.lightbox.prev": "Trước",

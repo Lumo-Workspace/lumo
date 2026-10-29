@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "Un cas de test réussi et une revue sur le dernier commit de chaque pull request",
   "record.gate.requirements.clear.testCase": "Un cas de test réussi sur le dernier commit de chaque pull request",
   "record.gate.requirements.clear.review": "Une revue sur le dernier commit de chaque pull request",
+  "record.gate.requirements.unconfirmed": "Impossible de vérifier les cas de test et les revues requis — actualisez pour réessayer",
+  "record.gate.unconfirmed": "Impossible de confirmer pour l'instant que la tâche peut être marquée comme terminée",
   "testCases.caseLabel": "Cas de test {n}",
   "testCases.lightbox.preview": "Aperçu de {label}",
   "testCases.lightbox.prev": "Précédent",

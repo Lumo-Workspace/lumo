@@ -2950,6 +2950,8 @@
   "record.gate.requirements.clear.both": "A passing test case and a review on every pull request's latest commit",
   "record.gate.requirements.clear.testCase": "A passing test case on every pull request's latest commit",
   "record.gate.requirements.clear.review": "A review on every pull request's latest commit",
+  "record.gate.requirements.unconfirmed": "Couldn't check the required test cases and reviews — refresh to try again",
+  "record.gate.unconfirmed": "Can't confirm yet whether the task can be marked Done",
   "testCases.caseLabel": "Test case {n}",
   "testCases.lightbox.preview": "Preview {label}",
   "testCases.lightbox.prev": "Previous",

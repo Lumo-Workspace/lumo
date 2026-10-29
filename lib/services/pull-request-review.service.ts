@@ -15,11 +15,11 @@ import {
 
 const APPROVER_ASSOCIATIONS = new Set(['OWNER', 'COLLABORATOR', 'MEMBER'])
 
-const STORED_STATES: Record<string, PullRequestReviewWrite['state']> = {
-  approved: 'APPROVED',
-  changes_requested: 'CHANGES_REQUESTED',
-  dismissed: 'DISMISSED',
-}
+const STORED_STATES = new Map<string, PullRequestReviewWrite['state']>([
+  ['approved', 'APPROVED'],
+  ['changes_requested', 'CHANGES_REQUESTED'],
+  ['dismissed', 'DISMISSED'],
+])
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
@@ -46,7 +46,7 @@ export function parseReviewPayload(payload: Record<string, unknown>):
   if (typeof pr.number !== 'number') return null
   const state =
     typeof review.state === 'string'
-      ? STORED_STATES[review.state.toLowerCase()]
+      ? STORED_STATES.get(review.state.toLowerCase())
       : undefined
   if (!state) return null
   const user = isRecord(review.user) ? review.user : null

@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "Успешный тест-кейс и ревью на последнем коммите каждого pull request",
   "record.gate.requirements.clear.testCase": "Успешный тест-кейс на последнем коммите каждого pull request",
   "record.gate.requirements.clear.review": "Ревью на последнем коммите каждого pull request",
+  "record.gate.requirements.unconfirmed": "Не удалось проверить обязательные тест-кейсы и ревью — обновите страницу и попробуйте снова",
+  "record.gate.unconfirmed": "Пока нельзя подтвердить, можно ли отметить задачу как выполненную",
   "testCases.caseLabel": "Тест-кейс {n}",
   "testCases.lightbox.preview": "Предпросмотр: {label}",
   "testCases.lightbox.prev": "Назад",

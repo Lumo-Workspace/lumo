@@ -95,3 +95,27 @@ it('says what is required when every PR meets it', () => {
     "A review on every pull request's latest commit"
   )
 })
+
+it('says it cannot confirm, not ready, when the requirements are unknown', () => {
+  render(
+    <RecordDoneGate
+      gate={deriveDoneGate(gaps, {
+        securityScanned: true,
+        requirements: 'unconfirmed',
+      })}
+      queueAnchor='q'
+    />
+  )
+  expect(screen.getByTestId('record-done-gate').dataset.headline).toBe(
+    'unconfirmed'
+  )
+  expect(
+    screen.getByText("Can't confirm yet whether the task can be marked Done")
+  ).toBeTruthy()
+  expect(
+    screen.queryByText('Nothing left — the task can be marked Done')
+  ).toBeNull()
+  expect(screen.getByTestId('gate-requirements').textContent).toContain(
+    "Couldn't check the required test cases and reviews"
+  )
+})

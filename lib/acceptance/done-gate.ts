@@ -10,7 +10,9 @@ import type {
   MissingRequirement,
 } from './done-requirements'
 
-export type DoneGateHeadline = 'accepted' | 'blocked' | 'ready'
+/** unconfirmed: nothing known blocks, but the requirements could not be
+ *  read (web only — the server never derives a gate it could not read). */
+export type DoneGateHeadline = 'accepted' | 'blocked' | 'ready' | 'unconfirmed'
 
 export interface CrossingsGateRow {
   /** blocked: a blocking crossing is open · advisory: only non-blocking ones
@@ -43,8 +45,9 @@ export interface TestsGateRow {
  * review on each PR's latest commit). Only present while a switch is on.
  */
 export interface RequirementsGateRow {
-  /** blocked: some counted PR misses a requirement · clear: none does. */
-  state: 'blocked' | 'clear'
+  /** blocked: some counted PR misses a requirement · clear: none does ·
+   *  unconfirmed: whether a switch is on could not be read. */
+  state: 'blocked' | 'clear' | 'unconfirmed'
   switches: DoneRequirementSwitches
   missing: MissingRequirement[]
 }
@@ -88,11 +91,15 @@ export function deriveDoneGate(
     showSecurity?: boolean
     /** LUM-1011: test-case counts for the gate row's detail. */
     tests?: { total: number; passing: number }
-    /** LUM-1334: the requirement switches and what the PRs miss. */
-    requirements?: {
-      switches: DoneRequirementSwitches
-      missing: MissingRequirement[]
-    } | null
+    /** LUM-1334: the requirement switches and what the PRs miss, or
+     *  'unconfirmed' when they could not be read. */
+    requirements?:
+      | {
+          switches: DoneRequirementSwitches
+          missing: MissingRequirement[]
+        }
+      | 'unconfirmed'
+      | null
   }
 ): DoneGate {
   const advisory = gaps.crossingsOpen - gaps.crossingsBlocking
@@ -118,13 +125,19 @@ export function deriveDoneGate(
 
   const req = opts.requirements
   const requirements: RequirementsGateRow | null =
-    req && (req.switches.testCase || req.switches.review)
+    req === 'unconfirmed'
       ? {
-          state: req.missing.length > 0 ? 'blocked' : 'clear',
-          switches: req.switches,
-          missing: req.missing,
+          state: 'unconfirmed',
+          switches: { testCase: false, review: false },
+          missing: [],
         }
-      : null
+      : req && (req.switches.testCase || req.switches.review)
+        ? {
+            state: req.missing.length > 0 ? 'blocked' : 'clear',
+            switches: req.switches,
+            missing: req.missing,
+          }
+        : null
 
   const blockingTotal =
     gaps.crossingsBlocking +
@@ -137,7 +150,9 @@ export function deriveDoneGate(
       ? 'accepted'
       : blockingTotal > 0
         ? 'blocked'
-        : 'ready',
+        : requirements?.state === 'unconfirmed'
+          ? 'unconfirmed'
+          : 'ready',
     blockingTotal,
     crossings: {
       state: crossingsState,

@@ -2928,6 +2928,8 @@
   "record.gate.requirements.clear.both": "हर पुल रिक्वेस्ट के नवीनतम कमिट पर एक पास हुआ टेस्ट केस और एक रिव्यू",
   "record.gate.requirements.clear.testCase": "हर पुल रिक्वेस्ट के नवीनतम कमिट पर एक पास हुआ टेस्ट केस",
   "record.gate.requirements.clear.review": "हर पुल रिक्वेस्ट के नवीनतम कमिट पर एक रिव्यू",
+  "record.gate.requirements.unconfirmed": "ज़रूरी टेस्ट केस और रिव्यू जाँचे नहीं जा सके — फिर से कोशिश करने के लिए रीफ़्रेश करें",
+  "record.gate.unconfirmed": "अभी पुष्टि नहीं हो सकी कि टास्क को पूरा चिह्नित किया जा सकता है या नहीं",
   "testCases.caseLabel": "टेस्ट केस {n}",
   "testCases.lightbox.preview": "{label} का पूर्वावलोकन",
   "testCases.lightbox.prev": "पिछला",

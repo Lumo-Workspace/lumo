@@ -96,6 +96,9 @@ describe('parseReviewPayload', () => {
     expect(parseReviewPayload(payload({ commit_id: '' }))).toBeNull()
     expect(parseReviewPayload(payload({ submitted_at: 'nope' }))).toBeNull()
     expect(parseReviewPayload({ review: {} })).toBeNull()
+    // Inherited property names are not states.
+    for (const state of ['constructor', 'toString', '__proto__'])
+      expect(parseReviewPayload(payload({ state }))).toBeNull()
   })
 })
 
