@@ -14,6 +14,7 @@ import * as path from 'path'
 
 import {
   credentialsPath,
+  LOGIN_STORE_LOCK_TIMEOUT_MS,
   loginKey,
   lookupRepoKey,
   readCredentials,
@@ -22,6 +23,7 @@ import {
   repoKey,
   resolveLogin,
   saveLogin,
+  withLoginStoreLock,
   writeLoginStore,
   type Credentials,
 } from '@/cli/src/lib/config'
@@ -102,6 +104,9 @@ describe('loginKey / repoKey', () => {
     expect(loginKey('http://localhost:3000/')).toBe(LOCAL)
     expect(loginKey('https://www.uselumo.ai/api')).toBe(HOSTED)
     expect(loginKey('not a url')).toBeNull()
+    // Opaque origins ("null") would share one key.
+    expect(loginKey('file:///tmp/x')).toBeNull()
+    expect(loginKey('mailto:a@example.com')).toBeNull()
   })
 
   it('keys a repository by its main work tree, shared by its worktrees', () => {
@@ -290,9 +295,66 @@ describe('saveLogin / removeLogin', () => {
     fs.rmdirSync(blocker)
   })
 
+  it('a login whose repo git cannot read is stored, unbound, with the reason', () => {
+    saveLogin(login(HOSTED, 'hosted'))
+    const saved = saveLogin(login(LOCAL, 'local'), {
+      bindCwd: path.join(tmp, 'does-not-exist'),
+    })
+    expect(saved).toMatchObject({ isDefault: false, boundRepo: null })
+    expect(saved.bindError).toEqual(expect.stringContaining('git did not run'))
+    expect(readLoginStore().logins[LOCAL]).toBeDefined()
+  })
+
+  it('the default login reports no bind error (it binds nothing anyway)', () => {
+    const saved = saveLogin(login(HOSTED, 'hosted'), {
+      bindCwd: path.join(tmp, 'does-not-exist'),
+    })
+    expect(saved.bindError).toBeUndefined()
+  })
+
   it('writes the file 0600', () => {
     saveLogin(login(HOSTED, 'hosted'))
     expect(fs.statSync(credentialsPath()).mode & 0o777).toBe(0o600)
+  })
+})
+
+describe('withLoginStoreLock', () => {
+  const lockPath = () => `${credentialsPath()}.lock`
+
+  it('releases the lock after the write, and after a throw', () => {
+    saveLogin(login(HOSTED, 'hosted'))
+    expect(fs.existsSync(lockPath())).toBe(false)
+    expect(() =>
+      withLoginStoreLock(() => {
+        throw new Error('boom')
+      })
+    ).toThrow('boom')
+    expect(fs.existsSync(lockPath())).toBe(false)
+  })
+
+  it('waits for a held lock, then refuses without writing', () => {
+    saveLogin(login(HOSTED, 'hosted'))
+    const before = fs.readFileSync(credentialsPath(), 'utf8')
+    fs.writeFileSync(lockPath(), '')
+    const started = Date.now()
+    expect(() => saveLogin(login(LOCAL, 'local'))).toThrow(
+      /locked by another lumo process/
+    )
+    expect(Date.now() - started).toBeGreaterThanOrEqual(
+      LOGIN_STORE_LOCK_TIMEOUT_MS - 50
+    )
+    expect(fs.readFileSync(credentialsPath(), 'utf8')).toBe(before)
+    fs.rmSync(lockPath())
+  })
+
+  it('takes over a stale lock left by a crashed process', () => {
+    saveLogin(login(HOSTED, 'hosted'))
+    fs.writeFileSync(lockPath(), '')
+    const old = new Date(Date.now() - 60_000)
+    fs.utimesSync(lockPath(), old, old)
+    saveLogin(login(LOCAL, 'local'))
+    expect(Object.keys(readLoginStore().logins).sort()).toEqual([LOCAL, HOSTED])
+    expect(fs.existsSync(lockPath())).toBe(false)
   })
 })
 
