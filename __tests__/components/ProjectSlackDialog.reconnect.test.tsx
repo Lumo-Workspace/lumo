@@ -26,7 +26,8 @@ jest.mock('@/lib/api-client', () => {
   }
 })
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
+import { renderWithQueryClient as render } from '../helpers/query-client'
 import { ApiClientError } from '@/lib/api-client/base'
 import { SLACK_RECONNECT_REQUIRED } from '@/lib/integrations/slack/types'
 import { ProjectSlackDialog } from '@/app/workspace/[workspaceUrl]/components/ProjectSlackDialog'

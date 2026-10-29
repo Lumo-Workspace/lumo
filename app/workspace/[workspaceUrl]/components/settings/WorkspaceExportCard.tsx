@@ -1,9 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { workspacesClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import { Button } from '@/components/ui/button'
 import type { WorkspaceExportView } from '@/lib/services/workspace-export.service'
 import { EXPORT_TTL_DAYS } from '@/lib/workspace/export-ttl'
@@ -12,6 +14,13 @@ const POLL_MS = 5000
 
 function isInProgress(e: WorkspaceExportView) {
   return e.status === 'PENDING' || e.status === 'RUNNING'
+}
+
+/** Poll while any export is still generating; stop once all have settled. */
+export function exportsPollInterval(
+  exports: WorkspaceExportView[] | undefined
+): number | false {
+  return exports?.some(isInProgress) ? POLL_MS : false
 }
 
 function formatBytes(n: number): string {
@@ -26,31 +35,36 @@ function formatBytes(n: number): string {
  */
 export function WorkspaceExportCard() {
   const intl = useIntl()
-  const [exports, setExports] = useState<WorkspaceExportView[] | null>(null)
+  const queryClient = useQueryClient()
   const [starting, setStarting] = useState(false)
 
-  const load = useCallback(async () => {
-    try {
-      const res = await workspacesClient.listExports()
-      setExports(res.exports)
-    } catch {
-      setExports(prev => prev ?? [])
-      toast.error(
-        intl.formatMessage({ id: 'workspaceSettings.export.loadFailed' })
-      )
-    }
-  }, [intl])
+  const query = useQuery({
+    queryKey: queryKeys.workspaceExports(),
+    queryFn: async () => (await workspacesClient.listExports()).exports,
+    refetchInterval: q => exportsPollInterval(q.state.data),
+    retry: false,
+  })
+  // A failed read shows an empty list (or keeps the last good one) and toasts.
+  const exports = query.data ?? (query.isError ? [] : null)
+  const polling = exportsPollInterval(query.data) !== false
 
+  // Toast failures from this mount only: a cached query remembers past
+  // errors, and reopening the card must not replay their toast.
+  const { errorUpdateCount } = query
+  const seenErrors = useRef(errorUpdateCount)
   useEffect(() => {
-    void load()
-  }, [load])
+    if (errorUpdateCount <= seenErrors.current) return
+    seenErrors.current = errorUpdateCount
+    toast.error(
+      intl.formatMessage({ id: 'workspaceSettings.export.loadFailed' })
+    )
+  }, [errorUpdateCount, intl])
 
-  const polling = exports?.some(isInProgress) ?? false
-  useEffect(() => {
-    if (!polling) return
-    const timer = setInterval(() => void load(), POLL_MS)
-    return () => clearInterval(timer)
-  }, [polling, load])
+  const load = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.workspaceExports(),
+    })
+  }
 
   const handleStart = async () => {
     setStarting(true)

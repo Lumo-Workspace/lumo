@@ -13,7 +13,8 @@ jest.mock('@/lib/api-client/mention-status', () => ({
   mentionStatusClient: { fetch: jest.fn() },
 }))
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import { renderWithQueryClient as render } from '../helpers/query-client'
 import { RichTextViewer } from '@/app/workspace/[workspaceUrl]/components/RichTextViewer'
 import { mentionStatusClient } from '@/lib/api-client/mention-status'
 

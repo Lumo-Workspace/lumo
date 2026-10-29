@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useId, useRef } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
@@ -25,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import { API } from '../constants'
 import { apiFetch, ApiClientError } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import {
   ALL_SLACK_EVENTS,
   SLACK_EVENT_LABEL_KEYS,
@@ -54,14 +56,45 @@ interface SavedChannel {
   events: SlackEventType[]
 }
 
+interface SlackConfig {
+  savedChannel: SavedChannel | null
+  availableChannels: AvailableChannel[]
+}
+
 type LoadState =
   | { phase: 'loading' }
   | { phase: 'error' }
-  | {
-      phase: 'ready'
-      savedChannel: SavedChannel | null
-      availableChannels: AvailableChannel[]
+  | ({ phase: 'ready' } & SlackConfig)
+
+/**
+ * The project's saved Slack channel plus the channels it could pick. A 404
+ * from available-channels means Slack is not connected: an empty, savable
+ * config rather than an error.
+ */
+export async function fetchProjectSlackConfig(
+  workspaceUrl: string,
+  projectId: string
+): Promise<SlackConfig> {
+  try {
+    const [channelData, availableData] = await Promise.all([
+      apiFetch<{ channel: SavedChannel | null }>(
+        API.slack.channels(workspaceUrl, projectId)
+      ),
+      apiFetch<{ channels: AvailableChannel[] }>(
+        API.slack.availableChannels(workspaceUrl)
+      ),
+    ])
+    return {
+      savedChannel: channelData.channel,
+      availableChannels: availableData.channels ?? [],
     }
+  } catch (err) {
+    if (err instanceof ApiClientError && err.status === 404) {
+      return { savedChannel: null, availableChannels: [] }
+    }
+    throw err
+  }
+}
 
 export function ProjectSlackDialog({
   isOpen,
@@ -72,7 +105,6 @@ export function ProjectSlackDialog({
 }: ProjectSlackDialogProps) {
   const intl = useIntl()
   const fieldId = useId()
-  const [loadState, setLoadState] = useState<LoadState>({ phase: 'loading' })
   const [enabled, setEnabled] = useState(false)
   const [selectedChannelId, setSelectedChannelId] = useState('')
   const [selectedChannelName, setSelectedChannelName] = useState('')
@@ -91,69 +123,52 @@ export function ProjectSlackDialog({
   const [createNeedsReconnect, setCreateNeedsReconnect] = useState(false)
   const createInputRef = useRef<HTMLInputElement>(null)
 
-  const load = useCallback(async () => {
-    if (!isOpen) return
-    setLoadState({ phase: 'loading' })
-    try {
-      let channelData: { channel: SavedChannel | null }
-      let availableData: { channels: AvailableChannel[] }
-      try {
-        ;[channelData, availableData] = await Promise.all([
-          apiFetch<{ channel: SavedChannel | null }>(
-            API.slack.channels(workspaceUrl, projectId)
-          ),
-          apiFetch<{ channels: AvailableChannel[] }>(
-            API.slack.availableChannels(workspaceUrl)
-          ),
-        ])
-      } catch (err) {
-        // If available-channels returns 404, Slack is not connected
-        if (err instanceof ApiClientError && err.status === 404) {
-          setLoadState({
-            phase: 'ready',
-            savedChannel: null,
-            availableChannels: [],
-          })
-          setEnabled(false)
-          return
-        }
-        throw err
-      }
-      const saved = channelData.channel
-
-      setLoadState({
-        phase: 'ready',
-        savedChannel: saved,
-        availableChannels: availableData.channels ?? [],
-      })
-
-      // Initialise form from saved state
-      if (saved) {
-        setEnabled(true)
-        setSelectedChannelId(saved.channelId)
-        setSelectedChannelName(saved.channelName)
-        setSelectedEvents(saved.events as SlackEventType[])
-      } else {
-        setEnabled(false)
-        setSelectedChannelId('')
-        setSelectedChannelName('')
-        setSelectedEvents([...ALL_SLACK_EVENTS])
-      }
-    } catch {
-      setLoadState({ phase: 'error' })
-    }
-  }, [isOpen, workspaceUrl, projectId])
+  const queryClient = useQueryClient()
+  const configKey = queryKeys.integrations.slackProject(workspaceUrl, projectId)
+  const config = useQuery({
+    queryKey: configKey,
+    queryFn: () => fetchProjectSlackConfig(workspaceUrl, projectId),
+    enabled: isOpen,
+    // The form below is seeded from this data; a focus refetch must not
+    // reset what the user is editing.
+    refetchOnWindowFocus: false,
+  })
+  const loadState: LoadState = config.data
+    ? { phase: 'ready', ...config.data }
+    : config.isError && !config.isFetching
+      ? { phase: 'error' }
+      : { phase: 'loading' }
+  const refetchConfig = async () => {
+    await queryClient.invalidateQueries({ queryKey: configKey })
+  }
 
   useEffect(() => {
-    if (isOpen) {
-      setSaveError(null)
-      setShowCreate(false)
-      setNewChannelName('')
-      setCreateError(null)
-      setCreateNeedsReconnect(false)
-      load()
+    if (!isOpen) return
+    setSaveError(null)
+    setShowCreate(false)
+    setNewChannelName('')
+    setCreateError(null)
+    setCreateNeedsReconnect(false)
+  }, [isOpen])
+
+  // Seed the form from the saved config each time it opens or the server copy
+  // changes (structural sharing keeps the reference stable when it doesn't).
+  const savedConfig = config.data?.savedChannel
+  const hasConfig = config.data !== undefined
+  useEffect(() => {
+    if (!isOpen || !hasConfig) return
+    if (savedConfig) {
+      setEnabled(true)
+      setSelectedChannelId(savedConfig.channelId)
+      setSelectedChannelName(savedConfig.channelName)
+      setSelectedEvents(savedConfig.events as SlackEventType[])
+    } else {
+      setEnabled(false)
+      setSelectedChannelId('')
+      setSelectedChannelName('')
+      setSelectedEvents([...ALL_SLACK_EVENTS])
     }
-  }, [isOpen, load])
+  }, [isOpen, hasConfig, savedConfig])
 
   const handleChannelSelect = (
     channelId: string,
@@ -218,7 +233,7 @@ export function ProjectSlackDialog({
         } catch (err) {
           if (err instanceof ApiClientError && err.status === 409) {
             // Concurrent POST — re-fetch and switch to PATCH path
-            await load()
+            await refetchConfig()
             toast.info(intl.formatMessage({ id: 'slack.configRefreshed' }))
             return
           }
@@ -235,6 +250,7 @@ export function ProjectSlackDialog({
           },
         })
       }
+      await refetchConfig()
       toast.success(intl.formatMessage({ id: 'slack.notificationsUpdated' }))
       onClose()
     } catch (err) {
@@ -268,10 +284,8 @@ export function ProjectSlackDialog({
         const updatedChannels = already
           ? availableChannels
           : [...availableChannels, newChannel]
-        setLoadState(prev =>
-          prev.phase === 'ready'
-            ? { ...prev, availableChannels: updatedChannels }
-            : prev
+        queryClient.setQueryData<SlackConfig>(configKey, prev =>
+          prev ? { ...prev, availableChannels: updatedChannels } : prev
         )
         setSelectedChannelId(newChannel.id)
         setSelectedChannelName(newChannel.name)
@@ -333,7 +347,11 @@ export function ProjectSlackDialog({
             <p className='text-body text-danger-text'>
               Failed to load configuration.
             </p>
-            <Button variant='outline' className='w-full' onClick={load}>
+            <Button
+              variant='outline'
+              className='w-full'
+              onClick={() => void config.refetch()}
+            >
               Retry
             </Button>
           </div>

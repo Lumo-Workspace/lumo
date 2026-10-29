@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { Plus } from 'lucide-react'
 import {
@@ -14,9 +14,8 @@ import {
   CommandList,
   CommandItem,
 } from '@/components/ui/command'
-import { mentionSearchClient } from '@/lib/api-client/mention-search'
-import type { MentionSearchItem } from '@/types/mention'
 import { StatusIcon } from '../../components/StatusIcon'
+import { useTaskMentionSearch } from '../../hooks/useTaskMentionSearch'
 import { relationToEdge, type Relation } from '../relation'
 
 interface AddDependencyButtonProps {
@@ -47,42 +46,18 @@ export function AddDependencyButton({
 }: AddDependencyButtonProps) {
   const intl = useIntl()
   const [open, setOpen] = useState(false)
-  const [items, setItems] = useState<MentionSearchItem[]>([])
   const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(false)
   const [relation, setRelation] = useState<Relation>('BLOCKED_BY')
-  const seq = useRef(0)
-
-  useEffect(() => {
-    const q = query.trim()
-    if (!q) {
-      setItems([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    const mySeq = ++seq.current
-    const handle = setTimeout(async () => {
-      try {
-        const all = await mentionSearchClient.search(q, 10)
-        if (mySeq !== seq.current) return
-        setItems(
-          all.filter(i => i.kind === 'task' && i.label !== currentIdentifier)
-        )
-      } finally {
-        if (mySeq === seq.current) setLoading(false)
-      }
-    }, 200)
-    return () => clearTimeout(handle)
-  }, [query, currentIdentifier])
+  const { results: items, loading } = useTaskMentionSearch(
+    query,
+    currentIdentifier,
+    open
+  )
 
   function handleOpenChange(next: boolean) {
     setOpen(next)
     if (!next) {
-      seq.current++
-      setItems([])
       setQuery('')
-      setLoading(false)
       setRelation('BLOCKED_BY')
     }
   }

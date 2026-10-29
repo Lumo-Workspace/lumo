@@ -23,7 +23,8 @@ jest.mock('@/lib/editor/mermaid-render', () => ({
   renderMermaid: (...args: unknown[]) => renderMermaid(...args),
 }))
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import { renderWithQueryClient as render } from '../helpers/query-client'
 import { RichTextViewer } from '@/app/workspace/[workspaceUrl]/components/RichTextViewer'
 import { Mermaid, DEFAULT_MERMAID_SOURCE } from '@/lib/editor/nodes/mermaid'
 

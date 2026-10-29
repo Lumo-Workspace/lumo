@@ -7,6 +7,7 @@ jest.mock('@/lib/api-client/task-documents', () => ({
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useTaskDocuments } from '@/app/workspace/[workspaceUrl]/hooks/useTaskDocuments'
 import { taskDocumentsClient } from '@/lib/api-client/task-documents'
+import { createQueryWrapper } from '../helpers/query-client'
 
 const mockList = taskDocumentsClient.list as jest.Mock
 
@@ -25,7 +26,9 @@ describe('useTaskDocuments', () => {
       ],
     })
 
-    const { result } = renderHook(() => useTaskDocuments('tsk_1'))
+    const { result } = renderHook(() => useTaskDocuments('tsk_1'), {
+      wrapper: createQueryWrapper(),
+    })
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     expect(mockList).toHaveBeenCalledWith('tsk_1')
@@ -34,21 +37,27 @@ describe('useTaskDocuments', () => {
   })
 
   it('skips fetch when enabled=false', async () => {
-    renderHook(() => useTaskDocuments('tsk_1', false))
+    renderHook(() => useTaskDocuments('tsk_1', false), {
+      wrapper: createQueryWrapper(),
+    })
     await new Promise(r => setTimeout(r, 0))
     expect(mockList).not.toHaveBeenCalled()
   })
 
   it('captures error message on failure', async () => {
     mockList.mockRejectedValue(new Error('boom'))
-    const { result } = renderHook(() => useTaskDocuments('tsk_1'))
+    const { result } = renderHook(() => useTaskDocuments('tsk_1'), {
+      wrapper: createQueryWrapper(),
+    })
     await waitFor(() => expect(result.current.error).toBe('boom'))
     expect(result.current.documents).toEqual([])
   })
 
   it('refresh re-fetches on demand', async () => {
     mockList.mockResolvedValue({ documents: [] })
-    const { result } = renderHook(() => useTaskDocuments('tsk_1'))
+    const { result } = renderHook(() => useTaskDocuments('tsk_1'), {
+      wrapper: createQueryWrapper(),
+    })
     await waitFor(() => expect(result.current.loading).toBe(false))
     mockList.mockClear()
     await act(async () => {

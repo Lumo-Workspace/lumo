@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { workspacesClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 
 export interface AiDerivedCounts {
   memories: number
@@ -29,20 +30,20 @@ const EMPTY: AiDerivedCounts = {
  * (whatever earlier passes removed stays removed).
  */
 export function useAiDerivedContent() {
-  const [counts, setCounts] = useState<AiDerivedCounts | null>(null)
+  const queryClient = useQueryClient()
+  const query = useQuery({
+    queryKey: queryKeys.workspaceAiDerivedContent(),
+    queryFn: async () => (await workspacesClient.getAiDerivedContent()).counts,
+    retry: false,
+  })
+  // Unknown counts (a failed read) render as null, never as stale numbers.
+  const counts = query.isError ? null : (query.data ?? null)
 
-  const refresh = useCallback(async () => {
-    try {
-      const status = await workspacesClient.getAiDerivedContent()
-      setCounts(status.counts)
-    } catch {
-      setCounts(null)
-    }
-  }, [])
-
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
+  const refresh = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.workspaceAiDerivedContent(),
+    })
+  }
 
   const purge = async (confirmName: string): Promise<AiDerivedCounts> => {
     const total = { ...EMPTY }

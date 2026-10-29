@@ -54,7 +54,8 @@ jest.mock('@dnd-kit/core', () => ({
   useSensors: jest.fn(() => []),
 }))
 
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { screen, waitFor, fireEvent } from '@testing-library/react'
+import { renderWithQueryClient as render } from '../helpers/query-client'
 import { RichTextViewer } from '@/app/workspace/[workspaceUrl]/components/RichTextViewer'
 
 const STORED =
