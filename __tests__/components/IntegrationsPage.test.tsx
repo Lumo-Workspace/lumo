@@ -8,10 +8,7 @@
  */
 const messages: Record<string, string> = {
   'integrations.title': 'Integrations',
-  'integrations.description': 'Connect external services.',
-  'integrations.team.title': 'Team integrations',
   'integrations.team.description': 'Install once for the entire team.',
-  'integrations.personal.title': 'Personal integrations',
   'integrations.personal.description':
     'Each member connects their own account.',
   // Card display names — drive the alphabetical within-section ordering.
@@ -50,6 +47,8 @@ jest.mock('sonner', () => ({ toast: { error: jest.fn() } }))
 // Which mocked cards should report themselves "connected" on mount. The test
 // flips entries before rendering to exercise connected-first ordering.
 const CONNECTED: Record<string, boolean> = {}
+// Cards whose status is still loading: they have not reported yet (LUM-1339).
+const LOADING = new Set<string>()
 
 function mockCard(name: string) {
   const React = require('react')
@@ -59,7 +58,7 @@ function mockCard(name: string) {
     onConnectedChange?: (c: boolean) => void
   }) {
     React.useEffect(() => {
-      onConnectedChange?.(CONNECTED[name] ?? false)
+      if (!LOADING.has(name)) onConnectedChange?.(CONNECTED[name] ?? false)
     }, [onConnectedChange])
     return React.createElement('div', { 'data-testid': `card-${name}` }, name)
   }
@@ -230,6 +229,22 @@ describe('IntegrationsPage — non-owner visibility', () => {
     )
     expect(wrapperOf('card-figma').hidden).toBe(false)
     expect(wrapperOf('card-googleDrive').hidden).toBe(false)
+  })
+
+  it('says nothing until every team card has reported its status', () => {
+    LOADING.add('slack')
+    try {
+      render(
+        <IntegrationsPage
+          kind='TEAM'
+          isOwner={false}
+          configured={ALL_CONFIGURED}
+        />
+      )
+      expect(screen.queryByTestId('integrations-none-connected')).toBeNull()
+    } finally {
+      LOADING.clear()
+    }
   })
 
   it('says nothing is connected when no team integration is', () => {

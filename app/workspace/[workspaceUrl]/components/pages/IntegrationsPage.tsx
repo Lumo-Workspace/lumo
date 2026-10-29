@@ -230,14 +230,18 @@ export function IntegrationsPage({
           {intl.formatMessage({ id: `integrations.${section}.description` })}
         </p>
 
-        {ids.length > 0 && !ids.some(isCardVisible) && (
-          <p
-            data-testid='integrations-none-connected'
-            className='text-body text-muted-foreground'
-          >
-            {intl.formatMessage({ id: 'integrations.team.noneConnected' })}
-          </p>
-        )}
+        {/* Only once every card has reported: a status still loading is not
+            "nothing connected" (LUM-1339). */}
+        {ids.length > 0 &&
+          ids.every(id => id in connectedMap) &&
+          !ids.some(isCardVisible) && (
+            <p
+              data-testid='integrations-none-connected'
+              className='text-body text-muted-foreground'
+            >
+              {intl.formatMessage({ id: 'integrations.team.noneConnected' })}
+            </p>
+          )}
 
         <div className='flex flex-col gap-4'>
           {ids.map(id => (

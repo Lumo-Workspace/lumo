@@ -72,6 +72,10 @@ describe('DeveloperSettingsPage', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'API Keys' })
     ).toBeInTheDocument()
+    // Steps nest under the CLI section heading.
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Install' })
+    ).toBeInTheDocument()
     // The CI ingest key stays with the member's own keys (it is one).
     expect(screen.getByText('CI security ingest key')).toBeInTheDocument()
   })

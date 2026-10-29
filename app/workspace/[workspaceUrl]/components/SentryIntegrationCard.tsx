@@ -45,8 +45,10 @@ export function SentryIntegrationCard({
   const connected = status?.connected === true
 
   useEffect(() => {
-    onConnectedChange?.(connected)
-  }, [connected, onConnectedChange])
+    // LUM-1339: report once the status is known, so the page can tell
+    // "nothing connected" from "still loading".
+    if (status) onConnectedChange?.(connected)
+  }, [status, connected, onConnectedChange])
 
   const headerAction = loading ? (
     <Spinner className='text-muted-foreground' />

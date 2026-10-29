@@ -46,13 +46,17 @@ export function DoneRequirementsSettingsPage() {
   )
 }
 
-const CODE_REVIEW_TITLE = {
+export type CodeReviewSlot =
+  | 'settings.codeReview.behavior'
+  | 'settings.codeReview.repositories'
+  | 'settings.codeReview.rules'
+
+/** Each page's title: its nav label (settings-nav.ts). */
+const CODE_REVIEW_TITLE: Record<CodeReviewSlot, string> = {
   'settings.codeReview.behavior': 'settings.codeReview.behavior',
   'settings.codeReview.repositories': 'settings.codeReview.repositories',
   'settings.codeReview.rules': 'settings.codeReview.rules',
-} as const
-
-export type CodeReviewSlot = keyof typeof CODE_REVIEW_TITLE
+}
 
 /**
  * Code review → one of its pages, filled by the security plugin. Without the
