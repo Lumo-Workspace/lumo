@@ -91,8 +91,9 @@ is signed in as that account, so use it only where nobody else can reach
 the app — on a URL other machines can reach, the app logs a warning and the
 check shows `⚠ Sign-in`.
 
-The first visit also gives the account a workspace, **My workspace**, so
-there is no onboarding step either.
+The first visit (or the first CLI connect) also gives the account a
+workspace, **My workspace**, with one project, **My project**, so there is no
+onboarding step and tasks can be filed right away.
 
 `setup.sh --local` also connects the `lumo` CLI, but only when that takes no
 other login away: `lumo` is installed and either not logged in or already
@@ -110,6 +111,19 @@ created if there is none). On any other server the same command falls back
 to pasting a key from Settings → API Keys (`--no-paste` makes it fail
 instead, for scripts). Anyone who can reach a local-mode instance can get
 such a key, exactly as they can sign in.
+
+To give Claude Code and Codex the Lumo skill and hooks in your own project,
+run `lumo init` in that repository (setup prints the command), or let setup
+do it once the CLI is connected:
+
+```bash
+scripts/self-host/setup.sh --local --init ~/code/my-app
+```
+
+`--init` needs a git repository and local mode. It is skipped, with the
+commands printed, when the CLI is logged in to another server — otherwise
+that repository's agent sessions would be reported there. Commit what
+`lumo init` adds in that repository.
 
 The account is an ordinary one (`local@lumo.localhost`, no password), so
 everything you create stays when you leave local mode. If the instance

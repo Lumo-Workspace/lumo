@@ -11,6 +11,7 @@ import { randomBytes } from 'node:crypto'
 import {
   copyFileSync,
   existsSync,
+  realpathSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -400,6 +401,7 @@ describe('scripts/self-host/setup.sh', () => {
         ? '  "whoami --json") echo "Not logged in"; exit 1 ;;'
         : `  "whoami --json") echo '${whoami}' ;;`,
       `  "auth login") exit ${loginExit} ;;`,
+      '  "init ") echo "lumo init in $PWD" >> "$(dirname "$0")/../lumo.log" ;;',
       'esac',
       '',
     ].join('\n')
@@ -462,6 +464,63 @@ describe('scripts/self-host/setup.sh', () => {
     expect(out).toContain(
       'Could not connect the lumo CLI automatically; run: lumo auth login --url http://localhost:3000'
     )
+  })
+
+  /** A throwaway git repository to point --init at. */
+  const gitRepo = () => {
+    const repo = join(dir, 'my-app')
+    mkdirSync(repo)
+    execFileSync('git', ['init', '-q', repo])
+    return repo
+  }
+
+  it('LUM-1335: --local alone prints the next step for your own repo', () => {
+    const { out } = runWithDocker(['--local'], 0, withDir(fakeLumo(null)))
+    expect(out).toContain('Next, in your own project')
+    expect(out).toContain('cd <your repo> && lumo init')
+  })
+
+  it('LUM-1335: --local --init <repo> runs lumo init there once the CLI is connected', () => {
+    const repo = gitRepo()
+    const { status, out } = runWithDocker(
+      ['--local', '--init', repo],
+      0,
+      withDir(fakeLumo(null))
+    )
+    expect(status).toBe(0)
+    expect(out).toContain(`✓ ${realpathSync(repo)} is set up (lumo init)`)
+    const calls = lumoCalls()
+    expect(calls.indexOf('lumo init')).toBeGreaterThan(
+      calls.indexOf('lumo auth login --url http://localhost:3000 --no-paste')
+    )
+    expect(calls).toContain(`lumo init in ${realpathSync(repo)}`)
+  })
+
+  it('LUM-1335: --init is skipped when the CLI is logged in elsewhere', () => {
+    const repo = gitRepo()
+    const hosted = '{"version":1,"apiUrl":"https://www.uselumo.ai"}'
+    const { status, out } = runWithDocker(
+      ['--local', '--init', repo],
+      0,
+      withDir(fakeLumo(hosted))
+    )
+    expect(status).toBe(0)
+    expect(out).toContain('Skipped lumo init in')
+    expect(lumoCalls()).not.toContain('lumo init')
+  })
+
+  it('LUM-1335: --init refuses a non-repository before writing .env, and needs --local', () => {
+    const plain = join(dir, 'not-a-repo')
+    mkdirSync(plain)
+    const bad = runWithDocker(['--local', '--init', plain])
+    expect(bad.status).toBe(2)
+    expect(bad.out).toContain('--init needs a git repository')
+    expect(() => statSync(join(dir, '.env'))).toThrow()
+    const noLocal = runWithDocker(['--init', gitRepo()])
+    expect(noLocal.status).toBe(2)
+    expect(noLocal.out).toContain('add --local')
+    // Only the docker presence check ran; nothing was started.
+    expect(noLocal.calls.some(c => c.startsWith('compose up'))).toBe(false)
   })
 
   it('LUM-1335: without --local the CLI is never touched', () => {

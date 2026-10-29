@@ -3,7 +3,9 @@
  * try-out needs no onboarding and no API-key copy-paste:
  *
  * - a workspace ("My workspace") on the first sign-in, when the account has
- *   none — an ordinary workspace the account owns;
+ *   none — an ordinary workspace the account owns — with one project ("My
+ *   project"), so tasks can be filed right away (`lumo task create` needs a
+ *   project);
  * - an API key for `lumo auth login --url …`, issued without a browser.
  *
  * Which account that is — the instance's single one, created when there is
@@ -14,10 +16,12 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { apiKeyService } from '@/lib/services/api-key.service'
 import { workspaceService } from '@/lib/services/workspace.service'
+import { projectService } from '@/lib/services/project.service'
 import type { AuditContext } from '@/lib/services/audit.service'
 
 export const LOCAL_WORKSPACE_NAME = 'My workspace'
 export const LOCAL_WORKSPACE_SLUG = 'my-workspace'
+export const LOCAL_PROJECT_NAME = 'My project'
 export const LOCAL_CLI_KEY_LABEL = 'lumo CLI (local mode)'
 
 export interface LocalWorkspace {
@@ -55,6 +59,13 @@ export const localModeService = {
         name: LOCAL_WORKSPACE_NAME,
         slug,
       })
+      // Only with the workspace it made: a project deleted later stays gone.
+      await projectService.createProject(
+        created.workspace.id,
+        created.workspace.slug,
+        created.member.id,
+        { name: LOCAL_PROJECT_NAME }
+      )
       return {
         workspaceId: created.workspace.id,
         memberId: created.member.id,

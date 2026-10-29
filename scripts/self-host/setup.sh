@@ -3,7 +3,7 @@
 #
 #   scripts/self-host/setup.sh [--url https://lumo.example.com] [--realtime | --no-realtime]
 #                              [--caddy | --no-caddy] [--local | --no-local]
-#                              [--no-start | --check]
+#                              [--init <repo>] [--no-start | --check]
 #
 # - Copies .env.example to .env when .env does not exist yet.
 # - Fills every secret the stack needs with `openssl rand -hex 32`. A secret
@@ -19,7 +19,8 @@
 #   --no-caddy removes it. Other profiles are left alone.
 # - --local sets LUMO_MODE=local (opens without a sign-in, one account) and,
 #   once the stack is up, connects the lumo CLI when that replaces no other
-#   login; --no-local removes it.
+#   login; --no-local removes it. --init <repo> then runs `lumo init` in that
+#   git repository (the Lumo skill and hooks for Claude Code / Codex).
 # - Then runs `docker compose up -d`, waits until the stack is healthy and
 #   checks every configured component against the real service
 #   (scripts/self-host/check-config.mjs, inside the app container).
@@ -36,7 +37,7 @@ BASE_FILE=docker-compose.yml
 REALTIME_FILE=deploy/self-host/compose.realtime.yml
 
 usage() {
-  echo "usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime] [--caddy | --no-caddy] [--local | --no-local] [--no-start | --check]" >&2
+  echo "usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime] [--caddy | --no-caddy] [--local | --no-local] [--init <repo>] [--no-start | --check]" >&2
   echo "Run with --help for details." >&2
   exit 2
 }
@@ -45,7 +46,7 @@ help() {
   cat <<'EOF'
 usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime]
                                   [--caddy | --no-caddy] [--local | --no-local]
-                                  [--no-start | --check]
+                                  [--init <repo>] [--no-start | --check]
 
 Sets up and starts a self-hosted Lumo:
   1. Writes .env: copies .env.example the first time and generates every
@@ -81,6 +82,10 @@ Options:
                   Also connects the lumo CLI when it is installed and not
                   logged in elsewhere (otherwise prints the command).
   --no-local      Back to normal sign-in; the account keeps its workspaces.
+  --init <repo>   With local mode: once the CLI is connected to this Lumo,
+                  run `lumo init` in that git repository, so Claude Code and
+                  Codex there get the Lumo skill and hooks. Skipped (with
+                  the commands printed) when the CLI is logged in elsewhere.
   --no-start      Only write .env; start it yourself with docker compose.
   --check         Only re-run the configuration check on the running stack.
   -h, --help      Show this help.
@@ -90,6 +95,7 @@ Without --realtime / --no-realtime, --caddy / --no-caddy or --local /
 
 Examples:
   scripts/self-host/setup.sh --local      # try it: no questions, no sign-in
+  scripts/self-host/setup.sh --local --init ~/code/my-app   # …and set up that repo
   scripts/self-host/setup.sh
   scripts/self-host/setup.sh --url https://lumo.example.com --caddy --realtime
   scripts/self-host/setup.sh --check
@@ -107,6 +113,8 @@ URL=
 REALTIME=
 CADDY=
 LOCAL=
+INIT_REPO=
+INIT_ARG=
 START=on
 CHECK_ONLY=
 while [ $# -gt 0 ]; do
@@ -119,6 +127,7 @@ while [ $# -gt 0 ]; do
     --no-caddy) CADDY=off; shift ;;
     --local) LOCAL=on; shift ;;
     --no-local) LOCAL=off; shift ;;
+    --init) [ $# -ge 2 ] || usage; INIT_REPO=$2; INIT_ARG=$2; shift 2 ;;
     --no-start) START=off; shift ;;
     --check) CHECK_ONLY=1; shift ;;
     -h|--help) help ;;
@@ -134,9 +143,17 @@ check_url() {
 }
 # A bad argument fails before .env is touched at all.
 [ -z "$URL" ] || check_url "$URL"
-if [ -n "$CHECK_ONLY" ] && { [ -n "$URL$REALTIME$CADDY$LOCAL" ] || [ "$START" = off ]; }; then
+if [ -n "$CHECK_ONLY" ] && { [ -n "$URL$REALTIME$CADDY$LOCAL$INIT_REPO" ] || [ "$START" = off ]; }; then
   echo "setup.sh: --check takes no other options" >&2
   usage
+fi
+
+# --init <repo> must name a git repository, checked before .env is touched.
+if [ -n "$INIT_REPO" ]; then
+  INIT_REPO=$(cd "$INIT_REPO" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "setup.sh: --init needs a git repository (got: $INIT_ARG)" >&2
+    exit 2
+  }
 fi
 
 need_docker() {
@@ -150,6 +167,7 @@ need_docker() {
 # take anything away: lumo is installed and not logged in, or logged in to this
 # same URL. Logged in elsewhere (the hosted service, another server), it is
 # left alone and the command is printed instead. Never fails setup.
+CLI_CONNECTED=
 connect_cli() {
   cli_url=$1
   cli_cmd="lumo auth login --url $cli_url"
@@ -166,8 +184,30 @@ connect_cli() {
   fi
   if lumo auth login --url "$cli_url" --no-paste < /dev/null > /dev/null 2>&1; then
     echo "✓ lumo CLI connected to $cli_url"
+    CLI_CONNECTED=1
   else
     echo "Could not connect the lumo CLI automatically; run: $cli_cmd"
+  fi
+}
+
+# LUM-1335: the Lumo skill and hooks in the user's own repository. Only once
+# the CLI talks to this Lumo — otherwise that repository's sessions would be
+# reported to whichever server the CLI is logged in to.
+init_repo() {
+  repo=$1
+  init_cmd="cd $repo && lumo init"
+  if [ -z "$repo" ]; then
+    echo "Next, in your own project (adds the Lumo skill and hooks for Claude Code / Codex): cd <your repo> && lumo init"
+    return 0
+  fi
+  if [ -z "$CLI_CONNECTED" ]; then
+    echo "Skipped lumo init in $repo: the CLI is not connected to this Lumo. Once it is: $init_cmd"
+    return 0
+  fi
+  if (cd "$repo" && lumo init < /dev/null); then
+    echo "✓ $repo is set up (lumo init); commit what it added there"
+  else
+    echo "lumo init did not finish in $repo; run: $init_cmd"
   fi
 }
 
@@ -267,6 +307,10 @@ elif [ "$LOCAL" = off ] && [ -n "$(get_var LUMO_MODE)" ]; then
 fi
 case "$(get_var LUMO_MODE)" in local) local_on=1 ;; *) local_on= ;; esac
 echo "Local mode (no sign-in): $([ -n "$local_on" ] && echo on || echo off)"
+if [ -n "$INIT_REPO" ] && [ -z "$local_on" ]; then
+  echo "setup.sh: --init sets up a repository for local mode; add --local" >&2
+  exit 2
+fi
 
 [ -z "$realtime_on" ] || SECRETS="$SECRETS SOKETI_APP_SECRET"
 for name in $SECRETS; do ensure_secret "$name"; done
@@ -368,6 +412,7 @@ if run_check; then
   if [ -n "$local_on" ]; then
     echo "Local mode: open it in a browser, no sign-in needed."
     connect_cli "${app_url:-http://localhost:3000}"
+    init_repo "$INIT_REPO"
   fi
 else
   exit $?

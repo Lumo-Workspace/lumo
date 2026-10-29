@@ -7,6 +7,12 @@ const mockFindMembers = jest.fn()
 const mockIsSlugUnique = jest.fn()
 const mockCreateWorkspace = jest.fn()
 const mockCreateKey = jest.fn()
+const mockCreateProject = jest.fn()
+jest.mock('@/lib/services/project.service', () => ({
+  projectService: {
+    createProject: (...a: unknown[]) => mockCreateProject(...a),
+  },
+}))
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: {
     findByClerkId: (...a: unknown[]) => mockFindMembers(...a),
@@ -51,6 +57,8 @@ describe('localModeService.ensureWorkspace', () => {
       slug: 'acme',
     })
     expect(mockCreateWorkspace).not.toHaveBeenCalled()
+    // An existing workspace never gets a project added.
+    expect(mockCreateProject).not.toHaveBeenCalled()
   })
 
   it('creates "My workspace" for an account without one', async () => {
@@ -66,6 +74,12 @@ describe('localModeService.ensureWorkspace', () => {
       memberId: 'm_new',
       slug: 'my-workspace',
     })
+    expect(mockCreateProject).toHaveBeenCalledWith(
+      'ws_new',
+      'my-workspace',
+      'm_new',
+      { name: 'My project' }
+    )
   })
 
   it('adds a suffix when the my-workspace slug is taken', async () => {
@@ -81,15 +95,13 @@ describe('localModeService.ensureWorkspace', () => {
 
 describe('localModeService.ensureWorkspace race', () => {
   it('a create that loses to a parallel first use returns the workspace that won', async () => {
-    mockFindMembers
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        {
-          id: 'm_won',
-          workspaceId: 'ws_won',
-          workspace: { slug: 'my-workspace' },
-        },
-      ])
+    mockFindMembers.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        id: 'm_won',
+        workspaceId: 'ws_won',
+        workspace: { slug: 'my-workspace' },
+      },
+    ])
     mockIsSlugUnique.mockResolvedValue(true)
     mockCreateWorkspace.mockRejectedValue(
       new Error('Unique constraint failed on slug')
