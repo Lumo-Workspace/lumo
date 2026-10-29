@@ -1,6 +1,7 @@
 import { readCredentials, type Credentials } from '../lib/config'
 import { JSON_VERSION } from '../lib/json-output'
 import { sanitizeField } from '../lib/sanitize'
+import { serverLabel } from '../lib/api'
 
 export interface WhoamiOptions {
   full?: boolean
@@ -27,16 +28,19 @@ export function formatWhoami(
       }),
     ]
   }
+  // LUM-1335: a login to a self-hosted Lumo says so.
+  const server = serverLabel(creds.apiUrl)
   if (opts.full) {
     return [
       `Logged in as ${sanitizeField(creds.email)}`,
       `  Workspace: ${sanitizeField(creds.workspaceName)} (${sanitizeField(creds.workspaceSlug)})`,
       `  Key: ${sanitizeField(creds.apiKeyName)} (${sanitizeField(creds.apiKeyPrefix)})`,
       `  API: ${sanitizeField(creds.apiUrl)}`,
+      ...(server ? [`  Server: ${sanitizeField(server)}`] : []),
     ]
   }
   return [
-    `${sanitizeField(creds.email)} · workspace ${sanitizeField(creds.workspaceSlug)} · key ${sanitizeField(creds.apiKeyPrefix)}`,
+    `${sanitizeField(creds.email)} · workspace ${sanitizeField(creds.workspaceSlug)} · key ${sanitizeField(creds.apiKeyPrefix)}${server ? ` · ${sanitizeField(server)}` : ''}`,
   ]
 }
 

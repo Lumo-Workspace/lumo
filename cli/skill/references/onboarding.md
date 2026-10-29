@@ -73,13 +73,15 @@ lumo uninstall --agent codex --confirm
 
 ```bash
 lumo auth login     # opens the API Keys page; paste a key starting with lum_
+lumo auth login --url http://localhost:3000   # a self-hosted server; in local mode it issues the key itself
 lumo auth logout    # clears ~/.lumo/credentials.json (idempotent)
 lumo whoami         # cli@uselumo.ai · workspace lumo · key lum_68d4...
 lumo whoami --full  # + workspace name, key name, API URL
 ```
 
+- `--url <url>` logs in to that server (a self-hosted Lumo) instead of `LUMO_API_URL` / the hosted service; https only, http for localhost. When the server runs `LUMO_MODE=local` (`setup.sh --local`), it issues an API key for its one account (creating the account if nobody opened the app yet) and nothing is pasted (`Local mode: <url> issued an API key for this machine.`). Any other server — the hosted one, a normal self-host, an older one — gets the usual paste flow. A local-mode server that refuses (several accounts) prints `Local mode did not issue a key: <reason>` first. `--no-paste` exits 1 instead of prompting or opening a browser when no key is issued (for scripts). The CLI keeps one login: logging in to a local server replaces a hosted login — say so before running it for a user who is logged in elsewhere.
 - `auth login` is the only auth path (no `--token`). Suggest it when a command reports `not logged in`, `API key invalid or revoked`, or ends with the `Hint: … HTTP 401 … lumo auth login` line, and when the user switches workspaces.
-- `whoami` reads local credentials only (no network — it does not prove the key works); `--json` prints `{ version, email, workspace: { slug, name }, apiKey: { name, prefix }, apiUrl }` (never the token). **Not a pre-flight check** — don't run it (or `lumo --version`) before other commands. Use it when the user asks which account/workspace this is, or before a destructive command on a shared machine.
+- `whoami` reads local credentials only (no network — it does not prove the key works); a login to a self-hosted Lumo ends with ` · local · <url>` (this machine) or ` · self-hosted · <url>` (`--full`: a `Server:` line), the hosted one with nothing — tell the user which server they are on when it matters (their session records go there); `--json` prints `{ version, email, workspace: { slug, name }, apiKey: { name, prefix }, apiUrl }` (never the token). **Not a pre-flight check** — don't run it (or `lumo --version`) before other commands. Use it when the user asks which account/workspace this is, or before a destructive command on a shared machine.
 
 ## `lumo update [--auto on|off]` — upgrade the CLI
 

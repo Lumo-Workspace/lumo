@@ -7,9 +7,11 @@
 import type { NextRequest } from 'next/server'
 import { createBetterAuthMiddleware } from './better-auth/middleware'
 import { resolveAuthProvider } from './provider'
+import { resolveLumoMode } from './local-mode'
 import type { AuthMiddlewareHandler } from './types'
 
 export { createRouteMatcher } from './route-matcher'
+export { localModeEntryRedirect } from './better-auth/middleware'
 
 type Middleware = ReturnType<typeof createBetterAuthMiddleware>
 
@@ -17,13 +19,15 @@ type Middleware = ReturnType<typeof createBetterAuthMiddleware>
  * Wrap a middleware handler so it runs with the auth session resolved. Built
  * on the first request (not at import), so building the app needs no auth
  * configuration; that first request also rejects a leftover
- * AUTH_PROVIDER=clerk (LUM-1077) instead of quietly ignoring it.
+ * AUTH_PROVIDER=clerk (LUM-1077) or an unknown LUMO_MODE (LUM-1335) instead of
+ * quietly ignoring it.
  */
 export function createAuthMiddleware(handler: AuthMiddlewareHandler) {
   let impl: Middleware | null = null
   return (request: NextRequest) => {
     if (!impl) {
       resolveAuthProvider()
+      resolveLumoMode()
       impl = createBetterAuthMiddleware(handler)
     }
     return impl(request)

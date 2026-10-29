@@ -1,4 +1,8 @@
-import { createAuthMiddleware, createRouteMatcher } from '@/lib/auth/middleware'
+import {
+  createAuthMiddleware,
+  createRouteMatcher,
+  localModeEntryRedirect,
+} from '@/lib/auth/middleware'
 import { NextResponse } from 'next/server'
 import { requireWorkflowDeliveryAuth } from '@/lib/api/workflow-delivery-auth'
 import { cliVersionDenied } from '@/lib/api/cli-version-gate'
@@ -51,6 +55,10 @@ export default createAuthMiddleware(async (auth, request) => {
   if (process.env.NODE_ENV !== 'production' && isDesignSystemRoute(request)) {
     return NextResponse.next()
   }
+
+  // LUMO_MODE=local (LUM-1335): no sign-in page, the visit signs itself in.
+  const localEntry = localModeEntryRedirect(request, userId)
+  if (localEntry) return localEntry
 
   // Protect all non-public routes (landing page "/" is always public)
   if (!isPublicRoute(request) && pathname !== '/') {

@@ -1,15 +1,51 @@
 import { promptSecret } from '../lib/prompt'
 import { openBrowser } from '../lib/browser'
-import { resolveApiUrl, trimTrailingSlash, verifyToken } from '../lib/api'
+import {
+  assertSafeApiUrl,
+  requestLocalCliKey,
+  resolveApiUrl,
+  trimTrailingSlash,
+  serverLabel,
+  verifyToken,
+} from '../lib/api'
 import { writeCredentials } from '../lib/config'
 import { sanitizeField } from '../lib/sanitize'
 
 const KEY_PREFIX = 'lum_'
 
-export async function authLogin(): Promise<number | void> {
-  const apiUrl = resolveApiUrl()
-  const webUrl = trimTrailingSlash(apiUrl)
+export interface AuthLoginOptions {
+  /** LUM-1335: the server to log in to (a self-hosted URL); else LUMO_API_URL / hosted. */
+  url?: string
+  /** LUM-1335: fail instead of asking for a key (scripts, e.g. setup.sh --local). */
+  paste?: boolean
+}
 
+/** The key to log in with: issued by a local-mode server, else pasted. */
+async function obtainKey(
+  apiUrl: string,
+  allowPaste: boolean
+): Promise<string | null> {
+  const local = await requestLocalCliKey(apiUrl)
+  if (local.status === 'issued') {
+    console.log(`Local mode: ${apiUrl} issued an API key for this machine.`)
+    return local.key
+  }
+  if (local.status === 'refused') {
+    console.log(
+      `Local mode did not issue a key: ${sanitizeField(local.message)}`
+    )
+    console.log('')
+  }
+  if (!allowPaste) {
+    console.error(
+      `Error: ${apiUrl} did not issue a key (not in local mode, or it refused) and --no-paste is set`
+    )
+    return null
+  }
+  return pasteKey(trimTrailingSlash(apiUrl))
+}
+
+async function pasteKey(webUrl: string): Promise<string | null> {
   console.log('Log in to Lumo')
   console.log('')
   console.log(`  1. Open ${webUrl} and go to Settings → API Keys`)
@@ -20,9 +56,42 @@ export async function authLogin(): Promise<number | void> {
   openBrowser(webUrl)
   console.log('')
 
-  const token = await promptSecret('API key (input hidden): ')
+  return (await promptSecret('API key (input hidden): ')) || null
+}
+
+export async function authLogin(
+  opts: AuthLoginOptions = {}
+): Promise<number | void> {
+  let apiUrl: string
+  if (opts.url !== undefined) {
+    apiUrl = trimTrailingSlash(opts.url.trim())
+    try {
+      new URL(apiUrl)
+    } catch {
+      console.error(`Error: --url "${apiUrl}" is not a valid URL`)
+      return 1
+    }
+    try {
+      assertSafeApiUrl(apiUrl)
+    } catch (err) {
+      console.error(
+        `Error: ${err instanceof Error ? err.message : String(err)}`
+      )
+      return 1
+    }
+  } else {
+    apiUrl = resolveApiUrl()
+  }
+
+  let token: string | null
+  try {
+    token = await obtainKey(apiUrl, opts.paste !== false)
+  } catch (err) {
+    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+    return 1
+  }
   if (!token) {
-    console.log('Login cancelled.')
+    if (opts.paste !== false) console.log('Login cancelled.')
     return 1
   }
 
@@ -56,6 +125,9 @@ export async function authLogin(): Promise<number | void> {
   console.log('')
   console.log(`✓ Logged in as ${sanitizeField(resp.user.email)}`)
   console.log(`  Workspace: ${sanitizeField(resp.workspace.name)}`)
+  // LUM-1335: a login to a self-hosted Lumo says so.
+  const server = serverLabel(apiUrl)
+  if (server) console.log(`  Server: ${sanitizeField(server)}`)
   console.log(
     `  Key: ${sanitizeField(resp.apiKey.name)} (${resp.apiKey.prefix})`
   )

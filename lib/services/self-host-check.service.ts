@@ -5,6 +5,7 @@ import { verifyEmailTransport } from '@/lib/integrations/email/client'
 import { checkRealtimeConnection } from '@/lib/integrations/pusher/server'
 import { getSharedRedisClient } from '@/lib/rate-limit/redis-client'
 import { selfHostCheckRepository } from '@/lib/repositories/self-host-check.repository'
+import { isLocalMode, isLoopbackHost } from '@/lib/auth/local-mode'
 
 /**
  * LUM-1332 — `scripts/self-host/setup.sh` runs this after `docker compose up`
@@ -12,14 +13,22 @@ import { selfHostCheckRepository } from '@/lib/repositories/self-host-check.repo
  * what they configured actually works: every check talks to the real
  * service with the app's own env, from inside the app container.
  *
- * Each check is `ok`, `failed` (with a hint saying what to fix), or
- * `skipped` when its component is not configured. Optional components that
- * are skipped never fail the run; only `failed` does.
+ * Each check is `ok`, `failed` (with a hint saying what to fix), `skipped`
+ * when its component is not configured, or `warning` for a working setup the
+ * operator should know about (LUM-1335: local mode on a public URL). Only
+ * `failed` fails the run.
  */
-export type CheckStatus = 'ok' | 'failed' | 'skipped'
+export type CheckStatus = 'ok' | 'failed' | 'skipped' | 'warning'
 
 export interface CheckResult {
-  id: 'database' | 'storage' | 'email' | 'redis' | 'realtime' | 'public_url'
+  id:
+    | 'database'
+    | 'storage'
+    | 'email'
+    | 'redis'
+    | 'realtime'
+    | 'public_url'
+    | 'sign_in'
   status: CheckStatus
   detail: string
   hint?: string
@@ -39,13 +48,19 @@ export interface SelfHostProbes {
   pingRedis(url: string): Promise<void>
   checkRealtime: typeof checkRealtimeConnection
   fetchUrl(url: string): Promise<{ status: number; body: string }>
+  /** Accounts on this instance, counted up to `limit`. */
+  countAccounts(limit: number): Promise<number>
 }
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0'])
 
 /** A host that, from inside the container, is not this server's public face. */
 function isLocalHost(host: string): boolean {
-  return LOCAL_HOSTS.has(host) || host.endsWith('.localhost') || /^127(\.\d{1,3}){3}$/.test(host)
+  return (
+    LOCAL_HOSTS.has(host) ||
+    host.endsWith('.localhost') ||
+    /^127(\.\d{1,3}){3}$/.test(host)
+  )
 }
 
 /** The shared Redis client waits ~2 s for its first connect; give it longer. */
@@ -61,13 +76,19 @@ const PUBLIC_URL_BODY_BYTES = 4096
  * a certificate error).
  */
 export function errorText(err: unknown): string {
-  if (!(err instanceof Error)) return String(err).replace(/\/\/[^@\s/]*@/g, '//***@').slice(0, 200)
+  if (!(err instanceof Error))
+    return String(err)
+      .replace(/\/\/[^@\s/]*@/g, '//***@')
+      .slice(0, 200)
   const cause = (err as { cause?: unknown }).cause
   const why =
     cause instanceof Error
-      ? [(cause as { code?: unknown }).code, cause.message].filter(Boolean).join(' ')
+      ? [(cause as { code?: unknown }).code, cause.message]
+          .filter(Boolean)
+          .join(' ')
       : ''
-  const text = why && !err.message.includes(why) ? `${err.message}: ${why}` : err.message
+  const text =
+    why && !err.message.includes(why) ? `${err.message}: ${why}` : err.message
   // A driver may echo a connection URL; never its userinfo (password).
   return text.replace(/\/\/[^@\s/]*@/g, '//***@').slice(0, 200)
 }
@@ -76,7 +97,12 @@ async function withTimeout<T>(work: Promise<T>, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new Error(`${label} did not answer within ${CHECK_TIMEOUT_MS / 1000}s`)),
+      () =>
+        reject(
+          new Error(
+            `${label} did not answer within ${CHECK_TIMEOUT_MS / 1000}s`
+          )
+        ),
       CHECK_TIMEOUT_MS
     )
   })
@@ -113,7 +139,11 @@ async function checkStorage(
   }
   try {
     await withTimeout(probes.roundTripBlob(), 'file storage')
-    return { id: 'storage', status: 'ok', detail: `${backend}: write, read and delete work` }
+    return {
+      id: 'storage',
+      status: 'ok',
+      detail: `${backend}: write, read and delete work`,
+    }
   } catch (err) {
     return {
       id: 'storage',
@@ -132,7 +162,10 @@ async function checkEmail(probes: SelfHostProbes): Promise<CheckResult> {
   try {
     result = await withTimeout(probes.verifyEmail(), 'the SMTP server')
   } catch (err) {
-    result = { status: 'failed', error: { name: 'Error', message: errorText(err) } }
+    result = {
+      status: 'failed',
+      error: { name: 'Error', message: errorText(err) },
+    }
   }
   if (result.status === 'not_configured') {
     return {
@@ -170,7 +203,11 @@ async function checkRedis(
 ): Promise<CheckResult> {
   const url = env.REDIS_URL?.trim()
   if (!url) {
-    return { id: 'redis', status: 'skipped', detail: 'not configured (rate limits kept in memory)' }
+    return {
+      id: 'redis',
+      status: 'skipped',
+      detail: 'not configured (rate limits kept in memory)',
+    }
   }
   try {
     await withTimeout(probes.pingRedis(url), 'Redis')
@@ -200,7 +237,11 @@ async function checkRealtime(probes: SelfHostProbes): Promise<CheckResult> {
     }
   }
   if (result.status === 'ok') {
-    return { id: 'realtime', status: 'ok', detail: 'server reachable, credentials accepted' }
+    return {
+      id: 'realtime',
+      status: 'ok',
+      detail: 'server reachable, credentials accepted',
+    }
   }
   return {
     id: 'realtime',
@@ -246,7 +287,11 @@ async function checkPublicUrl(
       appUrl
     )
     if (res.status === 200 && res.body.includes(PUBLIC_CONFIG_GLOBAL)) {
-      return { id: 'public_url', status: 'ok', detail: `${appUrl} serves this Lumo` }
+      return {
+        id: 'public_url',
+        status: 'ok',
+        detail: `${appUrl} serves this Lumo`,
+      }
     }
     return {
       id: 'public_url',
@@ -266,6 +311,70 @@ async function checkPublicUrl(
   }
 }
 
+/**
+ * LUM-1335 — how people get in. Local mode is reported as a warning when
+ * other machines can reach the app (anyone who opens it is signed in), and
+ * fails when the instance already has several accounts (it then refuses to
+ * sign anyone in).
+ */
+async function checkSignIn(
+  probes: SelfHostProbes,
+  env: Env,
+  appUrl: string | undefined
+): Promise<CheckResult> {
+  let local: boolean
+  try {
+    local = isLocalMode(env)
+  } catch (err) {
+    return { id: 'sign_in', status: 'failed', detail: errorText(err) }
+  }
+  if (!local) {
+    return {
+      id: 'sign_in',
+      status: 'ok',
+      detail: 'accounts (sign-in required)',
+    }
+  }
+  let accounts: number
+  try {
+    accounts = await withTimeout(probes.countAccounts(2), 'the database')
+  } catch (err) {
+    return {
+      id: 'sign_in',
+      status: 'failed',
+      detail: `local mode: ${errorText(err)}`,
+    }
+  }
+  if (accounts > 1) {
+    return {
+      id: 'sign_in',
+      status: 'failed',
+      detail: 'local mode, but this instance has several accounts',
+      hint: 'Local mode only runs with at most one account: remove LUMO_MODE from .env.',
+    }
+  }
+  let publicHost: string | null = null
+  try {
+    const host = appUrl ? new URL(appUrl).hostname : null
+    if (host && !isLoopbackHost(host)) publicHost = host
+  } catch {
+    // an invalid URL is the public-URL check's to report
+  }
+  if (publicHost) {
+    return {
+      id: 'sign_in',
+      status: 'warning',
+      detail: `local mode on ${publicHost}: anyone who opens it is signed in`,
+      hint: 'Remove LUMO_MODE from .env unless only you can reach this URL.',
+    }
+  }
+  return {
+    id: 'sign_in',
+    status: 'ok',
+    detail: 'local mode (opens without a sign-in)',
+  }
+}
+
 /** Run every check (concurrently) and return them in a fixed order. */
 export async function runSelfHostChecks(
   probes: SelfHostProbes,
@@ -279,6 +388,7 @@ export async function runSelfHostChecks(
     checkRedis(probes, env),
     checkRealtime(probes),
     checkPublicUrl(probes, appUrl),
+    checkSignIn(probes, env, appUrl),
   ])
 }
 
@@ -312,8 +422,11 @@ export const defaultSelfHostProbes: SelfHostProbes = {
       contentType: 'text/plain',
     })
     try {
-      const opened = await storage.get(stored.pathname, 'private', { noCache: true })
-      if (!opened) throw new Error('the file just written could not be read back')
+      const opened = await storage.get(stored.pathname, 'private', {
+        noCache: true,
+      })
+      if (!opened)
+        throw new Error('the file just written could not be read back')
       await opened.stream.cancel()
     } finally {
       await storage.delete(stored.pathname, 'private')
@@ -331,7 +444,9 @@ export const defaultSelfHostProbes: SelfHostProbes = {
         return
       } catch (err) {
         if (Date.now() + REDIS_CONNECT_RETRY_MS >= deadline) throw err
-        await new Promise(resolve => setTimeout(resolve, REDIS_CONNECT_RETRY_MS))
+        await new Promise(resolve =>
+          setTimeout(resolve, REDIS_CONNECT_RETRY_MS)
+        )
       }
     }
   },
@@ -343,6 +458,10 @@ export const defaultSelfHostProbes: SelfHostProbes = {
       // Closes the socket when the check gives up on it.
       signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
     })
-    return { status: res.status, body: await readStart(res, PUBLIC_URL_BODY_BYTES) }
+    return {
+      status: res.status,
+      body: await readStart(res, PUBLIC_URL_BODY_BYTES),
+    }
   },
+  countAccounts: limit => selfHostCheckRepository.countAccounts(limit),
 }

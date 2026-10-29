@@ -128,3 +128,38 @@ describe('proxy.ts with Better Auth', () => {
     expect(mockGetSession).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('proxy.ts with LUMO_MODE=local (LUM-1335)', () => {
+  beforeEach(() => {
+    process.env.LUMO_MODE = 'local'
+  })
+  afterEach(() => {
+    delete process.env.LUMO_MODE
+  })
+  const target = async (path: string) => {
+    const res = await run(page(path))
+    expect(res.status).toBe(307)
+    return new URL(res.headers.get('location')!)
+  }
+
+  it('an anonymous protected page goes to the local sign-in and back', async () => {
+    mockGetSession.mockResolvedValue(sessionFor(null))
+    const location = await target('/workspace/acme/my-tasks')
+    expect(location.pathname).toBe('/api/auth/lumo/local-sign-in')
+    expect(location.searchParams.get('redirect_url')).toBe(
+      '/workspace/acme/my-tasks'
+    )
+  })
+
+  it('/ and /signin sign the visitor in instead of showing a sign-in page', async () => {
+    mockGetSession.mockResolvedValue(sessionFor(null))
+    for (const path of ['/', '/signin']) {
+      expect((await target(path)).pathname).toBe('/api/auth/lumo/local-sign-in')
+    }
+  })
+
+  it('a signed-in visitor on /signin still goes to /workspace', async () => {
+    mockGetSession.mockResolvedValue(sessionFor('user_local'))
+    expect((await target('/signin')).pathname).toBe('/workspace')
+  })
+})

@@ -71,7 +71,8 @@ beforeEach(() => {
   mockThrow = false
   ;(readCredentials as jest.Mock).mockReturnValue({
     token: 'lum_test',
-    apiUrl: 'https://api.example.com',
+    // The hosted service: its status line carries no server label (LUM-1335).
+    apiUrl: 'https://www.uselumo.ai',
     email: 'cli@uselumo.ai',
     workspaceSlug: 'lumo',
   })
