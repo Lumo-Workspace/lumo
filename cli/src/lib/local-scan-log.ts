@@ -275,7 +275,10 @@ function isPayload(v: unknown): v is LocalRunPayload {
     r !== null &&
     typeof r.repo === 'string' &&
     typeof r.commitSha === 'string' &&
-    Array.isArray(r.findings)
+    Array.isArray(r.findings) &&
+    // The server refuses a run that names no scanner — and its whole batch.
+    Array.isArray(r.scanners) &&
+    r.scanners.length > 0
   )
 }
 

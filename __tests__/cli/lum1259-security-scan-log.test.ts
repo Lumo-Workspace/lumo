@@ -517,6 +517,51 @@ describe('lumo security scan --log', () => {
       })
     })
 
+    it('a DEPS-only commit whose DEPS could not finish is not recorded; the range’s other runs still go', async () => {
+      const base = git(sb.main, 'rev-parse', 'HEAD')
+      write('a.ts', 'export const a = 1\n')
+      const a = commit('a')
+      write('package-lock.json', npmLock({ lodash: '4.17.15' }))
+      const b = commit('add lodash')
+      // Like the server's schema: a run must name at least one scanner, and
+      // one bad run gets the whole batch refused.
+      const api = fakeApi()
+      const strict = jest.fn(async (url: string, init?: RequestInit) => {
+        const upload = String(url).includes(LOCAL_RUNS_PATH)
+          ? (JSON.parse(String(init?.body)) as Upload)
+          : null
+        if (upload?.runs.some(r => r.scanners.length === 0))
+          return new Response(JSON.stringify({ error: 'Invalid body' }), {
+            status: 400,
+          })
+        return api.fetch(url, init)
+      })
+      const { result, out } = await run(
+        { since: base, until: b, log: true, deps: true, json: true },
+        strict,
+        {},
+        unreachableFetch
+      )
+      expect(result).toBe(1)
+      expect(api.uploads[0]!.runs.map(r => r.commitSha)).toEqual([a])
+      expect(api.uploads[0]!.runs[0]!.scanners).toEqual(['DEPS'])
+      expect(JSON.parse(out).log).toMatchObject({
+        commits: [a, b],
+        unrecorded: 1,
+        sent: 1,
+        created: 1,
+        queued: 0,
+      })
+      expect(queue()).toEqual([])
+      const text = await run(
+        { since: base, until: b, log: true, deps: true },
+        strict,
+        {},
+        unreachableFetch
+      )
+      expect(text.out).toMatch(/1 not recorded \(no scanner finished\)/)
+    })
+
     it('--offline makes no network call at all: no OSV, no Lumo; the run is queued', async () => {
       write('a.ts', 'export const a = 1\n')
       const sha = commit('a')
@@ -601,6 +646,15 @@ describe('lumo security scan --log', () => {
       expect(log.queued).toBe(0)
       expect(log.note).toContain('was not queued')
       fs.rmSync(`${file}.lock`)
+    })
+
+    it('a queued run that names no scanner is dropped on read, so it cannot get a batch refused', () => {
+      const file = queueFile(sb.main)!
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      const good = payload('acme/app', '1'.repeat(40))
+      const bad = { ...payload('acme/app', '2'.repeat(40)), scanners: [] }
+      fs.writeFileSync(file, JSON.stringify({ version: 1, runs: [bad, good] }))
+      expect(readQueue(file).map(r => r.commitSha)).toEqual(['1'.repeat(40)])
     })
 
     it('a retryable failure keeps every run not yet sent', async () => {

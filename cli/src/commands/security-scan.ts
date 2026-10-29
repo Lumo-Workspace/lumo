@@ -459,6 +459,7 @@ async function scanCommits(
   const payloads: LocalRunPayload[] = []
   const depsRuns: DepsScanResult[] = []
   let filesScanned = 0
+  let unrecorded = 0
   for (const sha of shas) {
     const scope: ScanScope = { kind: 'commit', ref: sha }
     const diff = scanners.includes('SECRETS')
@@ -486,17 +487,21 @@ async function scanCommits(
       ...(depsResult?.findings ?? []),
     ].map(f => label({ ...f, commitSha: sha }))
     findings.push(...found)
-    if (opts.log && repo)
+    // A scanner that could not finish is not claimed for the commit; with
+    // none left there is nothing to record (the server refuses a run that
+    // names no scanner, and with it the whole batch).
+    const finished = scanners.filter(
+      s => s !== 'DEPS' || depsResult?.incomplete == null
+    )
+    if (opts.log && repo && finished.length === 0) unrecorded++
+    else if (opts.log && repo)
       payloads.push(
         buildRunPayload({
           repo,
           facts: commitFacts(root, sha),
           branch,
           trigger,
-          // A scanner that could not finish is not claimed for the commit.
-          scanners: scanners.filter(
-            s => s !== 'DEPS' || depsResult?.incomplete == null
-          ),
+          scanners: finished,
           cliVersion,
           filesScanned: diff?.files.length ?? 0,
           scannedAt: now,
@@ -512,6 +517,7 @@ async function scanCommits(
       log = {
         commits: shas,
         skipped,
+        unrecorded,
         sent: 0,
         created: 0,
         duplicates: 0,
@@ -526,7 +532,7 @@ async function scanCommits(
         { offline: opts.offline === true },
         deps
       )
-      log = { commits: shas, skipped, ...outcome }
+      log = { commits: shas, skipped, unrecorded, ...outcome }
     }
   }
 

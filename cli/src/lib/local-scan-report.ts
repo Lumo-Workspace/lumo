@@ -57,10 +57,12 @@ export type LocalFinding = (
 
 /** LUM-1259 — `--log`: what was recorded on the server. */
 export interface LogSection {
-  /** Commits scanned and recorded (one run each). */
+  /** Commits scanned (each recorded as one run unless `unrecorded`). */
   commits: string[]
   /** Commits left out: merges, and past the per-run cap. */
   skipped: number
+  /** Scanned commits with no scanner that finished: nothing recorded. */
+  unrecorded: number
   sent: number
   created: number
   duplicates: number
@@ -312,6 +314,8 @@ function logLine(l: LogSection): string {
   ]
   if (l.flushed > 0) parts.push(`${l.flushed} from the queue`)
   if (l.skipped > 0) parts.push(`${l.skipped} skipped (merges / over the cap)`)
+  if (l.unrecorded > 0)
+    parts.push(`${l.unrecorded} not recorded (no scanner finished)`)
   const note = l.note ? ` — ${sanitizeField(l.note)}` : ''
   return `Log: ${parts.join(' · ')}${note}`
 }

@@ -14,7 +14,7 @@ lumo init --scan-hooks --scan-log                          # record every commit
 
 Opt-in on both sides: an OWNER turns it on for the workspace (`lumo workspace security-scan update --local-scan-log on --confirm`, [workspace-settings.md](workspace-settings.md)); until then the server refuses every upload and the CLI drops it (`Log: … — local scan logging is off for this workspace`). Each scanned commit becomes one run (`POST /api/workspaces/me/security-scan/local-runs`, your normal CLI key, any member; the repository must be linked to the workspace).
 
-- **Scanners:** every selected scanner runs per commit (`SECRETS` on the commit's added lines, `DEPS` in fast mode on its lockfile changes; `--full` is refused). A scanner that could not finish for a commit is left out of that commit's recorded scanners.
+- **Scanners:** every selected scanner runs per commit (`SECRETS` on the commit's added lines, `DEPS` in fast mode on its lockfile changes; `--full` is refused). A scanner that could not finish for a commit is left out of that commit's recorded scanners. A commit with none left (e.g. `--deps` alone, OSV unreachable) is not recorded: `… · 1 not recorded (no scanner finished)`.
 - **Sent per commit:** repository, sha, first parent, `git patch-id --stable`, branch, actor (`AGENT` when a Claude Code / Codex session variable is set, with that session id — the server keeps it, and its bound task, only when the session is yours; else `USER`), trigger (`POST_COMMIT` / `PRE_PUSH` / `MANUAL`), scanners and versions, CLI version, files scanned, and per finding (at most 200, most severe first; the count covers all): scanner, fingerprint, rule, severity, file:line, the scanner's redacted title and its `Server:` label. **Never** the evidence line, a raw secret, code or the commit message. The server redacts titles again and drops any other field.
 - **Dedupe:** an identical result for the same commit (same findings, labels and scanner versions) is answered `already logged` and not stored again — the pre-push run after a post-commit run costs nothing. A changed result is a new run.
 - **Amend / rebase:** the patch-id stays the same when the diff does (a reworded amend, a clean rebase), so a PR head links to the runs of the same change under its old sha.
@@ -25,7 +25,7 @@ Opt-in on both sides: an OWNER turns it on for the workspace (`lumo workspace se
 
 ## `--json`
 
-Each finding carries `commitSha`; the `log` sibling (`null` without `--log`): `{ commits: [sha…], skipped, sent, created, duplicates, queued, flushed, note }`.
+Each finding carries `commitSha`; the `log` sibling (`null` without `--log`): `{ commits: [sha…], skipped, unrecorded, sent, created, duplicates, queued, flushed, note }` (`commits`: scanned; `unrecorded`: of those, how many had no scanner finish and were not sent).
 
 ## Git hooks (`--scan-log`)
 
