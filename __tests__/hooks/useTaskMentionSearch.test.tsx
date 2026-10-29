@@ -1,4 +1,8 @@
 /** LUM-1340 — the dependency picker's task search runs through react-query. */
+let mockWorkspaceUrl = 'acme'
+jest.mock('next/navigation', () => ({
+  useParams: () => ({ workspaceUrl: mockWorkspaceUrl }),
+}))
 jest.mock('@/lib/api-client/mention-search', () => ({
   mentionSearchClient: { search: jest.fn() },
 }))
@@ -10,14 +14,20 @@ import {
 } from '@/app/workspace/[workspaceUrl]/hooks/useTaskMentionSearch'
 import { mentionSearchClient } from '@/lib/api-client/mention-search'
 import type { MentionSearchItem } from '@/types/mention'
-import { createQueryWrapper } from '../helpers/query-client'
+import {
+  createQueryWrapper,
+  createTestQueryClient,
+} from '../helpers/query-client'
 
 const mockSearch = mentionSearchClient.search as jest.Mock
 
 const item = (label: string, kind: string): MentionSearchItem =>
   ({ id: label, label, kind, sublabel: label }) as unknown as MentionSearchItem
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockWorkspaceUrl = 'acme'
+})
 
 describe('pickTaskResults', () => {
   it('keeps tasks only and drops the excluded identifier', () => {
@@ -54,5 +64,19 @@ describe('useTaskMentionSearch', () => {
     expect(mockSearch).not.toHaveBeenCalled()
     expect(closed.result.current).toEqual({ results: [], loading: false })
     expect(blank.result.current).toEqual({ results: [], loading: false })
+  })
+
+  it("does not reuse one workspace's results in another", async () => {
+    mockSearch.mockResolvedValue([item('LUM-9', 'task')])
+    const wrapper = createQueryWrapper(createTestQueryClient())
+    const a = renderHook(() => useTaskMentionSearch('fix', 'X', true), {
+      wrapper,
+    })
+    await waitFor(() => expect(a.result.current.results).toHaveLength(1))
+    a.unmount()
+
+    mockWorkspaceUrl = 'other'
+    renderHook(() => useTaskMentionSearch('fix', 'X', true), { wrapper })
+    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(2))
   })
 })

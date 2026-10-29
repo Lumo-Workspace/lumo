@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
 import { mentionSearchClient } from '@/lib/api-client/mention-search'
 import { queryKeys } from '@/lib/query/keys'
 import type { MentionSearchItem } from '@/types/mention'
@@ -32,6 +33,8 @@ export function useTaskMentionSearch(
   excludeIdentifier: string,
   enabled: boolean
 ): UseTaskMentionSearchResult {
+  const params = useParams<{ workspaceUrl?: string }>()
+  const workspaceUrl = params?.workspaceUrl ?? ''
   const trimmed = query.trim()
   const [debounced, setDebounced] = useState(trimmed)
 
@@ -43,7 +46,7 @@ export function useTaskMentionSearch(
   const active = enabled && trimmed !== ''
 
   const result = useQuery({
-    queryKey: queryKeys.mentionSearch(debounced, SEARCH_LIMIT),
+    queryKey: queryKeys.mentionSearch(workspaceUrl, debounced, SEARCH_LIMIT),
     queryFn: () => mentionSearchClient.search(debounced, SEARCH_LIMIT),
     enabled: enabled && debounced !== '',
     staleTime: 30_000,

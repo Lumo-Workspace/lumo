@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
 import { mentionStatusClient } from '@/lib/api-client/mention-status'
 import {
   MentionStatusContext,
@@ -33,8 +34,9 @@ export function MentionStatusProvider({
   identifiers: string[]
   children: ReactNode
 }) {
+  const params = useParams<{ workspaceUrl?: string }>()
   const query = useQuery({
-    queryKey: queryKeys.mentionStatus(identifiers),
+    queryKey: queryKeys.mentionStatus(params?.workspaceUrl ?? '', identifiers),
     queryFn: async () =>
       indexMentionStatus(await mentionStatusClient.fetch(identifiers)),
     enabled: identifiers.length > 0,

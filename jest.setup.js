@@ -40,6 +40,9 @@ jest.mock('next/navigation', () => ({
   usePathname() {
     return '/'
   },
+  useParams() {
+    return {}
+  },
 }))
 
 // Mock Next.js image component

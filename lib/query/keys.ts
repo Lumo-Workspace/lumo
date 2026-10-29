@@ -141,11 +141,12 @@ export const queryKeys = {
     ['task-slack-contexts', taskId] as const,
 
   // LUM-1340: batched status lookup for the TEAM-N mentions in one doc.
-  mentionStatus: (identifiers: string[]) =>
-    ['mention-status', [...identifiers].sort()] as const,
+  // Scoped by workspace: the same TEAM-N can name different tasks elsewhere.
+  mentionStatus: (workspaceUrl: string, identifiers: string[]) =>
+    ['mention-status', workspaceUrl, [...identifiers].sort()] as const,
 
-  mentionSearch: (query: string, limit: number) =>
-    ['mention-search', query, limit] as const,
+  mentionSearch: (workspaceUrl: string, query: string, limit: number) =>
+    ['mention-search', workspaceUrl, query, limit] as const,
 
   workspaceExports: () => ['workspace', 'exports'] as const,
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   taskDocumentsClient,
@@ -20,7 +20,7 @@ export function useTaskDocuments(
   enabled = true
 ): UseTaskDocumentsResult {
   const queryClient = useQueryClient()
-  const queryKey = queryKeys.taskDocuments(taskId)
+  const queryKey = useMemo(() => queryKeys.taskDocuments(taskId), [taskId])
 
   const query = useQuery<TaskDocumentResource[], Error>({
     queryKey,

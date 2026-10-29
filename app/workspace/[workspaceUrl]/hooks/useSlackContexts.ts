@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   slackContextsClient,
@@ -23,7 +23,7 @@ export function useSlackContexts(
   enabled = true
 ): UseSlackContextsResult {
   const queryClient = useQueryClient()
-  const queryKey = queryKeys.taskSlackContexts(taskId)
+  const queryKey = useMemo(() => queryKeys.taskSlackContexts(taskId), [taskId])
 
   const query = useQuery<SlackContextResource[], Error>({
     queryKey,

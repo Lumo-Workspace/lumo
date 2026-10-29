@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
@@ -48,9 +48,13 @@ export function WorkspaceExportCard() {
   const exports = query.data ?? (query.isError ? [] : null)
   const polling = exportsPollInterval(query.data) !== false
 
+  // Toast failures from this mount only: a cached query remembers past
+  // errors, and reopening the card must not replay their toast.
   const { errorUpdateCount } = query
+  const seenErrors = useRef(errorUpdateCount)
   useEffect(() => {
-    if (errorUpdateCount === 0) return
+    if (errorUpdateCount <= seenErrors.current) return
+    seenErrors.current = errorUpdateCount
     toast.error(
       intl.formatMessage({ id: 'workspaceSettings.export.loadFailed' })
     )
