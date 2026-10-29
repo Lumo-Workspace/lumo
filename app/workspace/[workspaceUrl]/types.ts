@@ -1,3 +1,4 @@
+import type { DoneGateReadout } from '@/lib/acceptance/done-gate'
 import type { TaskArtifactAgent } from '@prisma/client'
 
 // ─── Legacy types (used by constants.ts mock data) ───────────────────────────
@@ -834,4 +835,6 @@ export interface TaskStatusView {
   struggleTrail: StruggleTrailView
   cost: TaskCostView
   trend: TrendModelView
+  /** LUM-1186: the server's Done gate; LUM-1334 reads its requirements row. */
+  doneGate?: DoneGateReadout
 }

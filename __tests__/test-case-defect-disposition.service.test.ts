@@ -41,6 +41,15 @@ jest.mock('@/lib/services/audit.service', () => ({
 }))
 // LUM-1064: core test, run without the security plugin (the OSS build).
 jest.mock('@/lib/plugins/installed', () => ({ INSTALLED_SERVER_PLUGINS: [] }))
+// LUM-1334: the DONE requirement switches, off — this test is about rulings.
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findDoneRequirements: jest.fn(async () => ({
+      testCase: false,
+      review: false,
+    })),
+  },
+}))
 
 const findRun = testCaseRepository.findRunForDisposition as jest.Mock
 const createDisposition = testCaseRepository.createDisposition as jest.Mock

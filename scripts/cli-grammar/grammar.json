@@ -5524,6 +5524,71 @@
       "isInvokable": false,
       "description": "Workspace settings from the terminal"
     },
+    "workspace done-requirements": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "What DONE requires on each linked PR's latest commit: a passing test case, a review"
+    },
+    "workspace done-requirements show": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { testCase, review, canEdit } as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show the Done requirements. Any member may read.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
+    "workspace done-requirements update": {
+      "arguments": [],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user approved the listed changes"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit { testCase, review, canEdit } as JSON"
+        },
+        "--review": {
+          "long": "--review",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Require a review on each linked PR's latest commit (Lumo AI review, an imported agent review, or a GitHub approval)"
+        },
+        "--test-case": {
+          "long": "--test-case",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Require a passing test-case run on each linked PR's latest commit"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Turn the Done requirements on or off, workspace-wide. OWNER only; every change needs --confirm.",
+      "codex": { "serverOnly": true, "localFiles": "none" }
+    },
     "workspace security-scan": {
       "arguments": [],
       "flags": {},

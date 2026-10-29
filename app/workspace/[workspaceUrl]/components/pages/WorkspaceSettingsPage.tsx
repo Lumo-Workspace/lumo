@@ -11,6 +11,7 @@ import { workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { DataRetentionSection } from '../settings/DataRetentionSection'
 import { DefaultLanguageRow } from '../settings/DefaultLanguageRow'
+import { DoneRequirementsCard } from '../settings/DoneRequirementsCard'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionRow } from '../settings/WorkspaceDeletionRow'
 import { AiDerivedContentDeleteRow } from '../settings/AiDerivedContentDeleteRow'
@@ -38,6 +39,8 @@ type Workspace = {
   crossingRawRetentionDays?: number
   deadLetterRetentionDays?: number
   aiDerivedContentEnabled?: boolean
+  doneRequiresTestCase?: boolean
+  doneRequiresReview?: boolean
 } & { [column: string]: unknown }
 
 type WorkspaceCache = {
@@ -230,6 +233,16 @@ export function WorkspaceSettingsPage() {
       id: 'general',
       label: intl.formatMessage({ id: 'workspaceSettings.section.general' }),
     },
+    ...(loaded
+      ? [
+          {
+            id: 'done-requirements',
+            label: intl.formatMessage({
+              id: 'workspaceSettings.section.doneRequirements',
+            }),
+          },
+        ]
+      : []),
     ...(showCodeReview
       ? [
           {
@@ -391,6 +404,22 @@ export function WorkspaceSettingsPage() {
             )}
           </div>
         </SettingsSection>
+
+        {/* LUM-1334: what a task needs before it can move to Done. */}
+        {loaded && workspace && (
+          <SettingsSection
+            id='done-requirements'
+            title={intl.formatMessage({
+              id: 'workspaceSettings.section.doneRequirements',
+            })}
+          >
+            <DoneRequirementsCard
+              key={`done-requirements:${workspace.id}`}
+              testCase={workspace.doneRequiresTestCase ?? null}
+              review={workspace.doneRequiresReview ?? null}
+            />
+          </SettingsSection>
+        )}
 
         {/* Plugin settings (LUM-1062; the security plugin's PR scan
             switches, LUM-866). */}

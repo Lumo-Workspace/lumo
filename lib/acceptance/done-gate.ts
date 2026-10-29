@@ -5,7 +5,14 @@
  * and the server's task-status read model (LUM-1186, rendered by
  * `lumo task status` / `task wrapup`) run the SAME rule and cannot disagree.
  */
-export type DoneGateHeadline = 'accepted' | 'blocked' | 'ready'
+import type {
+  DoneRequirementSwitches,
+  MissingRequirement,
+} from './done-requirements'
+
+/** unconfirmed: nothing known blocks, but the requirements could not be
+ *  read (web only — the server never derives a gate it could not read). */
+export type DoneGateHeadline = 'accepted' | 'blocked' | 'ready' | 'unconfirmed'
 
 export interface CrossingsGateRow {
   /** blocked: a blocking crossing is open · advisory: only non-blocking ones
@@ -33,15 +40,29 @@ export interface TestsGateRow {
   total: number
 }
 
+/**
+ * LUM-1334 — the workspace's opt-in requirements (a passing test case / a
+ * review on each PR's latest commit). Only present while a switch is on.
+ */
+export interface RequirementsGateRow {
+  /** blocked: some counted PR misses a requirement · clear: none does ·
+   *  unconfirmed: whether a switch is on could not be read. */
+  state: 'blocked' | 'clear' | 'unconfirmed'
+  switches: DoneRequirementSwitches
+  missing: MissingRequirement[]
+}
+
 export interface DoneGate {
   headline: DoneGateHeadline
   /** Items that hold Done back: blocking crossings + blocking findings +
-   *  undispositioned proven test defects. */
+   *  undispositioned proven test defects + missing requirements (LUM-1334). */
   blockingTotal: number
   crossings: CrossingsGateRow
   /** null when no plugin contributes a security check (LUM-1062). */
   security: SecurityGateRow | null
   tests: TestsGateRow
+  /** LUM-1334: null while both requirement switches are off. */
+  requirements: RequirementsGateRow | null
 }
 
 /**
@@ -70,6 +91,15 @@ export function deriveDoneGate(
     showSecurity?: boolean
     /** LUM-1011: test-case counts for the gate row's detail. */
     tests?: { total: number; passing: number }
+    /** LUM-1334: the requirement switches and what the PRs miss, or
+     *  'unconfirmed' when they could not be read. */
+    requirements?:
+      | {
+          switches: DoneRequirementSwitches
+          missing: MissingRequirement[]
+        }
+      | 'unconfirmed'
+      | null
   }
 ): DoneGate {
   const advisory = gaps.crossingsOpen - gaps.crossingsBlocking
@@ -93,15 +123,36 @@ export function deriveDoneGate(
   const testsState: TestsGateRow['state'] =
     gaps.testsBlocking > 0 ? 'blocked' : testsTotal > 0 ? 'clear' : 'none'
 
+  const req = opts.requirements
+  const requirements: RequirementsGateRow | null =
+    req === 'unconfirmed'
+      ? {
+          state: 'unconfirmed',
+          switches: { testCase: false, review: false },
+          missing: [],
+        }
+      : req && (req.switches.testCase || req.switches.review)
+        ? {
+            state: req.missing.length > 0 ? 'blocked' : 'clear',
+            switches: req.switches,
+            missing: req.missing,
+          }
+        : null
+
   const blockingTotal =
-    gaps.crossingsBlocking + gaps.securityBlocking + gaps.testsBlocking
+    gaps.crossingsBlocking +
+    gaps.securityBlocking +
+    gaps.testsBlocking +
+    (requirements?.missing.length ?? 0)
 
   return {
     headline: gaps.taskDone
       ? 'accepted'
       : blockingTotal > 0
         ? 'blocked'
-        : 'ready',
+        : requirements?.state === 'unconfirmed'
+          ? 'unconfirmed'
+          : 'ready',
     blockingTotal,
     crossings: {
       state: crossingsState,
@@ -120,6 +171,7 @@ export function deriveDoneGate(
       passing: opts.tests?.passing ?? 0,
       total: testsTotal,
     },
+    requirements,
   }
 }
 

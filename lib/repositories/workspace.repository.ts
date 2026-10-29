@@ -37,6 +37,9 @@ export interface WorkspaceUpdateData {
   deadLetterRetentionDays?: number
   /** LUM-917: generate AI-derived content (memories, summaries). */
   aiDerivedContentEnabled?: boolean
+  /** LUM-1334: the DONE requirement switches. */
+  doneRequiresTestCase?: boolean
+  doneRequiresReview?: boolean
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────
@@ -186,6 +189,19 @@ export const workspaceRepository = {
       select: { defaultLocale: true },
     })
     return row?.defaultLocale ?? null
+  },
+
+  /** LUM-1334 — the DONE requirement switches; null when the workspace is gone. */
+  async findDoneRequirements(
+    workspaceId: string
+  ): Promise<{ testCase: boolean; review: boolean } | null> {
+    const row = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { doneRequiresTestCase: true, doneRequiresReview: true },
+    })
+    return row
+      ? { testCase: row.doneRequiresTestCase, review: row.doneRequiresReview }
+      : null
   },
 
   /** Find workspace name and slug by ID. */

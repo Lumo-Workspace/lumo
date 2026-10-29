@@ -2143,6 +2143,35 @@ export const prSecurityScanRepository = {
   },
 
   /**
+   * LUM-1334 — the scans that reviewed one of these exact PR heads: Lumo's AI
+   * review ran (`judgeStatus` RAN) or an agent review was imported into it.
+   * Returns the covered PR ids.
+   */
+  async findReviewedHeads(
+    heads: Array<{ pullRequestId: string; headSha: string }>
+  ): Promise<string[]> {
+    if (heads.length === 0) return []
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        OR: heads.map(h => ({
+          pullRequestId: h.pullRequestId,
+          headSha: h.headSha,
+        })),
+        AND: [
+          {
+            OR: [
+              { judgeStatus: 'RAN' },
+              { agentReviewTools: { isEmpty: false } },
+            ],
+          },
+        ],
+      },
+      select: { pullRequestId: true },
+    })
+    return [...new Set(rows.map(r => r.pullRequestId))]
+  },
+
+  /**
    * LUM-1186 — does any linked PR of the task have a scan at all? The Done
    * gate's "not scanned" vs "clear" (same set as the web's `latest !== null`).
    * One indexed id read, no findings hydrated.

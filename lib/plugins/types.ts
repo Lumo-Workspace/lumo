@@ -74,6 +74,16 @@ export interface DoneGateContributor {
    * reported as checked. Read-only display; the gate decision never reads it.
    */
   checked?(taskId: string): Promise<boolean>
+  /**
+   * LUM-1334: which of these PR heads a review of the plugin's covers (for
+   * the security plugin: Lumo's AI review ran on it, or an agent review was
+   * imported into it) — the covered PR ids. Optional; the gate's review
+   * requirement then counts only GitHub approvals. Fail-closed like
+   * `openBlockers`.
+   */
+  reviewedPullRequests?(
+    heads: Array<{ pullRequestId: string; headSha: string }>
+  ): Promise<string[]>
 }
 
 // ── agent context ────────────────────────────────────────────────────────────

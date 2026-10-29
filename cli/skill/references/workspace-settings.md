@@ -57,6 +57,20 @@ Flags:
 - `--json` prints `{ switches: { securityScanEnabled, securityAiReviewEnabled, securityHuntEnabled, securityRewardHackEnabled, securityRequestChangesEnabled, securityAllowAuthorApproval, securityLearningsScope, securityReviewAutoPauseAfter, securityLocalScanLogEnabled }, platform: { managedScan, hunt, rewardHack, sandbox }, effective: { scan, managedScan, aiReview, hunt, rewardHack, aiReviewTurnedOff, huntTurnedOff, rewardHackTurnedOff }, canEdit, agentReviewBlocking }` (`canEdit` = the caller is an OWNER; `agentReviewBlocking` = `off|high|medium|low|custom`).
 - On a server without the security plugin (e.g. a self-hosted open-source build) the command prints ``Error: `lumo workspace security-scan` is not available on this Lumo server — the security plugin is not installed there.`` and exits 1 (CLI ≥ 1.106.0); there are no switches to show or change.
 
+### `lumo workspace done-requirements show` / `update` — what DONE requires
+
+Two OWNER switches, **both off by default**, the same as Settings → Workspace → **Done requirements**. While one is on, every task with a linked PR (closed-unmerged PRs don't count) is refused DONE (409 / exit 5 `DONE_REQUIREMENT`, [confirmation.md](confirmation.md)) until **each** such PR has, on its latest commit:
+
+- **`--test-case on`** — a test case whose **latest** run is PASS (not capped UNPROVEN), on a clean tree, at the PR's head or merge commit, recorded against that PR or no PR ([test-case-runs.md](test-case-runs.md)).
+- **`--review on`** — a review of the head: Lumo's AI review ran on it, an agent review was imported into it (`lumo review import`), or a GitHub approval on that commit from a person (not a bot) who is the repo owner, a collaborator or a member of the owning org, that was not later dismissed or followed by that reviewer's change request.
+
+A push moves the head, so both must be met again. `update` with no flag exits 2; **every change is exit-4 gated** (workspace-wide); a value already stored is a no-op. A non-owner gets `Error: only workspace owners can change the Done requirements` (exit 1). Audited as `workspace.security_settings_updated`. `--json` prints `{ testCase, review, canEdit }`.
+
+```bash
+lumo workspace done-requirements show
+lumo workspace done-requirements update --test-case on --review on --confirm  # after the user approved the envelope
+```
+
 ### Per-repository automatic review — `--repos` / `--repo`
 
 Lumo reviews every PR of each repository the workspace confirmed, including PRs **without a Lumo task**. Per repository (Settings → Workspace → **Automatic review by repository**): `Review` (default on) — whether task-less PRs are reviewed automatically; `Drafts` (default off) — whether drafts are reviewed before they are marked ready. Task-linked PRs are always scanned (Done checks their findings).

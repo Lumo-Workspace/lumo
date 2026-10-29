@@ -84,7 +84,7 @@ Output: `Updated LUM-48 "Title"  <url>`, a `Tags:` line, and for `--sprint` a `S
 
 ### `--status done` — one step, or the confirmation envelope
 
-**One step when nothing is left.** When `--status` is the only flag, at least one PR is linked, **every** linked PR is merged and the status digest reads `Blocks DONE: nothing on record` (no blocking crossing, security finding or proven test-case defect, no `⚠ could not confirm`), the PATCH runs straight away — no envelope, exit 0:
+**One step when nothing is left.** When `--status` is the only flag, at least one PR is linked, **every** linked PR is merged and the status digest reads `Blocks DONE: nothing on record` (no blocking crossing, security finding, proven test-case defect or missing Done requirement, no `⚠ could not confirm`), the PATCH runs straight away — no envelope, exit 0:
 
 ```text
 Updated LUM-48 "Title"  https://…/LUM-48
