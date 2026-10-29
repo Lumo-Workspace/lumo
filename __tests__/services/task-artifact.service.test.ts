@@ -125,7 +125,8 @@ describe('taskArtifactService.addArtifact summary', () => {
 
     expect(contentSummaryService.summarize).toHaveBeenCalledWith(
       expect.any(String),
-      'artifact'
+      'artifact',
+      { taskId: expect.any(String) }
     )
     expect(repo.updateSummary).toHaveBeenCalledWith('a1', 'sum')
   })

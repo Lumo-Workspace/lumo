@@ -2,6 +2,7 @@ import {
   workspaceRepository,
   type WorkspaceUpdateData,
 } from '@/lib/repositories/workspace.repository'
+import type { AiFeatureSwitches } from '@/lib/ai-features/registry'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import {
   nextSessionRecordCutoff,
@@ -55,6 +56,8 @@ interface CoreWorkspaceSettingsInput {
   deadLetterRetentionDays?: DeadLetterRetentionDays | undefined
   /** LUM-917: generate AI-derived content (memories, summaries). */
   aiDerivedContentEnabled?: boolean | undefined
+  /** LUM-1338: the AI feature switches (set by aiFeaturesService only). */
+  aiFeatureSwitches?: AiFeatureSwitches | undefined
 }
 
 // ── Retention changes (LUM-933) ─────────────────────────────────────────────
@@ -196,6 +199,8 @@ export const workspaceService = {
       data.deadLetterRetentionDays = input.deadLetterRetentionDays
     if (input.aiDerivedContentEnabled !== undefined)
       data.aiDerivedContentEnabled = input.aiDerivedContentEnabled
+    if (input.aiFeatureSwitches !== undefined)
+      data.aiFeatureSwitches = input.aiFeatureSwitches
     // LUM-1062: plugin-owned columns (e.g. the security plugin's policy,
     // evidence retention and scan switches) go in the same update + audit.
     Object.assign(data, pluginWorkspaceWrites(input))

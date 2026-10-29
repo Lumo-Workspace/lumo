@@ -116,6 +116,24 @@ describe('turnSummaryService.generateAndStore — the summary-only path', () => 
     )
   })
 
+  it('LUM-1338: makes no call (and logs no error) when turn summaries are off', async () => {
+    const { aiFeaturesService } = jest.requireMock(
+      '@/lib/services/ai-features.service'
+    )
+    aiFeaturesService.isEnabled.mockResolvedValueOnce(false)
+    await turnSummaryService.generateAndStore({
+      stopEventId: 'evt_stop',
+      sessionId: 'sess_1',
+    })
+    expect(aiFeaturesService.isEnabled).toHaveBeenCalledWith(
+      { sessionId: 'sess_1' },
+      'turnSummary'
+    )
+    expect(generateTextMock).not.toHaveBeenCalled()
+    expect(setTurnSummary).not.toHaveBeenCalled()
+    expect(console.error).not.toHaveBeenCalled()
+  })
+
   it('never throws when the model call fails', async () => {
     generateTextMock.mockRejectedValue(new Error('gateway down'))
     await expect(

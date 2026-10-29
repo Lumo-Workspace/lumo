@@ -14,7 +14,9 @@ describe('contentSummaryService', () => {
   })
 
   it('returns empty string for blank input without calling the model', async () => {
-    const out = await contentSummaryService.summarize('   ', 'slack')
+    const out = await contentSummaryService.summarize('   ', 'slack', {
+      workspaceId: 'ws1',
+    })
     expect(out).toBe('')
   })
 

@@ -19,6 +19,8 @@ export { documentTemplateService } from './document-template.service'
 export { taskTemplateService } from './task-template.service'
 export { workspaceService } from './workspace.service'
 export { aiDerivedContentService } from './ai-derived-content.service'
+export { aiFeaturesService } from './ai-features.service'
+export type { AiFeaturesStatus } from './ai-features.service'
 export { sessionRecordNoticeService } from './session-record-notice.service'
 export type { SessionRecordNotice } from './session-record-notice.service'
 export type {

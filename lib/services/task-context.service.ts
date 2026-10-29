@@ -106,6 +106,7 @@ import {
 import { logger } from '@/lib/logger'
 import { guardPromptLineText } from '@/lib/security-scan/inject-guard'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 export interface SessionContext {
   id: string
@@ -506,6 +507,15 @@ async function selectRelevantProjectMemories(
   const rankBySimilarity = async (
     input: RelevanceGateInput
   ): Promise<SimilarityRanking | null> => {
+    // LUM-1338: embedding ranking switched off, or no model — rank by
+    // spelling, as for a cold corpus, rather than injecting every memory.
+    if (
+      !(await aiFeaturesService.isEnabled(
+        { projectId: task.projectId },
+        'memoryRanking'
+      ))
+    )
+      return lexicalRanking(input)
     try {
       const { embedTexts } = await import('@/lib/ai/embedding')
       const [v] = await embedTexts([queryText])

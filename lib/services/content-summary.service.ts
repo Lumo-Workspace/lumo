@@ -1,4 +1,6 @@
 import { FAST_MODEL } from '@/lib/ai/models'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
+import type { AiFeatureSwitchRef } from '@/lib/repositories/ai-feature-switch.repository'
 
 export type SummaryKind = 'slack' | 'artifact' | 'document' | 'comments'
 
@@ -31,9 +33,18 @@ export const SUMMARY_PROMPTS: Record<SummaryKind, string> = {
  * inline summary on the row, then expose the full body via retrieval.
  */
 export const contentSummaryService = {
-  async summarize(text: string, kind: SummaryKind): Promise<string> {
+  /**
+   * '' for a blank body, and (LUM-1338) when the workspace `ref` belongs to
+   * switched content summaries off or has no model — callers skip the write.
+   */
+  async summarize(
+    text: string,
+    kind: SummaryKind,
+    ref: AiFeatureSwitchRef
+  ): Promise<string> {
     const trimmed = text.trim()
     if (trimmed.length === 0) return ''
+    if (!(await aiFeaturesService.isEnabled(ref, 'contentSummary'))) return ''
 
     // Dynamic import is mandatory: @ai-sdk/gateway pulls in TransformStream at
     // module load, which crashes jest when imported statically. Loading it

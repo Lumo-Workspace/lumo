@@ -6,6 +6,7 @@ import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.ser
 import type { RawEvent } from '@/lib/services/session-summary/compact-events'
 import { logger } from '@/lib/logger'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 /**
  * LUM-481: generate per-session run summaries for a just-completed task so the
@@ -91,7 +92,11 @@ async function generateSessionSummaries(
   try {
     // LUM-917: the workspace turned AI-derived content off — no run summary
     // is generated (the claim snapshot below still freezes from turn lines).
-    if (!(await aiDerivedContentService.isEnabled({ taskId }))) {
+    // LUM-1338: likewise when the run-summary switch is off or no model.
+    if (
+      !(await aiDerivedContentService.isEnabled({ taskId })) ||
+      !(await aiFeaturesService.isEnabled({ taskId }, 'runSummary'))
+    ) {
       return { generated, failed, skippedEmpty, degraded: false }
     }
     const sessionIds = opts.force

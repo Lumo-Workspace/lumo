@@ -33,13 +33,14 @@ export function buildSlackSummaryInput(snapshot: {
  */
 function scheduleSlackSummary(
   contextId: string,
+  taskId: string,
   snapshot: {
     messages: Array<{ userId: string; userName: string | null; text: string }>
   }
 ): void {
   waitUntil(
     contentSummaryService
-      .summarize(buildSlackSummaryInput(snapshot), 'slack')
+      .summarize(buildSlackSummaryInput(snapshot), 'slack', { taskId })
       .then(s =>
         s ? taskSlackContextRepository.updateSummary(contextId, s) : undefined
       )
@@ -132,7 +133,7 @@ export const taskSlackContextService = {
       contentSignals: scanSlackSnapshot(snapshot),
     })
 
-    scheduleSlackSummary(created.id, snapshot)
+    scheduleSlackSummary(created.id, input.taskId, snapshot)
     return created
   },
 
@@ -177,7 +178,7 @@ export const taskSlackContextService = {
       scanSlackSnapshot(snapshot)
     )
 
-    scheduleSlackSummary(contextId, snapshot)
+    scheduleSlackSummary(contextId, ctx.taskId, snapshot)
     return updated
   },
 

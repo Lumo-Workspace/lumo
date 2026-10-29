@@ -188,7 +188,10 @@ export const AUDIT_INSTRUMENTED: Readonly<
  * units, so moving the body behind a wrapper does not drop a caller check.
  */
 export const AUDIT_DELEGATES: Readonly<Record<AuditUnit, AuditUnit>> = {
-  // Empty since the Clerk webhook's entry went with Clerk (LUM-1077).
+  // LUM-1338: an AI feature switch is a workspace setting
+  // (`aiFeatureSwitches`, audited as workspace.settings_updated).
+  'lib/services/ai-features.service.ts#setSwitch':
+    'lib/services/workspace.service.ts#updateWorkspace',
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   compactEvents,
   type RawEvent,
 } from '@/lib/services/session-summary/compact-events'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 /**
  * DONE-time Layer-1 memory curation (LUM-544, Section 1 — automates the old
@@ -28,6 +29,11 @@ export const memoryCurationService = {
     // LUM-1314: the global memory pipeline switch is on.
     if (isMemoryPipelineDisabled()) return
     try {
+      // LUM-1338: memory consolidation switched off, or no model.
+      if (
+        !(await aiFeaturesService.isEnabled({ taskId }, 'memoryConsolidation'))
+      )
+        return
       const task = await taskRepository.getTitleAndStatus(taskId)
       if (!task) return
       const sessions = await sessionRepository.listForTask(taskId)

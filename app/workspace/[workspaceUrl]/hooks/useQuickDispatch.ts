@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
-import { tasksClient } from '@/lib/api-client'
+import { useIntl } from 'react-intl'
+import { tasksClient, ApiClientError } from '@/lib/api-client'
+import { isAiOffCode } from '@/lib/ai-features/registry'
 import type { QuickAction, Mention } from '@/lib/quick-dispatch/types'
 
 type DispatchPhase = 'input' | 'loading' | 'preview' | 'executing'
@@ -28,6 +30,7 @@ interface ExecuteResponse {
 
 export function useQuickDispatch() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+  const intl = useIntl()
   const [phase, setPhase] = useState<DispatchPhase>('input')
   const [input, setInput] = useState('')
   const [mentions, setMentions] = useState<Mention[]>([])
@@ -75,7 +78,14 @@ export function useQuickDispatch() {
     },
     onError: err => {
       if (abortRef.current?.signal.aborted) return
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      // LUM-1338: AI switched off or not configured — say so, not the raw error.
+      setError(
+        err instanceof ApiClientError && isAiOffCode(err.code)
+          ? intl.formatMessage({ id: 'aiFeatures.error.unavailable' })
+          : err instanceof Error
+            ? err.message
+            : 'Something went wrong'
+      )
       setPhase('input')
     },
   })
@@ -130,7 +140,9 @@ export function useQuickDispatch() {
 
   const execute = useCallback(async () => {
     if (actions.length === 0) return
-    const data = await executeMutation.mutateAsync({ actions }).catch(() => null)
+    const data = await executeMutation
+      .mutateAsync({ actions })
+      .catch(() => null)
     return data?.results
   }, [actions, executeMutation])
 

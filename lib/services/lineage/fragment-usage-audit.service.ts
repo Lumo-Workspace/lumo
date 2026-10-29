@@ -14,6 +14,7 @@ import { logger } from '@/lib/logger'
 import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import type { LineageFragmentType } from '@prisma/client'
 import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 /**
  * Audit one session: which injected fragments did the agent actually use?
@@ -103,6 +104,11 @@ export const fragmentUsageAuditService = {
     // LUM-1314: the global memory pipeline switch is on.
     if (isMemoryPipelineDisabled()) return
     try {
+      // LUM-1338: memory consolidation switched off, or no model.
+      if (
+        !(await aiFeaturesService.isEnabled({ taskId }, 'memoryConsolidation'))
+      )
+        return
       const task = await taskRepository.getTitleAndStatus(taskId)
       if (!task) return
       const sessions = await sessionRepository.listForTask(taskId)
@@ -139,6 +145,13 @@ export const fragmentUsageAuditService = {
       await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(limit)
     for (const id of sessionIds) {
       try {
+        if (
+          !(await aiFeaturesService.isEnabled(
+            { sessionId: id },
+            'memoryConsolidation'
+          ))
+        )
+          continue
         const edges = await lineageEdgeRepository.findSessionFragmentEdges(id)
         if (edges.length === 0) continue
         const task = await sessionRepository.findTaskTitleForSession(id)

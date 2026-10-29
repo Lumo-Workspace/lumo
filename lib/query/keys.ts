@@ -14,6 +14,8 @@ export const queryKeys = {
   workspace: () => ['workspace'] as const,
   // LUM-918: the workspace's pending deletion (banner + danger zone).
   workspacePendingDeletion: () => ['workspace', 'pending-deletion'] as const,
+  // LUM-1338: the AI feature switches and each feature's state.
+  workspaceAiFeatures: () => ['workspace', 'ai-features'] as const,
   // LUM-1114: per project, the policy rules no detector checks.
   workspacePolicyCoverage: () => ['workspace', 'policy-coverage'] as const,
   // LUM-1133: per-repository automatic PR review settings.

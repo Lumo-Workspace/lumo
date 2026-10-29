@@ -3,6 +3,7 @@ import type {
   Prisma,
   SummaryFrequency,
 } from '@prisma/client'
+import type { AiFeatureSwitches } from '@/lib/ai-features/registry'
 import { prisma } from '@/lib/db/prisma'
 import { generateIdentifier } from '@/lib/team'
 
@@ -37,6 +38,8 @@ export interface WorkspaceUpdateData {
   deadLetterRetentionDays?: number
   /** LUM-917: generate AI-derived content (memories, summaries). */
   aiDerivedContentEnabled?: boolean
+  /** LUM-1338: the AI feature switches (sparse; absent = on). */
+  aiFeatureSwitches?: AiFeatureSwitches
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────

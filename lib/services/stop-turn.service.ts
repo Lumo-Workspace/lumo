@@ -8,6 +8,7 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { layer1Service } from '@/lib/services/memory/layer1.service'
 import { turnSummaryService } from '@/lib/services/turn-summary/turn-summary.service'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
 import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
 import { logger } from '@/lib/logger'
@@ -53,16 +54,20 @@ async function currentStopTask(ctx: StopTurnContext): Promise<string | null> {
  * LUM-917: a workspace that turned AI-derived content off gets the
  * summary-only call too — the turn line of its session record stays, no
  * memory is extracted. LUM-1314: so does every turn while the global memory
- * pipeline switch is on.
+ * pipeline switch is on. LUM-1338: memory extraction and the turn summary
+ * each have an AI feature switch (the turn summary checks its own); with both
+ * off (or no model) the turn makes no model call at all.
  */
 async function extractOrSummarize(
   ctx: StopTurnContext,
   taskId: string | null
 ): Promise<void> {
+  const ref = { workspaceId: ctx.workspaceId }
   if (
     taskId &&
     !isMemoryPipelineDisabled() &&
-    (await aiDerivedContentService.isEnabled({ workspaceId: ctx.workspaceId }))
+    (await aiDerivedContentService.isEnabled(ref)) &&
+    (await aiFeaturesService.isEnabled(ref, 'memoryExtraction'))
   ) {
     await layer1Service.triggerLayer1Extraction({
       sessionId: ctx.sessionId,

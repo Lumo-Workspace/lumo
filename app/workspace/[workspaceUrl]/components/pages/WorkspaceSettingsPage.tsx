@@ -15,6 +15,7 @@ import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionRow } from '../settings/WorkspaceDeletionRow'
 import { AiDerivedContentDeleteRow } from '../settings/AiDerivedContentDeleteRow'
 import { DangerZoneCard } from '../settings/DangerZoneCard'
+import { AiFeaturesSection } from '../settings/AiFeaturesSection'
 import {
   SettingsSection,
   SettingsSectionNav,
@@ -230,6 +231,16 @@ export function WorkspaceSettingsPage() {
       id: 'general',
       label: intl.formatMessage({ id: 'workspaceSettings.section.general' }),
     },
+    ...(loaded
+      ? [
+          {
+            id: 'ai-features',
+            label: intl.formatMessage({
+              id: 'workspaceSettings.section.aiFeatures',
+            }),
+          },
+        ]
+      : []),
     ...(showCodeReview
       ? [
           {
@@ -391,6 +402,18 @@ export function WorkspaceSettingsPage() {
             )}
           </div>
         </SettingsSection>
+
+        {/* AI feature switches (LUM-1338): master, groups, features. */}
+        {loaded && workspace && (
+          <SettingsSection
+            id='ai-features'
+            title={intl.formatMessage({
+              id: 'workspaceSettings.section.aiFeatures',
+            })}
+          >
+            <AiFeaturesSection />
+          </SettingsSection>
+        )}
 
         {/* Plugin settings (LUM-1062; the security plugin's PR scan
             switches, LUM-866). */}

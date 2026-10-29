@@ -12,6 +12,7 @@ import {
 } from '@/lib/services/session-summary/compact-events'
 import { cleanTurnSummary } from '@/lib/services/meta-reasoning'
 import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 interface TriggerInput {
   /** The just-inserted STOP / STOP_FAILURE event id — destination for
@@ -62,6 +63,14 @@ const SYSTEM_PROMPT = `你是 Lumo 的 Agent 运行总结助手。给你一个 C
 export const turnSummaryService = {
   async generateAndStore(input: TriggerInput): Promise<void> {
     try {
+      // LUM-1338: switched off, or no model — no call, no error log per turn.
+      if (
+        !(await aiFeaturesService.isEnabled(
+          { sessionId: input.sessionId },
+          'turnSummary'
+        ))
+      )
+        return
       const events = await sessionRepository.listEventsForSession(
         input.sessionId
       )

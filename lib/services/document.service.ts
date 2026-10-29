@@ -222,7 +222,7 @@ export function scheduleDocumentSummary(
 ): void {
   waitUntil(
     contentSummaryService
-      .summarize(bodyText, 'document')
+      .summarize(bodyText, 'document', { workspaceId })
       .then(s =>
         s ? documentRepository.updateSummary(docId, workspaceId, s) : undefined
       )

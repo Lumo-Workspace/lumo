@@ -8,6 +8,7 @@ import { groundCandidates } from './ground-candidates'
 import { applyMilestoneDistillOperations } from './milestone-distill-apply'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 import { isMemoryPipelineDisabled } from '@/lib/memory/pipeline-switch'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 export interface MilestoneDistillResult {
   added: number
@@ -42,6 +43,18 @@ export const milestoneDistillService = {
       if (!(await aiDerivedContentService.isEnabled({ milestoneId }))) {
         logger.debug(
           `[memory.milestone-distill] skip milestone=${milestoneId} reason=ai-derived-off`
+        )
+        return
+      }
+      // LUM-1338: memory consolidation switched off, or no model.
+      if (
+        !(await aiFeaturesService.isEnabled(
+          { milestoneId },
+          'memoryConsolidation'
+        ))
+      ) {
+        logger.debug(
+          `[memory.milestone-distill] skip milestone=${milestoneId} reason=ai-feature-off`
         )
         return
       }

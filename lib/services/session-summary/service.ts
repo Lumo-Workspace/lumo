@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 import { AI_DERIVED_OFF_CODE } from '@/lib/ai-derived/constants'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 import {
   compactEvents,
   extractSessionMetadata,
@@ -61,6 +62,11 @@ export const sessionSummaryService = {
         { status: 409, code: AI_DERIVED_OFF_CODE }
       )
     }
+    // LUM-1338: switched off, or no model (409 / 503 with a code the card reads).
+    await aiFeaturesService.assertEnabled(
+      { workspaceId: session.workspaceId },
+      'sessionSummary'
+    )
 
     const events = (await sessionRepository.listEventsForSession(
       sessionId

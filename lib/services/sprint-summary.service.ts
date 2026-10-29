@@ -8,6 +8,7 @@ import { callSprintSummaryLLM } from '@/lib/llm/sprint-summary-client'
 import { taskStatusService } from '@/lib/services/task-status.service'
 import { collectDoneGateBlockers } from '@/lib/plugins/done-gate'
 import { logger } from '@/lib/logger'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -53,13 +54,20 @@ export const sprintSummaryService = {
         tasks.map(t => t.id)
       )
 
-      const { tldr, report } = await callSprintSummaryLLM({
-        subject: sprint.name,
-        window: { start: sprint.startDate, end: sprint.endDate },
-        stats,
-        tasks,
-        struggle,
-      })
+      // LUM-1338: retro summaries switched off (or no model) — the stats
+      // still save, so the retro shows its figures without the write-up.
+      const { tldr, report } = (await aiFeaturesService.isEnabled(
+        { workspaceId: sprint.team.workspaceId },
+        'retroSummary'
+      ))
+        ? await callSprintSummaryLLM({
+            subject: sprint.name,
+            window: { start: sprint.startDate, end: sprint.endDate },
+            stats,
+            tasks,
+            struggle,
+          })
+        : { tldr: '', report: '' }
 
       const savedSummary = await sprintSummaryRepository.save(sprintId, {
         stats,

@@ -26,6 +26,7 @@ import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repositor
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { REASONING_MODEL } from '@/lib/ai/models'
 import { isWorkspaceAiReviewEnabled } from '@/lib/plugins/workspace-settings'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 const JUDGE_TIMEOUT = 90_000
 
@@ -270,7 +271,10 @@ export const claimFaithfulnessService = createClaimFaithfulnessService({
   listWatermarks: () => claimFaithfulnessVerdictRepository.listWatermarks(),
   // LUM-1062: the AI review switch belongs to whichever plugin owns it (the
   // security plugin's `securityAiReviewEnabled`); with none it is on.
-  isAiReviewOn: isWorkspaceAiReviewEnabled,
+  // LUM-1338: and the workspace's claim-check AI switch (and a model).
+  isAiReviewOn: async (workspaceId: string) =>
+    (await isWorkspaceAiReviewEnabled(workspaceId)) &&
+    (await aiFeaturesService.isEnabled({ workspaceId }, 'claimCheck')),
   // judgeModel is the provenance label stored on the verdict row; it must match
   // the model the judge client actually runs (REASONING_MODEL) — LUM-587.
   judgeModel: REASONING_MODEL,

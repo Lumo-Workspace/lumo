@@ -19,8 +19,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card } from '@/components/ui/card'
 import { sessionsClient, ApiClientError } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
+import { useAiFeatures } from '@/hooks/use-ai-features'
 import { SESSION_MESSAGES as M } from '../messages'
 import { AI_DERIVED_OFF_CODE } from '@/lib/ai-derived/constants'
+import { isAiOffCode } from '@/lib/ai-features/registry'
 import { Badge } from '@/components/ui/badge'
 
 // Kept local to the component to avoid importing server-only type files.
@@ -117,6 +119,10 @@ export function SummaryCard({
   const [error, setError] = useState<string | null>(null)
   const [, startTransition] = useTransition()
   const now = useNow()
+  // LUM-1338: no generate button while session summaries are switched off.
+  const aiFeatures = useAiFeatures()
+  const summaryOn = aiFeatures.isOn('sessionSummary')
+  const summaryOff = aiFeatures.status !== null && !summaryOn
 
   async function regenerate() {
     setLoading(true)
@@ -132,9 +138,11 @@ export function SummaryCard({
       setError(
         err instanceof ApiClientError && err.code === AI_DERIVED_OFF_CODE
           ? intl.formatMessage(M['summary.aiDerivedOff'])
-          : err instanceof ApiClientError || err instanceof Error
-            ? err.message
-            : intl.formatMessage(M['summary.generateFailed'])
+          : err instanceof ApiClientError && isAiOffCode(err.code)
+            ? intl.formatMessage({ id: 'aiFeatures.error.unavailable' })
+            : err instanceof ApiClientError || err instanceof Error
+              ? err.message
+              : intl.formatMessage(M['summary.generateFailed'])
       )
     } finally {
       setLoading(false)
@@ -168,14 +176,16 @@ export function SummaryCard({
                 ` · ${intl.formatMessage(M['summary.stale'], { count: deltaEvents })}`}
             </span>
           )}
-          <button
-            type='button'
-            onClick={regenerate}
-            disabled={loading}
-            className='rounded-sm border border-border bg-background px-3 py-1 text-caption hover:bg-muted disabled:opacity-50'
-          >
-            {buttonLabel}
-          </button>
+          {summaryOn && (
+            <button
+              type='button'
+              onClick={regenerate}
+              disabled={loading}
+              className='rounded-sm border border-border bg-background px-3 py-1 text-caption hover:bg-muted disabled:opacity-50'
+            >
+              {buttonLabel}
+            </button>
+          )}
         </div>
       </header>
 
@@ -188,6 +198,10 @@ export function SummaryCard({
 
       {hasSummary ? (
         <SummaryBody summary={summary} />
+      ) : summaryOff ? (
+        <p className='text-body text-muted-foreground'>
+          {intl.formatMessage({ id: 'aiFeatures.error.unavailable' })}
+        </p>
       ) : (
         <p className='text-body text-muted-foreground'>
           {intl.formatMessage(M['summary.empty'], {

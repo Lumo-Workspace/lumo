@@ -3,6 +3,11 @@ import { taskTemplateKeySchema } from '@/lib/validation/task-template'
 import { PUBLIC_LOCALES } from '@/lib/i18n/public-locale'
 import { ASSESSED_PRIORITIES, TASK_PRIORITIES } from '@/lib/task/priority'
 import {
+  AI_FEATURE_GROUPS,
+  AI_FEATURE_KEYS,
+  type AiFeature,
+} from '@/lib/ai-features/registry'
+import {
   PROJECT_STATUSES,
   isValidProjectDateWindow,
 } from '@/shared/src/project-lifecycle'
@@ -80,6 +85,21 @@ export const trashKindSchema = z.enum(['task', 'document'])
 export const purgeAiDerivedContentSchema = z.object({
   confirmName: z.string().min(1).max(200),
 })
+
+/** LUM-1338: set one AI feature switch (master, a group or a feature). */
+export const setAiFeatureSwitchSchema = z.discriminatedUnion('level', [
+  z.object({ level: z.literal('master'), enabled: z.boolean() }),
+  z.object({
+    level: z.literal('group'),
+    key: z.enum(AI_FEATURE_GROUPS),
+    enabled: z.boolean(),
+  }),
+  z.object({
+    level: z.literal('feature'),
+    key: z.enum(AI_FEATURE_KEYS as [AiFeature, ...AiFeature[]]),
+    enabled: z.boolean(),
+  }),
+])
 
 /** LUM-944: one pass of deleting a session's raw record; `after` resumes a pass. */
 export const deleteSessionRawRecordSchema = z.object({

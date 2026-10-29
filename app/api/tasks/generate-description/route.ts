@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember, requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { generateDescriptionSchema } from '@/lib/validation/schemas'
-import { descriptionService } from '@/lib/services'
+import { aiFeaturesService, descriptionService } from '@/lib/services'
 
 export async function POST(request: Request) {
   try {
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       const projectResult = await loadProjectAndMember(projectId, userId)
       if (projectResult instanceof NextResponse) return projectResult
       const { project } = projectResult
+      await aiFeaturesService.assertEnabled({ projectId }, 'taskDescription')
 
       const result = await descriptionService.generateWithProject(
         title,
@@ -43,6 +44,10 @@ export async function POST(request: Request) {
     // ── Without project: generate description + suggest project ──────────
     const wsResult = await requireWorkspaceByUrl(userId, workspaceUrl ?? null)
     if (wsResult instanceof NextResponse) return wsResult
+    await aiFeaturesService.assertEnabled(
+      { workspaceId: wsResult.workspace.id },
+      'taskDescription'
+    )
 
     const result = await descriptionService.generateWithoutProject(
       title,
@@ -51,9 +56,12 @@ export async function POST(request: Request) {
     )
     return NextResponse.json(result)
   } catch (error) {
-    const status = (error as { status?: number }).status ?? 500
+    const { status = 500, code } = error as { status?: number; code?: string }
     const message =
       error instanceof Error ? error.message : 'Failed to generate description'
-    return NextResponse.json({ error: message }, { status })
+    return NextResponse.json(
+      { error: message, ...(code && { code }) },
+      { status }
+    )
   }
 }

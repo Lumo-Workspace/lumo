@@ -24,6 +24,8 @@ export interface PrioritySuggestion {
 
 interface UsePrioritySuggestionOptions {
   projectId?: string
+  /** LUM-1338: false when the workspace switched priority suggestions off. */
+  enabled?: boolean
 }
 
 interface FetchParams {
@@ -38,6 +40,7 @@ const TIMEOUT_MS = 5000
 
 export function usePrioritySuggestion({
   projectId,
+  enabled = true,
 }: UsePrioritySuggestionOptions) {
   const abortRef = useRef<AbortController | null>(null)
   const titleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -81,13 +84,13 @@ export function usePrioritySuggestion({
 
   const fetchSuggestion = useCallback(
     (title: string, description?: string) => {
-      if (title.trim().length < MIN_TITLE_LENGTH) return
+      if (!enabled || title.trim().length < MIN_TITLE_LENGTH) return
       // mutate() handles cleanup + state internally; we just kick it off.
       suggestionMutation.mutate(
         description !== undefined ? { title, description } : { title }
       )
     },
-    [suggestionMutation]
+    [enabled, suggestionMutation]
   )
 
   /** Call after title input blur or debounce */

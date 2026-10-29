@@ -5,6 +5,7 @@ import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { canonicalizeToEnglish } from './memory/canonicalize-language'
 import { resolveManualDedup } from './memory/manual-dedup'
+import { aiFeaturesService } from './ai-features.service'
 import { screenCandidate } from './memory/extraction-gate'
 import { formatScreenRejection } from './memory/screen-rejection'
 import {
@@ -76,10 +77,21 @@ export interface CreateMemoryResult {
   memory: { id: string }
 }
 
+/**
+ * LUM-1338: whether the manual write paths may call a model (translate to
+ * English, embed, dedup). Off = the text is stored as written, as its own row.
+ */
+function memoryAssistOn(workspaceId: string): Promise<boolean> {
+  return aiFeaturesService.isEnabled({ workspaceId }, 'memoryAssist')
+}
+
 /** Embed the (canonical) candidate text once for retrieval; undefined on failure
  * (retrieval then degrades to lexical). Never throws. */
-async function embedCandidate(text: string): Promise<number[] | undefined> {
-  if (!text) return undefined
+async function embedCandidate(
+  text: string,
+  assist: boolean
+): Promise<number[] | undefined> {
+  if (!text || !assist) return undefined
   try {
     const [v] = await embedTexts([text])
     return v
@@ -116,8 +128,10 @@ interface CreateForTaskInput {
 async function stampEmbeddingBestEffort(
   id: string,
   category: MemoryCategory,
-  content: unknown
+  content: unknown,
+  assist: boolean
 ): Promise<void> {
+  if (!assist) return
   const text = memoryContentToText(category, content)
   if (!text) return
   try {
@@ -159,7 +173,10 @@ export const memoryManagementService = {
   async createForProject(
     input: CreateForProjectInput
   ): Promise<CreateMemoryResult> {
-    const content = await canonicalizeToEnglish(input.category, input.content)
+    const assist = await memoryAssistOn(input.workspaceId)
+    const content = assist
+      ? await canonicalizeToEnglish(input.category, input.content)
+      : input.content
     await screenManualCandidate(
       { projectId: input.projectId, workspaceId: input.workspaceId },
       input.category,
@@ -168,18 +185,20 @@ export const memoryManagementService = {
     const gate = await loadMemoryWriteGate(input.projectId)
     const signals = screenWith(gate, input.category, content)
     const text = memoryContentToText(input.category, content)
-    const vector = await embedCandidate(text)
+    const vector = await embedCandidate(text, assist)
     const pool = (await memoryRepository.listForProject(input.projectId)).map(
       m => ({ id: m.id, category: m.category, content: m.content })
     )
-    const resolution = await resolveManualDedup({
-      category: input.category,
-      content,
-      candidateText: text,
-      candidateVector: vector,
-      pool,
-      scope: { kind: 'PROJECT', projectId: input.projectId },
-    })
+    const resolution = !assist
+      ? ({ kind: 'ADD' } as const)
+      : await resolveManualDedup({
+          category: input.category,
+          content,
+          candidateText: text,
+          candidateVector: vector,
+          pool,
+          scope: { kind: 'PROJECT', projectId: input.projectId },
+        })
 
     if (resolution.kind === 'NOOP') {
       return { outcome: 'NOOP', memory: { id: resolution.id } }
@@ -196,7 +215,8 @@ export const memoryManagementService = {
       await stampEmbeddingBestEffort(
         resolution.id,
         input.category,
-        resolution.content
+        resolution.content,
+        assist
       )
       return { outcome: 'UPDATE', memory: { id: resolution.id } }
     }
@@ -209,7 +229,12 @@ export const memoryManagementService = {
         // just the candidate that walked in (LUM-793).
         screenWith(gate, input.category, resolution.content)
       )
-      await stampEmbeddingBestEffort(newId, input.category, resolution.content)
+      await stampEmbeddingBestEffort(
+        newId,
+        input.category,
+        resolution.content,
+        assist
+      )
       return { outcome: 'SUPERSEDE', memory: { id: newId } }
     }
     // ADD
@@ -232,7 +257,12 @@ export const memoryManagementService = {
     if (vector !== undefined) {
       await memoryRepository.setEmbedding(created.id, vector)
     } else {
-      await stampEmbeddingBestEffort(created.id, input.category, content)
+      await stampEmbeddingBestEffort(
+        created.id,
+        input.category,
+        content,
+        assist
+      )
     }
     return { outcome: 'ADD', memory: { id: created.id } }
   },
@@ -287,12 +317,20 @@ export const memoryManagementService = {
         id = created.id
       },
     ])
-    await stampEmbeddingBestEffort(id, 'CONVENTION', input.content)
+    await stampEmbeddingBestEffort(
+      id,
+      'CONVENTION',
+      input.content,
+      await memoryAssistOn(input.workspaceId)
+    )
     return { id }
   },
 
   async createForTask(input: CreateForTaskInput): Promise<CreateMemoryResult> {
-    const content = await canonicalizeToEnglish(input.category, input.content)
+    const assist = await memoryAssistOn(input.workspaceId)
+    const content = assist
+      ? await canonicalizeToEnglish(input.category, input.content)
+      : input.content
     await screenManualCandidate(
       { projectId: input.projectId, workspaceId: input.workspaceId },
       input.category,
@@ -301,20 +339,22 @@ export const memoryManagementService = {
     const gate = await loadMemoryWriteGate(input.projectId)
     const signals = screenWith(gate, input.category, content)
     const text = memoryContentToText(input.category, content)
-    const vector = await embedCandidate(text)
+    const vector = await embedCandidate(text, assist)
     const pool = (await memoryRepository.listForTask(input.taskId)).map(m => ({
       id: m.id,
       category: m.category,
       content: m.content,
     }))
-    const resolution = await resolveManualDedup({
-      category: input.category,
-      content,
-      candidateText: text,
-      candidateVector: vector,
-      pool,
-      scope: { kind: 'TASK', taskId: input.taskId },
-    })
+    const resolution = !assist
+      ? ({ kind: 'ADD' } as const)
+      : await resolveManualDedup({
+          category: input.category,
+          content,
+          candidateText: text,
+          candidateVector: vector,
+          pool,
+          scope: { kind: 'TASK', taskId: input.taskId },
+        })
 
     if (resolution.kind === 'NOOP') {
       return { outcome: 'NOOP', memory: { id: resolution.id } }
@@ -331,7 +371,8 @@ export const memoryManagementService = {
       await stampEmbeddingBestEffort(
         resolution.id,
         input.category,
-        resolution.content
+        resolution.content,
+        assist
       )
       return { outcome: 'UPDATE', memory: { id: resolution.id } }
     }
@@ -344,7 +385,12 @@ export const memoryManagementService = {
         // just the candidate that walked in (LUM-793).
         screenWith(gate, input.category, resolution.content)
       )
-      await stampEmbeddingBestEffort(newId, input.category, resolution.content)
+      await stampEmbeddingBestEffort(
+        newId,
+        input.category,
+        resolution.content,
+        assist
+      )
       return { outcome: 'SUPERSEDE', memory: { id: newId } }
     }
     const created = await memoryRepository.create({
@@ -368,16 +414,23 @@ export const memoryManagementService = {
     if (vector !== undefined) {
       await memoryRepository.setEmbedding(created.id, vector)
     } else {
-      await stampEmbeddingBestEffort(created.id, input.category, content)
+      await stampEmbeddingBestEffort(
+        created.id,
+        input.category,
+        content,
+        assist
+      )
     }
     return { outcome: 'ADD', memory: { id: created.id } }
   },
 
   async editContent(memoryId: string, content: MemoryContent) {
     const existing = await memoryRepository.findByIdWithWorkspace(memoryId)
-    const canonical = existing
-      ? await canonicalizeToEnglish(existing.category, content)
-      : content
+    const assist = existing ? await memoryAssistOn(existing.workspaceId) : false
+    const canonical =
+      existing && assist
+        ? await canonicalizeToEnglish(existing.category, content)
+        : content
     // LUM-793: an edit is a write. A memory that could not be created with
     // this text must not be reachable by editing an innocent row into it.
     const signals = existing
@@ -394,7 +447,12 @@ export const memoryManagementService = {
       ...(signals !== undefined ? { contentSignals: signals } : {}),
     })
     if (existing) {
-      await stampEmbeddingBestEffort(memoryId, existing.category, canonical)
+      await stampEmbeddingBestEffort(
+        memoryId,
+        existing.category,
+        canonical,
+        assist
+      )
     }
     return updated
   },
@@ -405,9 +463,12 @@ export const memoryManagementService = {
     if (existing.scope === 'PROJECT') {
       throw httpError('Memory is already project-scoped', 409)
     }
+    const assist = await memoryAssistOn(existing.workspaceId)
     const canonical =
       content !== undefined
-        ? await canonicalizeToEnglish(existing.category, content)
+        ? assist
+          ? await canonicalizeToEnglish(existing.category, content)
+          : content
         : undefined
     // LUM-793: a promote that also rewrites content is an edit — same gate.
     const signals =
@@ -429,7 +490,12 @@ export const memoryManagementService = {
         : {}),
     })
     if (canonical !== undefined) {
-      await stampEmbeddingBestEffort(memoryId, existing.category, canonical)
+      await stampEmbeddingBestEffort(
+        memoryId,
+        existing.category,
+        canonical,
+        assist
+      )
     }
     return updated
   },

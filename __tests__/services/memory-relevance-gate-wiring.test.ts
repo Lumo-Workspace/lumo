@@ -112,6 +112,20 @@ test('embedding exception → gate degrades to the FULL corpus (fallback-all)', 
   expect(res.selected).toHaveLength(candidates.length)
 })
 
+test('LUM-1338: memory ranking off (or no model) → lexical gate, no embedding call', async () => {
+  const { aiFeaturesService } = jest.requireMock(
+    '@/lib/services/ai-features.service'
+  )
+  aiFeaturesService.isEnabled.mockResolvedValueOnce(false)
+  ;(embedTexts as jest.Mock).mockClear()
+  ;(
+    lineageEdgeRepository.judgedUsageByFragments as jest.Mock
+  ).mockResolvedValue([])
+  const res = await select(task, corpus(20))
+  expect(res.telemetry.mechanism).toBe('lexical')
+  expect(embedTexts).not.toHaveBeenCalled()
+})
+
 test('pgvector exception → gate degrades to the FULL corpus (fallback-all)', async () => {
   ;(embedTexts as jest.Mock).mockResolvedValue([[0.1, 0.2, 0.3]])
   ;(memoryRepository.findNeighborEmbeddings as jest.Mock).mockRejectedValue(

@@ -254,6 +254,21 @@ describe('findLikelyDuplicates excludes the task being checked (LUM-1286)', () =
 describe('suggestDuplicateEdges (LUM-1286)', () => {
   const mockCreate = taskDependencyRepository.createManySuggested as jest.Mock
 
+  it('LUM-1338: suggests nothing, without a model call, when the duplicate check is off', async () => {
+    const { aiFeaturesService } = jest.requireMock(
+      '@/lib/services/ai-features.service'
+    )
+    aiFeaturesService.isEnabled.mockResolvedValueOnce(false)
+    await suggestDuplicateEdges({
+      taskId: 'new-1',
+      title: 'Sign in with Google',
+      projectId: 'p-1',
+      workspaceId: 'ws-1',
+    })
+    expect(mockGenerate).not.toHaveBeenCalled()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
   it('records each likely duplicate as a suggested DUPLICATES edge from the new task', async () => {
     mockGenerate.mockResolvedValue({
       object: { matches: [{ taskId: 't-1', score: 0.92 }] },

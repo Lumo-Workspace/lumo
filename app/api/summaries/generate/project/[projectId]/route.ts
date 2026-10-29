@@ -8,6 +8,7 @@ import { getProjectStats } from '@/lib/services/stats.service'
 import { generateProjectReport } from '@/lib/summaries/report'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import { statsRepository } from '@/lib/repositories/stats.repository'
+import { aiFeaturesService } from '@/lib/services/ai-features.service'
 
 export async function POST(
   _req: NextRequest,
@@ -22,6 +23,14 @@ export async function POST(
   const result = await loadProjectAndMember(projectId, userId)
   if (result instanceof NextResponse) return result
   const { project } = result
+
+  // LUM-1338: the project report is an AI write-up (the retro summaries switch).
+  if (!(await aiFeaturesService.isEnabled({ projectId }, 'retroSummary'))) {
+    return NextResponse.json(
+      { error: 'AI retro summaries are turned off or not configured' },
+      { status: 409 }
+    )
+  }
 
   const genResult = await summaryService.requestGeneration('project', projectId)
   if ('retryAfter' in genResult) {
