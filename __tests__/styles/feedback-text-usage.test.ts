@@ -94,7 +94,7 @@ const NON_TEXT_ALLOWANCE: Record<Family, Allowance> = {
       max: 4,
       why: 'icon-only toolbar button (active / hover tints, light + dark)',
     },
-    [`${W}/pages/ApiKeysPage.tsx`]: {
+    [`${W}/pages/ApiKeysSettings.tsx`]: {
       max: 1,
       why: 'hover tint of the icon-only revoke (Trash2) button',
     },

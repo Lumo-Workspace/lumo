@@ -18,18 +18,29 @@ import { CodeupIntegrationCard } from '../CodeupIntegrationCard'
 import { FigmaIntegrationCard } from '../FigmaIntegrationCard'
 import { GoogleDriveIntegrationCard } from '../GoogleDriveIntegrationCard'
 
-// Sections render top-to-bottom in this fixed order. Within a section, cards
-// are ordered by connection status first (connected on top) then alphabetically
-// by display name — both expressed via CSS `order` (see the per-card wrapper).
+// Every kind, for ranking. On a page, cards are ordered by connection status
+// first (connected on top) then alphabetically by display name — both
+// expressed via CSS `order` (see the per-card wrapper).
 const KIND_ORDER: readonly IntegrationKind[] = ['TEAM', 'PERSONAL']
 
-// Maps a kind to the i18n key prefix for its section header copy.
+// The page title for each kind (LUM-1339: one page per kind).
+const PAGE_TITLE: Record<IntegrationKind, string> = {
+  TEAM: 'integrations.title',
+  PERSONAL: 'settings.connectedAccounts',
+}
+
+// Maps a kind to the i18n key prefix for its description copy.
 const SECTION_KEY: Record<IntegrationKind, string> = {
   TEAM: 'team',
   PERSONAL: 'personal',
 }
 
 interface IntegrationsPageProps {
+  /**
+   * LUM-1339 — which integrations this page lists: TEAM ones on
+   * Workspace → Integrations, PERSONAL ones on Personal → Connected accounts.
+   */
+  kind: IntegrationKind
   isOwner: boolean
   /**
    * LUM-1025 — whether this deployment has the env an integration needs. An
@@ -45,6 +56,7 @@ interface IntegrationsPageProps {
 }
 
 export function IntegrationsPage({
+  kind,
   isOwner,
   configured,
   unreleased = [],
@@ -200,56 +212,49 @@ export function IntegrationsPage({
 
   const released = (id: IntegrationId) => !unreleased.includes(id)
 
-  const unavailableNames = (Object.keys(cards) as IntegrationId[])
+  const unavailableNames = idsByKind[kind]
     .filter(id => released(id) && !configured[id])
     .map(id => intl.formatMessage({ id: `${id}.title` }))
     .sort((a, b) => a.localeCompare(b, intl.locale))
 
+  const ids = idsByKind[kind].filter(id => released(id) && configured[id])
+  const section = SECTION_KEY[kind]
+
   return (
     <div className='h-full overflow-y-auto'>
-      <div className='max-w-2xl mx-auto px-8 py-10'>
+      <div className='max-w-2xl mx-auto px-6 py-8'>
         <h1 className='text-heading text-foreground mb-1'>
-          {intl.formatMessage({ id: 'integrations.title' })}
+          {intl.formatMessage({ id: PAGE_TITLE[kind] })}
         </h1>
         <p className='text-body text-muted-foreground mb-8'>
-          {intl.formatMessage({ id: 'integrations.description' })}
+          {intl.formatMessage({ id: `integrations.${section}.description` })}
         </p>
 
-        <div className='flex flex-col gap-10'>
-          {KIND_ORDER.map(kind => {
-            const ids = idsByKind[kind].filter(
-              id => released(id) && configured[id]
-            )
-            if (ids.length === 0) return null
-            const section = SECTION_KEY[kind]
-            const sectionVisible = ids.some(id => isCardVisible(id))
-            return (
-              <section key={kind} hidden={!sectionVisible}>
-                <h2 className='text-body-strong text-foreground mb-1'>
-                  {intl.formatMessage({ id: `integrations.${section}.title` })}
-                </h2>
-                <p className='text-body text-muted-foreground mb-4'>
-                  {intl.formatMessage({
-                    id: `integrations.${section}.description`,
-                  })}
-                </p>
-                <div className='flex flex-col gap-4'>
-                  {ids.map(id => (
-                    <div
-                      key={id}
-                      hidden={!isCardVisible(id)}
-                      style={{
-                        order:
-                          (connectedMap[id] ? 0 : 100) + (alphaRank[id] ?? 0),
-                      }}
-                    >
-                      {cards[id]}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )
-          })}
+        {/* Only once every card has reported: a status still loading is not
+            "nothing connected" (LUM-1339). */}
+        {ids.length > 0 &&
+          ids.every(id => id in connectedMap) &&
+          !ids.some(isCardVisible) && (
+            <p
+              data-testid='integrations-none-connected'
+              className='text-body text-muted-foreground'
+            >
+              {intl.formatMessage({ id: 'integrations.team.noneConnected' })}
+            </p>
+          )}
+
+        <div className='flex flex-col gap-4'>
+          {ids.map(id => (
+            <div
+              key={id}
+              hidden={!isCardVisible(id)}
+              style={{
+                order: (connectedMap[id] ? 0 : 100) + (alphaRank[id] ?? 0),
+              }}
+            >
+              {cards[id]}
+            </div>
+          ))}
         </div>
 
         {unavailableNames.length > 0 && (

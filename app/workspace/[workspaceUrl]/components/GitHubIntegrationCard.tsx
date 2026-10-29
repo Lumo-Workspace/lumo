@@ -59,8 +59,10 @@ export function GitHubIntegrationCard({
   const missing = status?.installed === false
 
   useEffect(() => {
-    onConnectedChange?.(installed)
-  }, [installed, onConnectedChange])
+    // LUM-1339: report once the status is known, so the page can tell
+    // "nothing connected" from "still loading".
+    if (status) onConnectedChange?.(installed)
+  }, [status, installed, onConnectedChange])
 
   const installedLabel = status?.accountLogin
     ? intl.formatMessage(

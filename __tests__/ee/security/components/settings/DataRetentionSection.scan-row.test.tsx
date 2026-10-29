@@ -68,6 +68,7 @@ const DEFAULTS = {
 function renderSection(settings = DEFAULTS) {
   return render(
     <DataRetentionSection
+      label='Data retention'
       settings={settings}
       // LUM-1062: the plugin rows (scan evidence) read the workspace row.
       workspace={settings}

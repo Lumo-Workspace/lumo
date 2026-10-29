@@ -11,6 +11,8 @@ import { SecurityTaskDossier } from './ui/task-dossier'
 import { SecurityPrBadge } from './ui/pr-badge-slot'
 import { SecurityCrossingTriage } from './ui/crossing-triage-slot'
 import {
+  SecurityPolicyCoverage,
+  SecurityRepoReviewSettings,
   SecurityScanEvidenceRetention,
   SecuritySettingsSection,
 } from './ui/settings-slots'
@@ -21,7 +23,9 @@ export const securityClientPlugin: LumoClientPlugin = {
     'task.dossier': SecurityTaskDossier,
     'task.pullRequest.badge': SecurityPrBadge,
     'task.crossing.annotation': SecurityCrossingTriage,
-    'settings.workspace.section': SecuritySettingsSection,
+    'settings.codeReview.behavior': SecuritySettingsSection,
+    'settings.codeReview.repositories': SecurityRepoReviewSettings,
+    'settings.codeReview.rules': SecurityPolicyCoverage,
     'settings.retention.row': SecurityScanEvidenceRetention,
   },
 }

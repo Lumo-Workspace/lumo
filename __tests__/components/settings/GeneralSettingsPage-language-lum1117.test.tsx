@@ -1,11 +1,12 @@
 /**
- * LUM-1117 — Settings → Workspace has one language setting: the default
- * language (which AI summaries now use too). The AI summary card keeps its
+ * LUM-1117 — Settings → General has one language setting: the workspace
+ * language (renamed from "Default language" in LUM-1339; AI summaries use it
+ * too). The AI summary card keeps its
  * on/off switch and frequency but no longer has a "Report language" select,
  * and saving it sends no summary-only language.
  */
 import { render, screen } from '@testing-library/react'
-import { WorkspaceSettingsPage } from '@/app/workspace/[workspaceUrl]/components/pages/WorkspaceSettingsPage'
+import { GeneralSettingsPage } from '@/app/workspace/[workspaceUrl]/components/pages/GeneralSettingsPage'
 import { workspacesClient } from '@/lib/api-client'
 
 // LUM-1265: this suite is about the form's logic, not the dropdown — drive
@@ -83,10 +84,10 @@ beforeEach(() => {
   })
 })
 
-it('shows one language setting — the default language', async () => {
-  render(<WorkspaceSettingsPage />)
+it('shows one language setting — the workspace language', async () => {
+  render(<GeneralSettingsPage />)
   const select = (await screen.findByLabelText(
-    'Default language'
+    'Workspace language'
   )) as HTMLSelectElement
   expect(select.value).toBe('zh-CN')
 
@@ -99,15 +100,10 @@ it('shows one language setting — the default language', async () => {
 })
 
 it('no longer offers the workspace briefing schedule (LUM-1228)', async () => {
-  render(<WorkspaceSettingsPage />)
-  await screen.findByLabelText('Default language')
-  // LUM-1334: the only switches left are the two Done requirements.
-  expect(
-    screen
-      .queryAllByRole('switch')
-      .map(s => s.id)
-      .sort()
-  ).toEqual(['done-requirement-review', 'done-requirement-testCase'])
+  render(<GeneralSettingsPage />)
+  await screen.findByLabelText('Workspace language')
+  // LUM-1339: General has no switches (Done requirements has its own page).
+  expect(screen.queryAllByRole('switch')).toHaveLength(0)
   expect(
     screen
       .queryAllByRole('combobox')

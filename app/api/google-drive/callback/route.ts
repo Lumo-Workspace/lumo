@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${appUrl}/?google_error=invalid_state`)
   }
 
-  const settingsUrl = `${appUrl}/workspace/${decoded.workspaceUrl}/settings/integrations`
+  const settingsUrl = `${appUrl}/workspace/${decoded.workspaceUrl}/settings/connected-accounts`
 
   const authResult = await requireAuth()
   if (authResult instanceof NextResponse) return authResult

@@ -179,7 +179,7 @@ describe('settings slots', () => {
   it('the switches card reads the stored switches (defaults on) and the platform ceiling', () => {
     const { rerender } = render(
       <PluginSlot
-        name='settings.workspace.section'
+        name='settings.codeReview.behavior'
         props={{ workspace: { id: 'w1' }, me: {} }}
       />
     )
@@ -188,7 +188,7 @@ describe('settings slots', () => {
     // A malformed ceiling (missing sandbox) is not drawn as a card either.
     rerender(
       <PluginSlot
-        name='settings.workspace.section'
+        name='settings.codeReview.behavior'
         props={{
           workspace: { id: 'w1' },
           me: { securityPlatform: { hunt: true } },
@@ -198,7 +198,7 @@ describe('settings slots', () => {
     expect(screen.queryByTestId('switches-card')).toBeNull()
     rerender(
       <PluginSlot
-        name='settings.workspace.section'
+        name='settings.codeReview.behavior'
         props={{
           workspace: { id: 'w1', securityHuntEnabled: false },
           me: {
@@ -240,7 +240,7 @@ describe('settings slots', () => {
     // LUM-1329: the stored policy's AGENT_REVIEW entries as one level.
     rerender(
       <PluginSlot
-        name='settings.workspace.section'
+        name='settings.codeReview.behavior'
         props={{
           workspace: {
             id: 'w1',
@@ -266,10 +266,22 @@ describe('settings slots', () => {
       JSON.parse(screen.getByTestId('switches-card').dataset.props!)
         .initialAgentReviewBlocking
     ).toBe('high')
-    // LUM-1114: the rule-coverage card sits under the switches.
-    expect(screen.getByTestId('policy-coverage-card')).toBeTruthy()
+    // LUM-1339: the rule-coverage and repository cards have their own pages.
+    expect(screen.queryByTestId('policy-coverage-card')).toBeNull()
+    expect(screen.queryByTestId('repo-review-card')).toBeNull()
+  })
+
+  it('the repositories and rules pages each get their own card (LUM-1339)', () => {
+    render(
+      <>
+        <PluginSlot name='settings.codeReview.repositories' props={{}} />
+        <PluginSlot name='settings.codeReview.rules' props={{}} />
+      </>
+    )
     // LUM-1133: the per-repository automatic review card.
-    expect(screen.getByTestId('repo-review-card')).toBeTruthy()
+    expect(screen.getAllByTestId('repo-review-card')).toHaveLength(1)
+    // LUM-1114: the project rules nothing checks automatically.
+    expect(screen.getAllByTestId('policy-coverage-card')).toHaveLength(1)
   })
 
   it('the evidence row reads scanEvidenceRetentionDays (null when absent)', () => {

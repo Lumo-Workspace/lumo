@@ -551,7 +551,9 @@ function PrReport({
 function useApiKeysHref(): string {
   const pathname = usePathname()
   const workspaceSlug = pathname.match(/^\/workspace\/([^/]+)/)?.[1] ?? null
-  return workspaceSlug ? `/workspace/${workspaceSlug}/settings/api-keys` : '#'
+  return workspaceSlug
+    ? `/workspace/${workspaceSlug}/settings/developer#api-keys`
+    : '#'
 }
 
 /**

@@ -54,12 +54,16 @@ export interface ClientSlotProps {
     triageProbability: number | null
     disposition: string | null
   }
-  /** A card on Settings → General (OWNER only, once the row is loaded). */
-  'settings.workspace.section': {
+  /** Settings → Code review → Review behavior (OWNER only, once the row is loaded). */
+  'settings.codeReview.behavior': {
     workspace: WorkspaceSettingsView
     /** The whole GET /api/workspaces/me response (plugin top-level fields). */
     me: Readonly<Record<string, unknown>>
   }
+  /** Settings → Code review → Repositories (OWNER only). */
+  'settings.codeReview.repositories': Record<string, never>
+  /** Settings → Code review → Rule coverage (OWNER only). */
+  'settings.codeReview.rules': Record<string, never>
   /** A row in Settings → Data retention. */
   'settings.retention.row': { workspace: WorkspaceSettingsView }
 }

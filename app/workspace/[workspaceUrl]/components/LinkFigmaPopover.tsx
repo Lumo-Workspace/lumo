@@ -59,7 +59,7 @@ export function LinkFigmaPopover({
             intl.formatMessage({
               id: 'task.figma.notConnected',
               defaultMessage:
-                'Figma is not connected. Go to Settings → Integrations to connect.',
+                'Figma is not connected. Go to Settings → Connected accounts to connect.',
             })
           )
         } else if (err.code === 'figma_needs_reauth') {
@@ -67,7 +67,7 @@ export function LinkFigmaPopover({
             intl.formatMessage({
               id: 'task.figma.needsReauth',
               defaultMessage:
-                'Figma token expired. Reconnect Figma in Settings → Integrations.',
+                'Figma token expired. Reconnect Figma in Settings → Connected accounts.',
             })
           )
         } else {
@@ -112,7 +112,7 @@ export function LinkFigmaPopover({
               {intl.formatMessage({
                 id: 'task.figma.notConnected',
                 defaultMessage:
-                  'Figma is not connected. Go to Settings → Integrations to connect.',
+                  'Figma is not connected. Go to Settings → Connected accounts to connect.',
               })}
             </p>
             <Link

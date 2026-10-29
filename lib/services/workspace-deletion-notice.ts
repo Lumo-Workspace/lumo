@@ -37,7 +37,7 @@ export async function sendDeletionNotice(
     workspaceName: notice.workspaceName,
     actorName,
     executeAt: notice.executeAt,
-    settingsUrl: `${appUrl}/workspace/${notice.workspaceSlug}/settings/workspace`,
+    settingsUrl: `${appUrl}/workspace/${notice.workspaceSlug}/settings/general`,
   })
 
   let sent = 0

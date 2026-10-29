@@ -15,7 +15,10 @@ const CORE_FILES = [
   `${W}/TaskDetailTimeline/TaskDossier.tsx`,
   `${W}/TaskDetailTimeline/sections/PullRequestsSection.tsx`,
   `${W}/TaskDetailTimeline/BoundaryCrossingsPanel.tsx`,
-  `${W}/pages/WorkspaceSettingsPage.tsx`,
+  // LUM-1339: the old Workspace page, split into these.
+  `${W}/pages/GeneralSettingsPage.tsx`,
+  `${W}/pages/OwnerSettingsPages.tsx`,
+  'app/workspace/[workspaceUrl]/settings/SettingsShell.tsx',
   `${W}/pr-helpers.tsx`,
   `${W}/settings/DataRetentionSection.tsx`,
   'app/api/workspaces/me/route.ts',

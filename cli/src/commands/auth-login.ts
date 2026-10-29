@@ -50,7 +50,7 @@ async function obtainKey(
 async function pasteKey(webUrl: string): Promise<string | null> {
   console.log('Log in to Lumo')
   console.log('')
-  console.log(`  1. Open ${webUrl} and go to Settings → API Keys`)
+  console.log(`  1. Open ${webUrl} and go to Settings → CLI & API keys`)
   console.log(`  2. Create a new key and copy it`)
   console.log(`  3. Paste it below`)
   console.log('')

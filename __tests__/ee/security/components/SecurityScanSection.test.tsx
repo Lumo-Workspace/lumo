@@ -502,7 +502,10 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
   expect(hint).toHaveTextContent('only Lumo')
   const links = hint.querySelectorAll('a')
   expect(links).toHaveLength(1)
-  expect(links[0]).toHaveAttribute('href', '/workspace/acme/settings/api-keys')
+  expect(links[0]).toHaveAttribute(
+    'href',
+    '/workspace/acme/settings/developer#api-keys'
+  )
   // A single PR draws no result badge — the card header's verdict says it.
   expect(screen.queryByTestId('security-scan-badge')).toBeNull()
 })

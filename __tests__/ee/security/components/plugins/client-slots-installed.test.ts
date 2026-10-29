@@ -11,11 +11,13 @@ jest.mock('react-intl', () => ({
 import { INSTALLED_CLIENT_PLUGINS } from '@/lib/plugins/installed.client'
 
 describe('installed client plugins', () => {
-  it('the security plugin fills every slot it filled before the split', () => {
+  it('the security plugin fills every slot it filled before the split (Code review split in three, LUM-1339)', () => {
     expect(INSTALLED_CLIENT_PLUGINS.map(p => p.id)).toEqual(['security'])
     expect(Object.keys(INSTALLED_CLIENT_PLUGINS[0]!.slots).sort()).toEqual([
+      'settings.codeReview.behavior',
+      'settings.codeReview.repositories',
+      'settings.codeReview.rules',
       'settings.retention.row',
-      'settings.workspace.section',
       'task.crossing.annotation',
       'task.dossier',
       'task.pullRequest.badge',

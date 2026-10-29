@@ -31,30 +31,3 @@ export function SettingsSection({
     </section>
   )
 }
-
-/** Sticky jump links to a page's `SettingsSection`s. */
-export function SettingsSectionNav({
-  label,
-  items,
-}: {
-  /** Accessible name of the nav landmark. */
-  label: string
-  items: readonly { id: string; label: string }[]
-}) {
-  return (
-    <nav
-      aria-label={label}
-      className='sticky top-0 z-10 -mx-6 mb-6 flex flex-wrap gap-1 border-b border-border bg-card px-6 py-2'
-    >
-      {items.map(item => (
-        <a
-          key={item.id}
-          href={`#${item.id}`}
-          className='rounded-md px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
-        >
-          {item.label}
-        </a>
-      ))}
-    </nav>
-  )
-}

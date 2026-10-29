@@ -14,7 +14,7 @@ import { printSessionRecordNotice } from '@/cli/src/commands/init'
 import type { Credentials } from '@/cli/src/lib/config'
 
 const NOTICE =
-  'Session records in this workspace: kept forever, including code and command output; credentials are always redacted. An OWNER can change this in Settings → Data retention: https://www.uselumo.ai/workspace/acme/settings/workspace#data-retention'
+  'Session records in this workspace: kept forever, including code and command output; credentials are always redacted. An OWNER can change this in Settings → Data retention: https://www.uselumo.ai/workspace/acme/settings/data-retention'
 
 const CREDS: Credentials = {
   token: 'lum_test_token',

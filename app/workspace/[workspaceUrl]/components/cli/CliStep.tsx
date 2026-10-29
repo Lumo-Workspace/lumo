@@ -18,7 +18,7 @@ export function CliStep({ index, title, description, children }: CliStepProps) {
       </div>
       <div className='flex-1 min-w-0 space-y-3'>
         <div>
-          <h2 className='text-body-strong text-foreground'>{title}</h2>
+          <h3 className='text-body-strong text-foreground'>{title}</h3>
           <p className='text-caption text-muted-foreground mt-1'>
             {description}
           </p>

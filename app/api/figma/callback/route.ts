@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   // Land back on the integrations list (where Slack / GitHub / Sentry also
   // return) — the FigmaIntegrationCard on that page reads the
   // ?connected=1 / ?figma_error=... query param to surface the toast.
-  const settingsUrl = `${appUrl}/workspace/${decoded.workspaceUrl}/settings/integrations`
+  const settingsUrl = `${appUrl}/workspace/${decoded.workspaceUrl}/settings/connected-accounts`
 
   // Bind callback to the currently authenticated Clerk user: a leaked state
   // blob must not let anyone else complete the OAuth on the encoded member's

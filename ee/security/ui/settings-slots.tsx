@@ -2,8 +2,9 @@
 
 /**
  * LUM-1062 — the security plugin's settings: the PR scan switches card
- * (LUM-866, `settings.workspace.section`) and the scan evidence retention
- * row (LUM-911, `settings.retention.row`). Both read the columns the
+ * (LUM-866, `settings.codeReview.behavior`), the per-repository review and
+ * rule coverage cards (LUM-1339 gave each its own Code review page) and the
+ * scan evidence retention row (LUM-911, `settings.retention.row`). Both read the columns the
  * plugin owns from the workspace row GET /api/workspaces/me serves.
  */
 import type { ClientSlotProps } from '@/lib/plugins/client'
@@ -37,58 +38,62 @@ function isPlatformCeiling(value: unknown): value is PlatformSecurityCeiling {
 export function SecuritySettingsSection({
   workspace,
   me,
-}: ClientSlotProps['settings.workspace.section']) {
+}: ClientSlotProps['settings.codeReview.behavior']) {
   // LUM-866: which scan layers the platform env allows at all; the card is
   // drawn only once the server said so.
   const platform = me.securityPlatform
   if (!isPlatformCeiling(platform)) return null
   return (
-    <>
-      <SecurityScanSwitchesCard
-        initial={{
-          securityScanEnabled: switchOf(workspace.securityScanEnabled),
-          securityAiReviewEnabled: switchOf(workspace.securityAiReviewEnabled),
-          securityHuntEnabled: switchOf(workspace.securityHuntEnabled),
-          securityRewardHackEnabled: switchOf(
-            workspace.securityRewardHackEnabled
-          ),
-          // LUM-1130: off unless the workspace turned it on.
-          securityRequestChangesEnabled: switchOf(
-            workspace.securityRequestChangesEnabled,
-            false
-          ),
-          // LUM-1142: on unless the workspace turned it off.
-          securityAllowAuthorApproval: switchOf(
-            workspace.securityAllowAuthorApproval
-          ),
-          // LUM-1134: auto unless the workspace chose otherwise.
-          securityLearningsScope: parseLearningsScope(
-            workspace.securityLearningsScope
-          ),
-          // LUM-1137: 5 unless the workspace chose otherwise (0 = never).
-          securityReviewAutoPauseAfter: parseAutoPauseAfter(
-            workspace.securityReviewAutoPauseAfter
-          ),
-          // LUM-1259: off unless the workspace opted in (set from the CLI).
-          securityLocalScanLogEnabled: switchOf(
-            workspace.securityLocalScanLogEnabled,
-            false
-          ),
-        }}
-        huntAvailable={platform.hunt}
-        rewardHackAvailable={platform.rewardHack}
-        sandboxAvailable={platform.sandbox}
-        // LUM-1329: the policy's AGENT_REVIEW entries (off by default).
-        initialAgentReviewBlocking={agentReviewBlocking(
-          parseSecurityPolicy(workspace.securityPolicy)
-        )}
-      />
-      {/* LUM-1133: automatic review per connected repository. */}
-      <RepoReviewSettingsCard />
-      {/* LUM-1114: the project rules nothing checks automatically. */}
-      <PolicyCoverageCard />
-    </>
+    <SecurityScanSwitchesCard
+      initial={{
+        securityScanEnabled: switchOf(workspace.securityScanEnabled),
+        securityAiReviewEnabled: switchOf(workspace.securityAiReviewEnabled),
+        securityHuntEnabled: switchOf(workspace.securityHuntEnabled),
+        securityRewardHackEnabled: switchOf(
+          workspace.securityRewardHackEnabled
+        ),
+        // LUM-1130: off unless the workspace turned it on.
+        securityRequestChangesEnabled: switchOf(
+          workspace.securityRequestChangesEnabled,
+          false
+        ),
+        // LUM-1142: on unless the workspace turned it off.
+        securityAllowAuthorApproval: switchOf(
+          workspace.securityAllowAuthorApproval
+        ),
+        // LUM-1134: auto unless the workspace chose otherwise.
+        securityLearningsScope: parseLearningsScope(
+          workspace.securityLearningsScope
+        ),
+        // LUM-1137: 5 unless the workspace chose otherwise (0 = never).
+        securityReviewAutoPauseAfter: parseAutoPauseAfter(
+          workspace.securityReviewAutoPauseAfter
+        ),
+        // LUM-1259: off unless the workspace opted in (set from the CLI).
+        securityLocalScanLogEnabled: switchOf(
+          workspace.securityLocalScanLogEnabled,
+          false
+        ),
+      }}
+      huntAvailable={platform.hunt}
+      rewardHackAvailable={platform.rewardHack}
+      sandboxAvailable={platform.sandbox}
+      // LUM-1329: the policy's AGENT_REVIEW entries (off by default).
+      initialAgentReviewBlocking={agentReviewBlocking(
+        parseSecurityPolicy(workspace.securityPolicy)
+      )}
+    />
   )
+}
+
+/** LUM-1133: automatic review per connected repository. */
+export function SecurityRepoReviewSettings() {
+  return <RepoReviewSettingsCard />
+}
+
+/** LUM-1114: the project rules nothing checks automatically. */
+export function SecurityPolicyCoverage() {
+  return <PolicyCoverageCard />
 }
 
 export function SecurityScanEvidenceRetention({

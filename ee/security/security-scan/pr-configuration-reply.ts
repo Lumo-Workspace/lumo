@@ -194,7 +194,7 @@ export function buildConfigurationReply(view: PrConfigurationView): string {
   if (layers.length > 0)
     parts.push(`Running on this deployment: ${layers.join(' · ')}`)
   parts.push(
-    'A workspace owner changes these in Settings → Workspace → PR security scanning (or `lumo workspace security-scan update`; CLI 1.125 and older: `lumo workspace security-scan`). Findings that block DONE are cleared only by a disposition in Lumo, never by configuration.'
+    'A workspace owner changes these in Settings → Code review → Review behavior (or `lumo workspace security-scan update`; CLI 1.125 and older: `lumo workspace security-scan`). Findings that block DONE are cleared only by a disposition in Lumo, never by configuration.'
   )
   return parts.join('\n\n')
 }

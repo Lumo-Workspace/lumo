@@ -119,7 +119,7 @@ describe('GET /api/figma/callback', () => {
 
     expect(res.status).toBe(307)
     expect(res.headers.get('location')).toContain(
-      '/workspace/lumo/settings/integrations?connected=1'
+      '/workspace/lumo/settings/connected-accounts?connected=1'
     )
     expect(svc.completeOauthFlow).toHaveBeenCalledWith(
       { workspaceId: 'w1', memberId: 'm1', code: 'c' },

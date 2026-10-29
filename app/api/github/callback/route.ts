@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${appUrl}/?github_error=identity_mismatch`)
   }
 
-  const settingsUrl = `${appUrl}/workspace/${ws.workspace.slug}/settings/integrations`
+  const settingsUrl = `${appUrl}/workspace/${ws.workspace.slug}/settings/connected-accounts`
   const errorRedirect = `${settingsUrl}?github_error=1`
 
   if (!decoded.ok) {

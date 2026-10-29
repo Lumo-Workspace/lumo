@@ -304,6 +304,8 @@ type MemberCallback = {
   written: () => { workspaceId: string; memberId: string } | null
   mismatch: string
   invalid: string
+  /** The settings page it returns to (LUM-1339: personal ones → Connected accounts). */
+  page: 'integrations' | 'connected-accounts'
 }
 
 const writtenBy =
@@ -325,6 +327,7 @@ const MEMBER_CALLBACKS: MemberCallback[] = [
     written: writtenBy(githubService.upsertIntegration, 'memberId'),
     mismatch: 'github_error=identity_mismatch',
     invalid: 'github_error=invalid_state',
+    page: 'connected-accounts',
   },
   {
     name: 'slack/callback',
@@ -334,6 +337,7 @@ const MEMBER_CALLBACKS: MemberCallback[] = [
     written: writtenBy(slackService.upsertIntegration, 'installedBy'),
     mismatch: 'slack_error=identity_mismatch',
     invalid: 'slack_error=invalid_state',
+    page: 'integrations',
   },
   {
     name: 'figma/callback',
@@ -343,6 +347,7 @@ const MEMBER_CALLBACKS: MemberCallback[] = [
     written: writtenBy(figmaService.completeOauthFlow, 'memberId'),
     mismatch: 'figma_error=identity_mismatch',
     invalid: 'figma_error=invalid_state',
+    page: 'connected-accounts',
   },
   {
     name: 'google-drive/callback',
@@ -352,6 +357,7 @@ const MEMBER_CALLBACKS: MemberCallback[] = [
     written: writtenBy(driveService.completeOauthFlow, 'memberId'),
     mismatch: 'google_error=identity_mismatch',
     invalid: 'google_error=invalid_state',
+    page: 'connected-accounts',
   },
 ]
 
@@ -369,7 +375,7 @@ describe.each(MEMBER_CALLBACKS)('callback: $name', flow => {
     )
 
     expect(res.headers.get('location')).toContain(
-      `${APP}/workspace/bravo/settings/integrations`
+      `${APP}/workspace/bravo/settings/${flow.page}`
     )
     expect(res.headers.get('location')).not.toContain('error')
     expect(flow.written()).toEqual({
@@ -446,7 +452,7 @@ describe.each(MEMBER_CALLBACKS)('callback: $name', flow => {
     )
 
     expect(res.headers.get('location')).toContain(
-      `${APP}/workspace/alpha/settings/integrations`
+      `${APP}/workspace/alpha/settings/${flow.page}`
     )
     expect(flow.written()).toEqual({
       workspaceId: 'w_alpha',

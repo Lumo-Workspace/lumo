@@ -885,21 +885,21 @@
       "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: /security: the paragraph on clearing scan code when the App is uninstalled"
     },
     {
-      "file": "app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx",
+      "file": "app/workspace/[workspaceUrl]/components/pages/ApiKeysSettings.tsx",
       "type": "replace",
-      "pattern": "^        <div className='mb-8 rounded-md border border-border p-4'>\\n          <p className='text-body-strong text-foreground'>\\n            \\{intl\\.formatMessage\\(\\{ id: 'apiKeys\\.ingest\\.title' \\}\\)\\}\\n[\\s\\S]*?^        </div>\\n\\n",
+      "pattern": "^      <div className='mb-8 rounded-md border border-border p-4'>\\n        <p className='text-body-strong text-foreground'>\\n          \\{intl\\.formatMessage\\(\\{ id: 'apiKeys\\.ingest\\.title' \\}\\)\\}\\n[\\s\\S]*?^      </div>\\n\\n",
       "replacement": "",
       "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: the CI ingest key card only feeds the plugin's SARIF upload route"
     },
     {
-      "file": "app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx",
+      "file": "app/workspace/[workspaceUrl]/components/pages/ApiKeysSettings.tsx",
       "type": "replace",
       "pattern": "^    creatingIngest,\\n",
       "replacement": "",
       "reason": "LUM-1081: the security plugin is not in the snapshot (MIT open-core, LUM-1058); the private repo keeps this copy for the hosted service: unused once the ingest card is cut (noUnusedLocals)"
     },
     {
-      "file": "app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx",
+      "file": "app/workspace/[workspaceUrl]/components/pages/ApiKeysSettings.tsx",
       "type": "replace",
       "pattern": "^    handleCreateIngestKey,\\n",
       "replacement": "",
@@ -1144,9 +1144,9 @@
       "id": "plugin-feature:ci-ingest-card",
       "pattern": "apiKeys\\.ingest\\.|handleCreateIngestKey",
       "files": [
-        "app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx"
+        "app/workspace/[workspaceUrl]/components/pages/ApiKeysSettings.tsx"
       ],
-      "reason": "LUM-1081: guards the ApiKeysPage transforms (CI ingest key card)"
+      "reason": "LUM-1081: guards the ApiKeysSettings transforms (CI ingest key card)"
     }
   ]
 }

@@ -53,8 +53,7 @@ import { GET as getSessionRecords } from '@/app/api/workspaces/me/session-record
 
 const m = <T>(fn: T) => fn as unknown as jest.Mock
 
-const URL_ =
-  'https://www.uselumo.ai/workspace/acme/settings/workspace#data-retention'
+const URL_ = 'https://www.uselumo.ai/workspace/acme/settings/data-retention'
 
 function setting(mode: 'RETAIN' | 'USED_UP', days: number | null) {
   return {
@@ -148,7 +147,7 @@ describe('LUM-943 session record notice (server)', () => {
       URL_
     )
     expect(sessionRecordSettingsUrl('https://x.test', 'a b')).toBe(
-      'https://x.test/workspace/a%20b/settings/workspace#data-retention'
+      'https://x.test/workspace/a%20b/settings/data-retention'
     )
   })
 
