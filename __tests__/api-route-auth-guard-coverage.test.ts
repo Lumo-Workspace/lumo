@@ -89,8 +89,6 @@ const PER_FILE_AUTH: Record<string, { call: string; reason: string }> = {
 }
 
 const ALLOW_LISTED: Record<string, string> = {
-  'app/api/local/cli-key/route.ts':
-    'LUM-1335: LUMO_MODE=local only (404 otherwise); issues the single account a CLI key, the same trust as the local sign-in',
   'app/api/waitlist/route.ts':
     'Intentionally public: marketing-site waitlist signup, writes only a WaitlistEntry',
   'app/api/blob/public/[...path]/route.ts':

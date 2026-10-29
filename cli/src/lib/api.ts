@@ -86,11 +86,15 @@ export function resolveApiUrl(): string {
   return resolved
 }
 
+/** The local-mode refusal codes the server answers with (LUM-1335). */
+const LOCAL_MODE_ERROR_PREFIX = 'local_mode_'
+
 /**
  * LUM-1335 — ask a self-hosted server in local mode (`LUMO_MODE=local`) for
- * an API key, so `lumo auth login` needs no copy-paste there. `unavailable`
- * (HTTP 404: any other server, including the hosted one) means "paste a key";
- * `refused` carries the server's reason (e.g. several accounts).
+ * an API key, so `lumo auth login` needs no copy-paste there. `refused` is
+ * only a local-mode server's own refusal (several accounts), with its reason;
+ * any other answer — 404 from the hosted service or a normal self-host, or an
+ * unrelated error — is `unavailable`, which means "paste a key".
  */
 export type LocalCliKeyResult =
   | { status: 'issued'; key: string }
@@ -102,30 +106,35 @@ export async function requestLocalCliKey(
 ): Promise<LocalCliKeyResult> {
   let res: Response
   try {
-    res = await fetch(`${trimTrailingSlash(apiUrl)}/api/local/cli-key`, {
-      method: 'POST',
-    })
+    res = await fetch(
+      `${trimTrailingSlash(apiUrl)}/api/auth/lumo/local-cli-key`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      }
+    )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     throw new Error(`Could not reach Lumo API at ${apiUrl} (${msg})`)
   }
-  if (res.status === 404) return { status: 'unavailable' }
-  const text = await res.text()
-  if (res.status === 201) {
-    let key: unknown
-    try {
-      key = (JSON.parse(text) as { key?: unknown }).key
-    } catch {
-      key = undefined
-    }
-    if (typeof key === 'string' && key.length > 0)
-      return { status: 'issued', key }
-    return { status: 'refused', message: 'the server sent no key' }
+  let body: { key?: unknown; error?: unknown; message?: unknown }
+  try {
+    body = (await res.json()) as typeof body
+  } catch {
+    return { status: 'unavailable' }
   }
-  return {
-    status: 'refused',
-    message: `${extractErrorMessage(text)} (HTTP ${res.status})`,
+  if (res.status === 201 && typeof body.key === 'string' && body.key) {
+    return { status: 'issued', key: body.key }
   }
+  if (
+    typeof body.error === 'string' &&
+    body.error.startsWith(LOCAL_MODE_ERROR_PREFIX)
+  ) {
+    const reason = typeof body.message === 'string' ? body.message : body.error
+    return { status: 'refused', message: reason }
+  }
+  return { status: 'unavailable' }
 }
 
 export function trimTrailingSlash(url: string): string {

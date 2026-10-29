@@ -40,9 +40,11 @@ jest.mock('@/lib/repositories/auth-user.repository', () => ({
 jest.mock('@/lib/integrations/email/client', () => ({ sendEmail: jest.fn() }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: () => undefined }))
 const mockEnsureWorkspace = jest.fn()
+const mockIssueCliKey = jest.fn()
 jest.mock('@/lib/services/local-mode.service', () => ({
   localModeService: {
     ensureWorkspace: (...a: unknown[]) => mockEnsureWorkspace(...a),
+    issueCliKey: (...a: unknown[]) => mockIssueCliKey(...a),
   },
 }))
 const mockLogger = { warn: jest.fn(), error: jest.fn(), info: jest.fn() }
@@ -135,7 +137,23 @@ beforeEach(() => {
   for (const rows of Object.values(mockDb)) rows.length = 0
   mockLogger.warn.mockClear()
   mockEnsureWorkspace.mockReset().mockResolvedValue(undefined)
+  mockIssueCliKey
+    .mockReset()
+    .mockResolvedValue({ key: 'lum_issued', workspaceSlug: 'my-workspace' })
 })
+
+const cliKey = (instance: Instance, headers: Record<string, string> = {}) =>
+  instance.handler(
+    new Request(`${BASE}/api/auth/lumo/local-cli-key`, {
+      method: 'POST',
+      body: '{}',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '10.9.0.2',
+        ...headers,
+      },
+    })
+  )
 
 describe('local sign-in endpoint (LUM-1335)', () => {
   it('does not exist without LUMO_MODE=local', async () => {
@@ -248,5 +266,68 @@ describe('local sign-in endpoint (LUM-1335)', () => {
     seedUser('user_b', 'b@example.test')
     await signIn(rebuild({ LUMO_MODE: 'local' }))
     expect(mockEnsureWorkspace).not.toHaveBeenCalled()
+  })
+})
+
+describe('local CLI key endpoint (LUM-1335)', () => {
+  it('does not exist without LUMO_MODE=local', async () => {
+    const res = await cliKey(rebuild({ LUMO_MODE: undefined }))
+    expect(res.status).toBe(404)
+    expect(mockIssueCliKey).not.toHaveBeenCalled()
+  })
+
+  it('before anyone opened the app: creates the account, then issues its key', async () => {
+    const res = await cliKey(rebuild({ LUMO_MODE: 'local' }), {
+      'user-agent': 'lumo-cli',
+    })
+    expect(res.status).toBe(201)
+    expect(await res.json()).toEqual({
+      key: 'lum_issued',
+      workspaceSlug: 'my-workspace',
+    })
+    expect(mockDb.authUser).toHaveLength(1)
+    const userId = mockDb.authUser![0]!.id
+    expect(mockIssueCliKey).toHaveBeenCalledWith(
+      userId,
+      expect.objectContaining({
+        source: 'CLI',
+        userAgent: 'lumo-cli',
+        actor: expect.objectContaining({ clerkId: userId }),
+      })
+    )
+    // A CLI key, not a browser session.
+    expect(res.headers.getSetCookie()).toHaveLength(0)
+  })
+
+  it('the account the browser created is the one the key is for', async () => {
+    const instance = rebuild({ LUMO_MODE: 'local' })
+    await signIn(instance)
+    await cliKey(instance)
+    expect(mockDb.authUser).toHaveLength(1)
+    expect(mockIssueCliKey).toHaveBeenCalledWith(
+      mockDb.authUser![0]!.id,
+      expect.anything()
+    )
+  })
+
+  it('refuses with 409 local_mode_multiple_users when there are several accounts', async () => {
+    seedUser('user_a', 'a@example.test')
+    seedUser('user_b', 'b@example.test')
+    const res = await cliKey(rebuild({ LUMO_MODE: 'local' }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({
+      error: 'local_mode_multiple_users',
+    })
+    expect(mockIssueCliKey).not.toHaveBeenCalled()
+  })
+
+  it('turns a cross-site browser request away (origin check), issuing nothing', async () => {
+    const res = await cliKey(rebuild({ LUMO_MODE: 'local' }), {
+      origin: 'https://evil.example',
+      cookie: 'better-auth.session_token=x',
+    })
+    expect(res.status).toBe(403)
+    expect(mockIssueCliKey).not.toHaveBeenCalled()
+    expect(mockDb.authUser).toHaveLength(0)
   })
 })

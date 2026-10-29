@@ -15,10 +15,15 @@ const KEY_PREFIX = 'lum_'
 export interface AuthLoginOptions {
   /** LUM-1335: the server to log in to (a self-hosted URL); else LUMO_API_URL / hosted. */
   url?: string
+  /** LUM-1335: fail instead of asking for a key (scripts, e.g. setup.sh --local). */
+  paste?: boolean
 }
 
 /** The key to log in with: issued by a local-mode server, else pasted. */
-async function obtainKey(apiUrl: string): Promise<string | null> {
+async function obtainKey(
+  apiUrl: string,
+  allowPaste: boolean
+): Promise<string | null> {
   const local = await requestLocalCliKey(apiUrl)
   if (local.status === 'issued') {
     console.log(`Local mode: ${apiUrl} issued an API key for this machine.`)
@@ -29,6 +34,12 @@ async function obtainKey(apiUrl: string): Promise<string | null> {
       `Local mode did not issue a key: ${sanitizeField(local.message)}`
     )
     console.log('')
+  }
+  if (!allowPaste) {
+    console.error(
+      `Error: ${apiUrl} did not issue a key (not in local mode, or it refused) and --no-paste is set`
+    )
+    return null
   }
   return pasteKey(trimTrailingSlash(apiUrl))
 }
@@ -54,6 +65,12 @@ export async function authLogin(
   if (opts.url !== undefined) {
     apiUrl = trimTrailingSlash(opts.url.trim())
     try {
+      new URL(apiUrl)
+    } catch {
+      console.error(`Error: --url "${apiUrl}" is not a valid URL`)
+      return 1
+    }
+    try {
       assertSafeApiUrl(apiUrl)
     } catch (err) {
       console.error(
@@ -67,13 +84,13 @@ export async function authLogin(
 
   let token: string | null
   try {
-    token = await obtainKey(apiUrl)
+    token = await obtainKey(apiUrl, opts.paste !== false)
   } catch (err) {
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
     return 1
   }
   if (!token) {
-    console.log('Login cancelled.')
+    if (opts.paste !== false) console.log('Login cancelled.')
     return 1
   }
 

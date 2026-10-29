@@ -5,7 +5,6 @@
  */
 const mockFindMembers = jest.fn()
 const mockIsSlugUnique = jest.fn()
-const mockFindAccounts = jest.fn()
 const mockCreateWorkspace = jest.fn()
 const mockCreateKey = jest.fn()
 jest.mock('@/lib/repositories/member.repository', () => ({
@@ -17,9 +16,6 @@ jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: {
     isSlugUnique: (...a: unknown[]) => mockIsSlugUnique(...a),
   },
-}))
-jest.mock('@/lib/repositories/auth-user.repository', () => ({
-  authUserRepository: { findMany: (...a: unknown[]) => mockFindAccounts(...a) },
 }))
 jest.mock('@/lib/services/workspace.service', () => ({
   workspaceService: {
@@ -83,23 +79,55 @@ describe('localModeService.ensureWorkspace', () => {
   })
 })
 
+describe('localModeService.ensureWorkspace race', () => {
+  it('a create that loses to a parallel first use returns the workspace that won', async () => {
+    mockFindMembers
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 'm_won',
+          workspaceId: 'ws_won',
+          workspace: { slug: 'my-workspace' },
+        },
+      ])
+    mockIsSlugUnique.mockResolvedValue(true)
+    mockCreateWorkspace.mockRejectedValue(
+      new Error('Unique constraint failed on slug')
+    )
+    await expect(localModeService.ensureWorkspace('user_1')).resolves.toEqual({
+      workspaceId: 'ws_won',
+      memberId: 'm_won',
+      slug: 'my-workspace',
+    })
+  })
+
+  it('a create that fails for another reason still fails', async () => {
+    mockFindMembers.mockResolvedValue([])
+    mockIsSlugUnique.mockResolvedValue(true)
+    mockCreateWorkspace.mockRejectedValue(new Error('db down'))
+    await expect(localModeService.ensureWorkspace('user_1')).rejects.toThrow(
+      'db down'
+    )
+  })
+})
+
 describe('localModeService.issueCliKey', () => {
-  it('issues a full key for the one account, audited as that account', async () => {
-    mockFindAccounts.mockResolvedValue([{ id: 'user_1' }])
+  it("issues a full key in the account's workspace, audited as that account", async () => {
     mockFindMembers.mockResolvedValue([
       { id: 'm1', workspaceId: 'ws1', workspace: { slug: 'acme' } },
     ])
     const audit = {
-      actor: { type: 'MEMBER' as const, clerkId: null, memberId: null },
+      actor: { type: 'MEMBER' as const, clerkId: 'user_1', memberId: null },
       source: 'CLI' as const,
       ip: null,
-      userAgent: 'curl',
+      userAgent: 'lumo-cli',
     }
-    await expect(localModeService.issueCliKey(audit)).resolves.toEqual({
+    await expect(
+      localModeService.issueCliKey('user_1', audit)
+    ).resolves.toEqual({
       key: 'lum_abc',
       workspaceSlug: 'acme',
     })
-    expect(mockFindAccounts).toHaveBeenCalledWith({ limit: 2 })
     expect(mockCreateKey).toHaveBeenCalledWith(
       { workspaceId: 'ws1', memberId: 'm1' },
       { label: LOCAL_CLI_KEY_LABEL, scope: null },
@@ -107,20 +135,17 @@ describe('localModeService.issueCliKey', () => {
     )
   })
 
-  it('refuses with 409 when there are several accounts, issuing nothing', async () => {
-    mockFindAccounts.mockResolvedValue([{ id: 'a' }, { id: 'b' }])
-    await expect(localModeService.issueCliKey()).rejects.toMatchObject({
-      status: 409,
+  it('creates the workspace first when the account has none', async () => {
+    mockFindMembers.mockResolvedValue([])
+    mockIsSlugUnique.mockResolvedValue(true)
+    await expect(localModeService.issueCliKey('user_1')).resolves.toEqual({
+      key: 'lum_abc',
+      workspaceSlug: 'my-workspace',
     })
-    expect(mockCreateKey).not.toHaveBeenCalled()
-  })
-
-  it('refuses with 409 before the first visit created the account', async () => {
-    mockFindAccounts.mockResolvedValue([])
-    await expect(localModeService.issueCliKey()).rejects.toMatchObject({
-      status: 409,
-      message: expect.stringContaining('open Lumo in a browser once'),
-    })
-    expect(mockCreateKey).not.toHaveBeenCalled()
+    expect(mockCreateKey).toHaveBeenCalledWith(
+      { workspaceId: 'ws_new', memberId: 'm_new' },
+      expect.anything(),
+      undefined
+    )
   })
 })

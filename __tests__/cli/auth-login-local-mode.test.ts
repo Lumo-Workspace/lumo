@@ -65,7 +65,7 @@ const printed = () => log.mock.calls.map(c => c.join(' ')).join('\n')
 describe('lumo auth login (LUM-1335)', () => {
   it('local mode: takes the issued key, never prompts or opens a browser, stores the --url', async () => {
     serve(url =>
-      url.endsWith('/api/local/cli-key')
+      url.endsWith('/api/auth/lumo/local-cli-key')
         ? json({ key: 'lum_issued', workspaceSlug: 'my-workspace' }, 201)
         : json(VERIFY, 200)
     )
@@ -73,7 +73,10 @@ describe('lumo auth login (LUM-1335)', () => {
       authLogin({ url: 'http://localhost:3000/' })
     ).resolves.toBeUndefined()
     expect(calls).toEqual([
-      { url: 'http://localhost:3000/api/local/cli-key', method: 'POST' },
+      {
+        url: 'http://localhost:3000/api/auth/lumo/local-cli-key',
+        method: 'POST',
+      },
       { url: 'http://localhost:3000/api/auth/verify', method: 'GET' },
     ])
     expect(mockPrompt).not.toHaveBeenCalled()
@@ -90,7 +93,7 @@ describe('lumo auth login (LUM-1335)', () => {
 
   it('any other server (404): the paste flow, unchanged', async () => {
     serve(url =>
-      url.endsWith('/api/local/cli-key')
+      url.endsWith('/api/auth/lumo/local-cli-key')
         ? new Response('Not found', { status: 404 })
         : json(VERIFY, 200)
     )
@@ -105,16 +108,56 @@ describe('lumo auth login (LUM-1335)', () => {
 
   it('a local-mode refusal is shown, then the paste flow runs', async () => {
     serve(url =>
-      url.endsWith('/api/local/cli-key')
-        ? json({ error: 'several accounts' }, 409)
+      url.endsWith('/api/auth/lumo/local-cli-key')
+        ? json(
+            {
+              error: 'local_mode_multiple_users',
+              message: 'it has several accounts',
+            },
+            409
+          )
         : json(VERIFY, 200)
     )
     mockPrompt.mockResolvedValue('lum_pasted')
     await authLogin({ url: 'http://localhost:3000' })
     expect(printed()).toContain(
-      'Local mode did not issue a key: several accounts (HTTP 409)'
+      'Local mode did not issue a key: it has several accounts'
     )
     expect(mockPrompt).toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'a 500 from any server',
+      () => json({ error: 'Internal Server Error' }, 500),
+    ],
+    [
+      'a 405 HTML page',
+      () => new Response('<html>nope</html>', { status: 405 }),
+    ],
+    ['a 403 origin refusal', () => json({ code: 'INVALID_ORIGIN' }, 403)],
+  ])(
+    '%s is not reported as local mode: straight to the paste flow',
+    async (_label, reply) => {
+      serve(url =>
+        url.endsWith('/api/auth/lumo/local-cli-key')
+          ? reply()
+          : json(VERIFY, 200)
+      )
+      mockPrompt.mockResolvedValue('lum_pasted')
+      await authLogin({ url: 'https://lumo.example.com' })
+      expect(printed()).not.toContain('Local mode')
+      expect(mockPrompt).toHaveBeenCalled()
+    }
+  )
+
+  it('names --url, not LUMO_API_URL, when the flag is not a URL', async () => {
+    serve(() => json({}, 500))
+    await expect(authLogin({ url: 'not a url' })).resolves.toBe(1)
+    expect(calls).toEqual([])
+    expect(err.mock.calls.join(' ')).toContain(
+      '--url "not a url" is not a valid URL'
+    )
   })
 
   it('refuses an insecure --url before sending anything', async () => {
@@ -123,6 +166,35 @@ describe('lumo auth login (LUM-1335)', () => {
     expect(calls).toEqual([])
     expect(err.mock.calls.join(' ')).toContain(
       'Refusing to use insecure API URL'
+    )
+  })
+
+  it('--no-paste: a server that issues no key fails without prompting or opening a browser', async () => {
+    serve(url =>
+      url.endsWith('/api/auth/lumo/local-cli-key')
+        ? new Response('Not found', { status: 404 })
+        : json(VERIFY, 200)
+    )
+    await expect(
+      authLogin({ url: 'http://localhost:3000', paste: false })
+    ).resolves.toBe(1)
+    expect(mockPrompt).not.toHaveBeenCalled()
+    expect(mockOpen).not.toHaveBeenCalled()
+    expect(mockWrite).not.toHaveBeenCalled()
+    expect(err.mock.calls.join(' ')).toContain('--no-paste is set')
+  })
+
+  it('--no-paste still logs in when the local-mode server issues a key', async () => {
+    serve(url =>
+      url.endsWith('/api/auth/lumo/local-cli-key')
+        ? json({ key: 'lum_issued', workspaceSlug: 'my-workspace' }, 201)
+        : json(VERIFY, 200)
+    )
+    await expect(
+      authLogin({ url: 'http://localhost:3000', paste: false })
+    ).resolves.toBeUndefined()
+    expect(mockWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'lum_issued' })
     )
   })
 })

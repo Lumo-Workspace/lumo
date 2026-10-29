@@ -477,6 +477,10 @@ auth
     '--url <url>',
     'The Lumo server to log in to, e.g. http://localhost:3000 (default: LUMO_API_URL, else the hosted service)'
   )
+  .option(
+    '--no-paste',
+    'Fail instead of asking for a key when the server does not issue one (for scripts); never opens a browser'
+  )
   .action(wrap((opts: unknown) => authLogin(opts as AuthLoginOptions)))
 
 auth

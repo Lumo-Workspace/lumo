@@ -142,6 +142,14 @@
     "auth login": {
       "arguments": [],
       "flags": {
+        "--no-paste": {
+          "long": "--no-paste",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Fail instead of asking for a key when the server does not issue one (for scripts); never opens a browser"
+        },
         "--url": {
           "long": "--url",
           "short": null,

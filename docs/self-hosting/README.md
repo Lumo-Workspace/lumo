@@ -92,18 +92,24 @@ the app — on a URL other machines can reach, the app logs a warning and the
 check shows `⚠ Sign-in`.
 
 The first visit also gives the account a workspace, **My workspace**, so
-there is no onboarding step either. To connect the `lumo` CLI, run the
-command `setup.sh --local` prints at the end:
+there is no onboarding step either.
+
+`setup.sh --local` also connects the `lumo` CLI, but only when that takes no
+other login away: `lumo` is installed and either not logged in or already
+logged in to this same URL. The CLI keeps one login, so when it is logged in
+somewhere else (the hosted service, another server) setup leaves it alone
+and prints the command instead; running it replaces that login:
 
 ```bash
 lumo auth login --url http://localhost:3000
 ```
 
-In local mode the server issues an API key for the account itself (no
-browser, nothing to copy); open the app once first so the account exists.
-On any other server the same command falls back to pasting a key from
-Settings → API Keys. Anyone who can reach a local-mode instance can get such
-a key, exactly as they can sign in.
+In local mode the server issues an API key for the account itself — no
+browser, nothing to copy, and no need to open the app first (the account is
+created if there is none). On any other server the same command falls back
+to pasting a key from Settings → API Keys (`--no-paste` makes it fail
+instead, for scripts). Anyone who can reach a local-mode instance can get
+such a key, exactly as they can sign in.
 
 The account is an ordinary one (`local@lumo.localhost`, no password), so
 everything you create stays when you leave local mode. If the instance

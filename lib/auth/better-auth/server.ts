@@ -246,6 +246,17 @@ function createBetterAuth() {
                 logger.warn('[auth] local mode: could not set up a workspace', {
                   error: err instanceof Error ? err.message : String(err),
                 }),
+              issueCliKey: async (userId, headers) => {
+                const [{ localModeService }, { memberAuditContext }] =
+                  await Promise.all([
+                    import('@/lib/services/local-mode.service'),
+                    import('@/lib/api/audit-context'),
+                  ])
+                return localModeService.issueCliKey(
+                  userId,
+                  memberAuditContext(headers, { clerkId: userId }, 'bearer')
+                )
+              },
             }),
           ]
         : []),
