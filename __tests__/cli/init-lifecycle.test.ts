@@ -96,7 +96,8 @@ describe('commander registration', () => {
     const flags = (c?: { options: Array<{ long?: string }> }) =>
       c?.options.map(o => o.long).sort()
     expect(flags(initCmd)).toEqual(
-      ['--agent', '--dry-run', '--scan-hooks', '--upgrade'].sort()
+      // LUM-1259: --scan-log, the opt-in local scan log hooks.
+      ['--agent', '--dry-run', '--scan-hooks', '--scan-log', '--upgrade'].sort()
     )
     // LUM-1118: --upgrade survives only as a hidden flag printing the removal.
     expect(initCmd?.options.find(o => o.long === '--upgrade')?.hidden).toBe(

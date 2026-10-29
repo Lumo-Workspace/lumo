@@ -17,6 +17,7 @@ import {
   meetsFailOn,
   parseFailOn,
   type LocalFinding,
+  type FailOn,
   type LocalScanner,
   type LocalScanResult,
   type PrSection,
@@ -32,6 +33,20 @@ import {
 } from '../lib/scan-context'
 import { comparePrFindings, labelFinding } from '../lib/scan-labels'
 import { colorEnabled, terminalWidth } from '../lib/ui'
+import { readCliVersion } from '../lib/cli-version'
+import {
+  buildRunPayload,
+  commitFacts,
+  commitsInRange,
+  isMergeCommit,
+  resolveCommit,
+  uploadRuns,
+  type LocalRunPayload,
+  type LogTrigger,
+  type UploadDeps,
+} from '../lib/local-scan-log'
+import { detectDefaultBranch, gitOutput } from '../lib/worktree'
+import type { LogSection } from '../lib/local-scan-report'
 
 export interface SecurityScanOptions {
   secrets?: boolean
@@ -55,7 +70,19 @@ export interface SecurityScanOptions {
   repo?: string
   /** LUM-1258 — seconds to wait for the network (Lumo server, api.osv.dev). */
   timeout?: string
+  /** LUM-1259 — scan one commit against its first parent. */
+  commit?: string
+  /** LUM-1259 — record each scanned commit's result on the server. */
+  log?: boolean
+  /** LUM-1259 — hidden: the git hook that runs `--log` (post-commit | pre-push). */
+  hook?: string
 }
+
+/** LUM-1259 — `--hook` values → the trigger a logged run records. */
+const HOOK_TRIGGERS: ReadonlyMap<string, LogTrigger> = new Map([
+  ['post-commit', 'POST_COMMIT'],
+  ['pre-push', 'PRE_PUSH'],
+])
 
 /** `--timeout` bounds: a hook wants seconds, nobody wants minutes. */
 const TIMEOUT_MAX_SECONDS = 60
@@ -78,10 +105,16 @@ export function selectScanners(opts: SecurityScanOptions): LocalScanner[] {
   return picked.length > 0 ? picked : ['SECRETS', 'DEPS']
 }
 
-/** Test seams: the server context's (LUM-1256) plus the DEPS scanner's OSV API and binary. */
-export interface SecurityScanDeps extends ScanContextDeps {
+/**
+ * Test seams: the server context's (LUM-1256), the DEPS scanner's OSV API
+ * and binary (LUM-1257), and (LUM-1259) the log upload, the environment the
+ * actor is read from and the clock.
+ */
+export interface SecurityScanDeps extends ScanContextDeps, UploadDeps {
+  fetch?: typeof fetch
   osvFetch?: typeof fetch
   scannerBin?: string
+  env?: Record<string, string | undefined>
 }
 
 /**
@@ -236,6 +269,14 @@ export async function securityScanCommand(
     )
     return EXIT_USAGE
   }
+  const perCommit = commitModeError(opts)
+  if (perCommit) {
+    console.error(`Error: ${perCommit}`)
+    return EXIT_USAGE
+  }
+  if (opts.commit !== undefined || opts.log)
+    return scanCommits(opts, { failOn, timeoutMs }, deps)
+
   const until = opts.until !== undefined ? { until: opts.until } : {}
   const scope: ScanScope = opts.staged
     ? { kind: 'staged' }
@@ -307,4 +348,236 @@ export async function securityScanCommand(
   if (failOn !== null && meetsFailOn(findings, failOn)) return EXIT_FAIL_ON
   // A scanner that could not finish is a failure, not a clean result.
   return incompleteScanners(result).length > 0 ? 1 : 0
+}
+
+/**
+ * LUM-1259 — the flag combinations `--commit` / `--log` refuse; null when
+ * the run is fine (or uses neither).
+ */
+export function commitModeError(opts: SecurityScanOptions): string | null {
+  if (opts.hook !== undefined && !HOOK_TRIGGERS.has(opts.hook))
+    return `invalid --hook "${opts.hook}" (post-commit or pre-push)`
+  if (opts.hook !== undefined && !opts.log) return '--hook needs --log'
+  if (opts.commit !== undefined) {
+    if (opts.staged || opts.since !== undefined || opts.until !== undefined)
+      return '--commit scans one commit; it cannot run with --staged, --since or --until'
+    if (opts.pr) return '--pr compares the PR diff; it cannot run with --commit'
+  }
+  if ((opts.commit !== undefined || opts.log) && opts.full)
+    return '--full scans the whole tree; it cannot run with --commit or --log'
+  if (!opts.log) return null
+  if (opts.staged)
+    return '--log records commits; staged changes have no sha yet (use --commit <ref> after committing)'
+  if (opts.pr) return '--log cannot run with --pr'
+  if (opts.commit === undefined && opts.until === undefined)
+    return '--log records commits: pass --commit <ref>, or --until <ref> (with --since <ref>) for a range'
+  return null
+}
+
+/** The commits a per-commit run scans: `--commit`, or the range's non-merges. */
+function commitsToScan(
+  root: string,
+  opts: SecurityScanOptions
+): { shas: string[]; skipped: number; range: string } {
+  if (opts.commit !== undefined) {
+    const sha = resolveCommit(root, opts.commit)
+    if (!sha)
+      throw new Error(
+        `Unknown ref "${opts.commit}" — pass a branch, tag or commit to --commit.`
+      )
+    if (isMergeCommit(root, sha))
+      return { shas: [], skipped: 1, range: `merge commit ${sha.slice(0, 7)}` }
+    return { shas: [sha], skipped: 0, range: `commit ${sha.slice(0, 7)}` }
+  }
+  const until = opts.until as string
+  const end = resolveCommit(root, until)
+  if (!end)
+    throw new Error(
+      `Unknown ref "${until}" — pass a branch, tag or commit to --until.`
+    )
+  let base: string
+  if (opts.since !== undefined) {
+    const since = resolveCommit(root, opts.since)
+    if (!since)
+      throw new Error(
+        `Unknown ref "${opts.since}" — pass a branch, tag or commit to --since.`
+      )
+    base = since
+  } else {
+    const branch = detectDefaultBranch(root, { allowNetwork: false })
+    if (!branch)
+      throw new Error(
+        'Could not find the default branch (no origin/HEAD, origin/main or origin/master). Pass --since <ref>.'
+      )
+    base = gitOutput(['merge-base', end, `origin/${branch}`], root)
+  }
+  const { shas, truncated } = commitsInRange(root, base, end)
+  return {
+    shas,
+    skipped: truncated ? 1 : 0,
+    range: `${base.slice(0, 7)}..${end.slice(0, 7)} (${shas.length} ${shas.length === 1 ? 'commit' : 'commits'})`,
+  }
+}
+
+/**
+ * LUM-1259 — `--commit <ref>` / `--log`: scan each commit against its first
+ * parent (merges are skipped), label the findings with the server context
+ * (read once), and with `--log` record one run per commit on the server —
+ * or queue it under `.git/lumo` when it cannot go now. The output is the
+ * usual report over every scanned commit, each finding naming its commit.
+ * Logging never fails the command: a refused or queued upload is a note.
+ */
+async function scanCommits(
+  opts: SecurityScanOptions,
+  run: { failOn: FailOn | null; timeoutMs: number | undefined },
+  deps: SecurityScanDeps
+): Promise<number> {
+  const started = performance.now()
+  const root = gitOutput(['rev-parse', '--show-toplevel'])
+  const scanners = selectScanners(opts)
+  const { shas, skipped, range } = commitsToScan(root, opts)
+
+  const branch = detectBranch(root)
+  const repo = opts.repo ?? detectRepo(root)
+  const loaded = await loadScanContext(
+    {
+      repo,
+      branch,
+      offline: opts.offline === true,
+      ...(run.timeoutMs !== undefined ? { timeoutMs: run.timeoutMs } : {}),
+    },
+    deps
+  )
+  const ctx = loaded.context
+  const now = (deps.now ?? (() => new Date()))()
+  const cliVersion = readCliVersion()
+  const trigger: LogTrigger = HOOK_TRIGGERS.get(opts.hook ?? '') ?? 'MANUAL'
+  const label = (f: LocalFinding): LocalFinding =>
+    ctx ? { ...f, server: labelFinding(f, ctx) } : f
+
+  const findings: LocalFinding[] = []
+  const payloads: LocalRunPayload[] = []
+  const depsRuns: DepsScanResult[] = []
+  let filesScanned = 0
+  let unrecorded = 0
+  for (const sha of shas) {
+    const scope: ScanScope = { kind: 'commit', ref: sha }
+    const diff = scanners.includes('SECRETS')
+      ? collectLocalDiff(scope, root)
+      : null
+    const depsResult = scanners.includes('DEPS')
+      ? await scanDeps(resolveScanBase(scope, root), {
+          full: false,
+          offline: opts.offline === true,
+          fetchImpl: deps.osvFetch,
+          scannerBin: deps.scannerBin,
+          now,
+          timeoutMs: run.timeoutMs,
+        })
+      : undefined
+    if (depsResult) depsRuns.push(depsResult)
+    filesScanned += diff?.files.length ?? 0
+    const found: LocalFinding[] = [
+      ...(diff
+        ? scanSecrets(diff.files).map(f => ({
+            ...f,
+            scanner: 'SECRETS' as const,
+          }))
+        : []),
+      ...(depsResult?.findings ?? []),
+    ].map(f => label({ ...f, commitSha: sha }))
+    findings.push(...found)
+    // A scanner that could not finish is not claimed for the commit; with
+    // none left there is nothing to record (the server refuses a run that
+    // names no scanner, and with it the whole batch).
+    const finished = scanners.filter(
+      s => s !== 'DEPS' || depsResult?.incomplete == null
+    )
+    if (opts.log && repo && finished.length === 0) unrecorded++
+    else if (opts.log && repo)
+      payloads.push(
+        buildRunPayload({
+          repo,
+          facts: commitFacts(root, sha),
+          branch,
+          trigger,
+          scanners: finished,
+          cliVersion,
+          filesScanned: diff?.files.length ?? 0,
+          scannedAt: now,
+          findings: found,
+          ...(deps.env ? { env: deps.env } : {}),
+        })
+      )
+  }
+
+  let log: LogSection | undefined
+  if (opts.log) {
+    if (!repo) {
+      log = {
+        commits: shas,
+        skipped,
+        unrecorded,
+        sent: 0,
+        created: 0,
+        duplicates: 0,
+        queued: 0,
+        flushed: 0,
+        note: 'no GitHub origin remote (pass --repo owner/name) — nothing recorded',
+      }
+    } else {
+      const outcome = await uploadRuns(
+        root,
+        payloads,
+        { offline: opts.offline === true },
+        deps
+      )
+      log = { commits: shas, skipped, unrecorded, ...outcome }
+    }
+  }
+
+  const result: LocalScanResult = {
+    scanners,
+    scope: range,
+    filesScanned,
+    skipped: [],
+    elapsedMs: Math.round(performance.now() - started),
+    findings,
+    server: {
+      source: loaded.source,
+      note: loaded.note,
+      repo: loaded.repo,
+      fetchedAt: loaded.fetchedAt,
+      pullRequest: ctx?.pullRequest?.number ?? null,
+      policy: ctx?.policy ?? null,
+      pr: null,
+    },
+    ...(depsRuns.length > 0 ? { deps: mergeDepsRuns(depsRuns) } : {}),
+    ...(log ? { log } : {}),
+  }
+  if (opts.json) emitJson(localScanJson(result))
+  else
+    console.log(
+      formatLocalScan(result, { width: terminalWidth(), color: colorEnabled() })
+    )
+  if (run.failOn !== null && meetsFailOn(findings, run.failOn))
+    return EXIT_FAIL_ON
+  // As on the default path: a scanner that could not finish is a failure.
+  // The upload never decides the exit code.
+  return incompleteScanners(result).length > 0 ? 1 : 0
+}
+
+/** LUM-1259 — the DEPS facts of several commits, as one section. */
+export function mergeDepsRuns(runs: DepsScanResult[]): DepsScanResult {
+  const uniq = <T>(xs: T[]) => [...new Set(xs)].sort()
+  return {
+    mode: 'fast',
+    source: runs[0]!.source,
+    lockfiles: uniq(runs.flatMap(r => r.lockfiles)),
+    packagesChecked: runs.reduce((n, r) => n + (r.packagesChecked ?? 0), 0),
+    findings: runs.flatMap(r => r.findings),
+    ignored: runs.flatMap(r => r.ignored),
+    notCovered: uniq(runs.flatMap(r => r.notCovered)),
+    incomplete: runs.find(r => r.incomplete)?.incomplete ?? null,
+  }
 }

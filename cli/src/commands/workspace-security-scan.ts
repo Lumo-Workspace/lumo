@@ -23,6 +23,8 @@ export interface WorkspaceSecurityScanOptions extends ConfirmFlags {
   learningsScope?: string
   /** LUM-1137 — pause automatic review after N reviewed commits (0 = never). */
   autoPauseAfter?: string
+  /** LUM-1259 — log local scan results per commit (default off). */
+  localScanLog?: string
   /** LUM-1329 — off | high | medium | low: which imported agent-review
    *  findings block Done (the policy's AGENT_REVIEW entries). */
   agentReviewBlocks?: string
@@ -74,6 +76,8 @@ export interface SecurityScanSwitches {
   securityLearningsScope?: LearningsScope
   /** LUM-1137 — absent on a server older than the setting (reads as 5). */
   securityReviewAutoPauseAfter?: number
+  /** LUM-1259 — absent on a server older than the setting (reads as off). */
+  securityLocalScanLogEnabled?: boolean
 }
 
 /** LUM-1134 — the learnings scope values (which repositories' learnings a review reads). */
@@ -89,10 +93,16 @@ const AGENT_REVIEW_LEVELS: readonly AgentReviewBlocking[] = [
   'low',
 ]
 
-/** The on/off switches (everything but the learnings scope and pause-after). */
+/**
+ * The on/off switches whose turn-off is confirmed (everything but the
+ * learnings scope, the pause-after and the local scan log — turning the log
+ * off only stops collecting, so it is turning it ON that is confirmed).
+ */
 type OnOffSwitch = Exclude<
   keyof SecurityScanSwitches,
-  'securityLearningsScope' | 'securityReviewAutoPauseAfter'
+  | 'securityLearningsScope'
+  | 'securityReviewAutoPauseAfter'
+  | 'securityLocalScanLogEnabled'
 >
 
 export interface SecurityScanSettingsView {
@@ -203,6 +213,11 @@ export function buildSecurityScanUpdate(
     singles.securityReviewAutoPauseAfter = parseAutoPauseAfter(
       opts.autoPauseAfter
     )
+  if (opts.localScanLog !== undefined)
+    singles.securityLocalScanLogEnabled = parseOnOff(
+      '--local-scan-log',
+      opts.localScanLog
+    )
   if (opts.agentReviewBlocks !== undefined)
     singles.agentReviewBlocking = parseAgentReviewBlocks(opts.agentReviewBlocks)
 
@@ -213,7 +228,7 @@ export function buildSecurityScanUpdate(
   if (all !== undefined) {
     if (Object.keys(singles).length > 0) {
       throw new Error(
-        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --reward-hack / --request-changes / --allow-author-approval / --learnings-scope / --auto-pause-after / --agent-review-blocks'
+        '--disable-all / --enable-all cannot be combined with --scan / --ai-review / --hunt / --reward-hack / --request-changes / --allow-author-approval / --learnings-scope / --auto-pause-after / --local-scan-log / --agent-review-blocks'
       )
     }
     return { all }
@@ -315,6 +330,17 @@ export function describeGatedChanges(
     lines.push(
       `Will change: Learnings scope ${scopeNow} → global — the AI review of every repository in this workspace reads the learnings of all its repositories`,
       'Including public repositories: their reviews (posted publicly on GitHub) may draw on learnings from your private repositories'
+    )
+  }
+  // LUM-1259: the local scan log stores metadata of commits nobody pushed
+  // yet (sha, branch, file paths, rule ids) for every member — opt-in.
+  if (
+    target.securityLocalScanLogEnabled === true &&
+    current.securityLocalScanLogEnabled !== true
+  ) {
+    lines.push(
+      'Will turn ON: Local scan log — `lumo security scan --log` and the scan-log git hooks upload each commit’s local scan result (commit sha, parent, patch-id, branch, file paths, rule ids, fingerprints and redacted titles; never code, secret values or commit messages)',
+      'Workspace-wide (every member’s CLI); results are labelled LOCAL and never block or clear Done'
     )
   }
   // LUM-1329: any change to which imported agent reviews block Done —
@@ -441,6 +467,12 @@ export function formatSecurityScanSettings(
   if (pauseAfter !== undefined) {
     lines.push(
       `Automatic review: every push · ${pauseAfter === 0 ? 'never pauses' : `pauses after ${pauseAfter} reviewed commits`}`
+    )
+  }
+  // LUM-1259: only a server that knows the setting reports it.
+  if (s.switches.securityLocalScanLogEnabled !== undefined) {
+    lines.push(
+      `Local scan log (per commit): ${onOff(s.switches.securityLocalScanLogEnabled)}`
     )
   }
   if (!s.switches.securityScanEnabled) {

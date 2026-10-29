@@ -49,7 +49,27 @@ const RANK: Record<SecuritySeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 }
 export type LocalFinding = (
   | (RawSecretFinding & { scanner: 'SECRETS' })
   | DependencyFinding
-) & { server?: ServerLabel | null }
+) & {
+  server?: ServerLabel | null
+  /** LUM-1259 — with `--log` / `--commit`: the commit the finding is in. */
+  commitSha?: string
+}
+
+/** LUM-1259 — `--log`: what was recorded on the server. */
+export interface LogSection {
+  /** Commits scanned (each recorded as one run unless `unrecorded`). */
+  commits: string[]
+  /** Commits left out: merges, and past the per-run cap. */
+  skipped: number
+  /** Scanned commits with no scanner that finished: nothing recorded. */
+  unrecorded: number
+  sent: number
+  created: number
+  duplicates: number
+  queued: number
+  flushed: number
+  note: string | null
+}
 
 /** LUM-1256 — `--pr`: the branch's PR and its latest server scan. */
 export interface PrSection {
@@ -92,6 +112,8 @@ export interface LocalScanResult {
   server?: ServerSection
   /** The DEPS run's own facts; absent when DEPS did not run. */
   deps?: DepsScanResult
+  /** LUM-1259 — only with `--log`. */
+  log?: LogSection
 }
 
 /** Scanners whose result is not the full answer, with why (an unreachable API). */
@@ -185,7 +207,7 @@ export function sortFindings<
 }
 
 function dependencyLines(
-  f: DependencyFinding & { server?: ServerLabel | null },
+  f: DependencyFinding & { server?: ServerLabel | null; commitSha?: string },
   opts: LayoutOptions
 ): string[] {
   const fields: Field[] = [
@@ -195,6 +217,9 @@ function dependencyLines(
       value: sanitizeField(`${f.package}@${f.version} (${f.ecosystem})`),
     },
     { label: 'Where', value: sanitizeField(f.filePath) },
+    ...(f.commitSha
+      ? [{ label: 'Commit', value: sanitizeField(f.commitSha.slice(0, 12)) }]
+      : []),
     {
       label: 'Fix',
       value: f.malicious
@@ -224,6 +249,9 @@ function findingLines(f: LocalFinding, opts: LayoutOptions): string[] {
   const fields: Field[] = [
     { label: 'Rule', value: sanitizeField(f.ruleId) },
     { label: 'Where', value: sanitizeField(`${f.filePath}:${f.line}`) },
+    ...(f.commitSha
+      ? [{ label: 'Commit', value: sanitizeField(f.commitSha.slice(0, 12)) }]
+      : []),
     // Already redacted by the scanner — the raw value never reaches here.
     { label: 'Evidence', value: sanitizeField(f.evidence.trim()), whole: true },
   ]
@@ -264,11 +292,32 @@ export function formatLocalScan(
     )
   }
   if (r.server) lines.push(...serverLines(r))
+  if (r.log) lines.push(logLine(r.log))
   for (const f of sortFindings(r.findings)) {
     lines.push('', ...findingLines(f, opts))
   }
   if (r.server?.pr) lines.push('', ...prLines(r.server.pr, opts))
   return lines.join('\n')
+}
+
+/**
+ * LUM-1259 — `Log: 2 commits scanned · 2 sent (1 new, 1 already logged) ·
+ * 0 queued`, then why anything was not sent. Recorded results are LOCAL:
+ * they never block or clear DONE.
+ */
+function logLine(l: LogSection): string {
+  const commits = l.commits.length === 1 ? 'commit' : 'commits'
+  const parts = [
+    `${l.commits.length} ${commits} scanned`,
+    `${l.sent} sent (${l.created} new, ${l.duplicates} already logged)`,
+    `${l.queued} queued`,
+  ]
+  if (l.flushed > 0) parts.push(`${l.flushed} from the queue`)
+  if (l.skipped > 0) parts.push(`${l.skipped} skipped (merges / over the cap)`)
+  if (l.unrecorded > 0)
+    parts.push(`${l.unrecorded} not recorded (no scanner finished)`)
+  const note = l.note ? ` — ${sanitizeField(l.note)}` : ''
+  return `Log: ${parts.join(' · ')}${note}`
 }
 
 /** The DEPS run's own lines: what was checked, what is missing, what was ignored. */
@@ -397,10 +446,10 @@ function prJson(pr: PrSection): Record<string, unknown> {
  * siblings. Declared finding fields (J-3): scanner, kind, ruleId, severity,
  * title, filePath, line, evidence (redacted), fingerprint, detail, downgrade,
  * server (LUM-1256: { status, by, at, pullRequest, carriesOver, learningId,
- * wouldBlockDone } or null), and for DEPS (LUM-1257) dependency. Siblings:
- * scanners, scope, filesScanned, skipped, elapsedMs, summary, (LUM-1257)
- * complete, incomplete and deps, and (LUM-1256) serverContext and
- * wouldBlockDone.
+ * wouldBlockDone } or null), for DEPS (LUM-1257) dependency, and (LUM-1259)
+ * commitSha on a per-commit scan. Siblings: scanners, scope, filesScanned,
+ * skipped, elapsedMs, summary, (LUM-1257) complete, incomplete and deps,
+ * (LUM-1256) serverContext and wouldBlockDone, and (LUM-1259) log.
  */
 export function localScanJson(r: LocalScanResult): Record<string, unknown> {
   const findings = sortFindings(r.findings).map(f =>
@@ -430,6 +479,7 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
             url: f.url,
             ignoreExpired: f.ignoreExpired,
           },
+          ...(f.commitSha ? { commitSha: f.commitSha } : {}),
         }
       : {
           scanner: f.scanner,
@@ -444,6 +494,8 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
           detail: f.detail,
           downgrade: f.downgrade ?? null,
           server: f.server ?? null,
+          // LUM-1259: only on a per-commit scan (`--commit` / `--log`).
+          ...(f.commitSha ? { commitSha: f.commitSha } : {}),
         }
   )
   const incomplete = incompleteScanners(r)
@@ -487,6 +539,8 @@ export function localScanJson(r: LocalScanResult): Record<string, unknown> {
         r.server && r.server.source !== 'none'
           ? countWouldBlock(r.findings)
           : null,
+      // LUM-1259: what `--log` recorded (null without it).
+      log: r.log ?? null,
     }
   )
 }

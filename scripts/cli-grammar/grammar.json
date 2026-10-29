@@ -1592,6 +1592,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Also add pre-commit and pre-push hooks that run lumo security scan; they block only on a finding that would block DONE"
+        },
+        "--scan-log": {
+          "long": "--scan-log",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --scan-hooks: also record each commit’s local scan result on the Lumo server (post-commit + pre-push, in the background; the workspace must opt in; off: git config lumo.scanLog false)"
         }
       },
       "hasSubcommands": false,
@@ -3035,6 +3043,14 @@
     "security scan": {
       "arguments": [],
       "flags": {
+        "--commit": {
+          "long": "--commit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Scan one commit against its first parent (merge commits are skipped)"
+        },
         "--deps": {
           "long": "--deps",
           "short": null,
@@ -3066,6 +3082,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Emit the list envelope ({ version, findings[], summary, … })"
+        },
+        "--log": {
+          "long": "--log",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Record each scanned commit’s result on the Lumo server (needs --commit, or --until for a range; the workspace must opt in). Offline: queued under .git/lumo and sent by the next --log run. Recorded results are labelled LOCAL and never block or clear DONE"
         },
         "--offline": {
           "long": "--offline",
@@ -3137,8 +3161,8 @@
       "description": "Scan changes with the PR scan's rules (merge-base to working tree, untracked included), labelled with the server's baseline, rulings and policy. --deps sends package names/versions to api.osv.dev.",
       "codex": {
         "serverOnly": false,
-        "localFiles": "none",
-        "detail": "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH"
+        "localFiles": "writes",
+        "detail": "reads git and the working tree; reads server context from the Lumo API and caches it in ~/.lumo (sandboxed: falls back to the cache); --deps sends package names and versions to api.osv.dev (needs network); --full runs osv-scanner from PATH; --log uploads each commit’s result to the Lumo API, queueing it under .git/lumo when it cannot (--offline: queued only)"
       }
     },
     "session": {
@@ -5623,6 +5647,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Which repositories’ learnings the AI review reads (default auto): local = the reviewed repository, global = every repository in this workspace, auto = local for public / global for private repositories"
+        },
+        "--local-scan-log": {
+          "long": "--local-scan-log",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Log local scan results per commit (`lumo security scan --log`, the scan-log hooks) on the server (default off); turning it on needs --confirm"
         },
         "--override-reviewers-only": {
           "long": "--override-reviewers-only",

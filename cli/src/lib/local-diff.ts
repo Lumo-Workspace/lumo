@@ -23,6 +23,11 @@ export type ScanScope =
   | { kind: 'staged' }
   | { kind: 'since'; ref: string; until?: string }
   | { kind: 'default'; until?: string }
+  /** LUM-1259: one commit against its first parent (a root commit: everything). */
+  | { kind: 'commit'; ref: string }
+
+/** git's empty tree: what a root commit is diffed against. */
+export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 export interface LocalDiff {
   /** Repo root every path is relative to. */
@@ -190,6 +195,20 @@ export function resolveScanBase(scope: ScanScope, cwd?: string): ScanBase {
   const root = gitOutput(['rev-parse', '--show-toplevel'], cwd)
   if (scope.kind === 'staged') {
     return { root, base: 'HEAD', head: 'index', description: 'staged changes' }
+  }
+  if (scope.kind === 'commit') {
+    assertCommit(root, scope.ref, '--commit')
+    const parent = runGit(
+      ['rev-parse', '--verify', '--quiet', `${scope.ref}^1`],
+      root
+    )
+    return {
+      root,
+      base: parent.status === 0 ? parent.stdout.trim() : EMPTY_TREE,
+      head: 'commit',
+      until: scope.ref,
+      description: `commit ${shortSha(root, scope.ref)}`,
+    }
   }
   const until = scope.until
   if (until !== undefined) assertCommit(root, until, '--until')

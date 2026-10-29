@@ -11,7 +11,7 @@ import {
   PREPARE_COMMIT_MSG_HOOK,
   type GitHookSpec,
 } from './git-hook-template'
-import { SCAN_HOOKS } from './scan-hook-template'
+import { SCAN_HOOKS, SCAN_LOG_HOOKS } from './scan-hook-template'
 import { CODEX_HOOK_EVENTS } from './hooks-template'
 import {
   planGitHookInstall,
@@ -386,7 +386,7 @@ function gitHookItem(
         ...base,
         path: plan.coreHooksPath,
         action: 'skip',
-        summary: `core.hooksPath is set (husky or a custom dir) — never written; \`lumo init${kind === 'scan-hook' ? ' --scan-hooks' : ''}\` prints the block to add by hand`,
+        summary: `core.hooksPath is set (husky or a custom dir) — never written; \`lumo init${kind === 'scan-hook' ? ` ${spec.initFlags ?? '--scan-hooks'}` : ''}\` prints the block to add by hand`,
         notes: [],
       }
     case 'no-dir':
@@ -464,6 +464,8 @@ export function planInit(args: {
   root: string
   /** LUM-1258: `--scan-hooks` — also plan the pre-commit / pre-push scan hooks. */
   scanHooks?: boolean
+  /** LUM-1259: `--scan-log` — also plan the post-commit log hook. */
+  scanLog?: boolean
 }): InitItem[] {
   const items: InitItem[] = []
   const attempt = (kind: InitItemKind, file: string, fn: () => InitItem) => {
@@ -504,7 +506,7 @@ export function planInit(args: {
   }
   attempt('git-hook', args.root, () => gitHookItem(args.root))
   if (args.scanHooks)
-    for (const spec of SCAN_HOOKS)
+    for (const spec of [...SCAN_HOOKS, ...(args.scanLog ? SCAN_LOG_HOOKS : [])])
       attempt('scan-hook', args.root, () =>
         gitHookItem(args.root, spec, 'scan-hook')
       )
@@ -515,10 +517,12 @@ export function planInit(args: {
 export function initApplyCommand(opts: {
   agent?: string
   scanHooks?: boolean
+  scanLog?: boolean
 }): string {
   let cmd = 'lumo init'
   if (opts.agent !== undefined) cmd += ` --agent ${opts.agent}`
   if (opts.scanHooks) cmd += ' --scan-hooks'
+  if (opts.scanHooks && opts.scanLog) cmd += ' --scan-log'
   return cmd
 }
 
