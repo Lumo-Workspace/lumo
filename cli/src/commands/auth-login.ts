@@ -1,15 +1,39 @@
 import { promptSecret } from '../lib/prompt'
 import { openBrowser } from '../lib/browser'
-import { resolveApiUrl, trimTrailingSlash, verifyToken } from '../lib/api'
+import {
+  assertSafeApiUrl,
+  requestLocalCliKey,
+  resolveApiUrl,
+  trimTrailingSlash,
+  verifyToken,
+} from '../lib/api'
 import { writeCredentials } from '../lib/config'
 import { sanitizeField } from '../lib/sanitize'
 
 const KEY_PREFIX = 'lum_'
 
-export async function authLogin(): Promise<number | void> {
-  const apiUrl = resolveApiUrl()
-  const webUrl = trimTrailingSlash(apiUrl)
+export interface AuthLoginOptions {
+  /** LUM-1335: the server to log in to (a self-hosted URL); else LUMO_API_URL / hosted. */
+  url?: string
+}
 
+/** The key to log in with: issued by a local-mode server, else pasted. */
+async function obtainKey(apiUrl: string): Promise<string | null> {
+  const local = await requestLocalCliKey(apiUrl)
+  if (local.status === 'issued') {
+    console.log(`Local mode: ${apiUrl} issued an API key for this machine.`)
+    return local.key
+  }
+  if (local.status === 'refused') {
+    console.log(
+      `Local mode did not issue a key: ${sanitizeField(local.message)}`
+    )
+    console.log('')
+  }
+  return pasteKey(trimTrailingSlash(apiUrl))
+}
+
+async function pasteKey(webUrl: string): Promise<string | null> {
   console.log('Log in to Lumo')
   console.log('')
   console.log(`  1. Open ${webUrl} and go to Settings → API Keys`)
@@ -20,7 +44,34 @@ export async function authLogin(): Promise<number | void> {
   openBrowser(webUrl)
   console.log('')
 
-  const token = await promptSecret('API key (input hidden): ')
+  return (await promptSecret('API key (input hidden): ')) || null
+}
+
+export async function authLogin(
+  opts: AuthLoginOptions = {}
+): Promise<number | void> {
+  let apiUrl: string
+  if (opts.url !== undefined) {
+    apiUrl = trimTrailingSlash(opts.url.trim())
+    try {
+      assertSafeApiUrl(apiUrl)
+    } catch (err) {
+      console.error(
+        `Error: ${err instanceof Error ? err.message : String(err)}`
+      )
+      return 1
+    }
+  } else {
+    apiUrl = resolveApiUrl()
+  }
+
+  let token: string | null
+  try {
+    token = await obtainKey(apiUrl)
+  } catch (err) {
+    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+    return 1
+  }
   if (!token) {
     console.log('Login cancelled.')
     return 1

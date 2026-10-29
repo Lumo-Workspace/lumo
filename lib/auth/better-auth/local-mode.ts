@@ -23,7 +23,17 @@ export const MULTIPLE_USERS_MESSAGE =
   'LUMO_MODE=local only runs while this instance has at most one account, and it has several. ' +
   'Remove LUMO_MODE from .env and sign in with your account.'
 
-export function lumoLocalModePlugin() {
+export interface LocalModePluginOptions {
+  /**
+   * Runs after the session is created, before the redirect (LUM-1335: gives
+   * the account a workspace). A failure is only logged — signing in never
+   * depends on it.
+   */
+  onSignIn?: (userId: string) => Promise<void>
+  onSignInError?: (err: unknown) => void
+}
+
+export function lumoLocalModePlugin(opts: LocalModePluginOptions = {}) {
   return {
     id: 'lumo-local-mode',
     endpoints: {
@@ -60,6 +70,13 @@ export function lumoLocalModePlugin() {
           }
           const session = await adapter.createSession(user.id)
           await setSessionCookie(ctx, { session, user })
+          if (opts.onSignIn) {
+            try {
+              await opts.onSignIn(user.id)
+            } catch (err) {
+              opts.onSignInError?.(err)
+            }
+          }
           const back = (ctx.query as Record<string, unknown> | undefined)?.[
             REDIRECT_PARAM_NAME
           ]

@@ -86,6 +86,48 @@ export function resolveApiUrl(): string {
   return resolved
 }
 
+/**
+ * LUM-1335 — ask a self-hosted server in local mode (`LUMO_MODE=local`) for
+ * an API key, so `lumo auth login` needs no copy-paste there. `unavailable`
+ * (HTTP 404: any other server, including the hosted one) means "paste a key";
+ * `refused` carries the server's reason (e.g. several accounts).
+ */
+export type LocalCliKeyResult =
+  | { status: 'issued'; key: string }
+  | { status: 'unavailable' }
+  | { status: 'refused'; message: string }
+
+export async function requestLocalCliKey(
+  apiUrl: string
+): Promise<LocalCliKeyResult> {
+  let res: Response
+  try {
+    res = await fetch(`${trimTrailingSlash(apiUrl)}/api/local/cli-key`, {
+      method: 'POST',
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Could not reach Lumo API at ${apiUrl} (${msg})`)
+  }
+  if (res.status === 404) return { status: 'unavailable' }
+  const text = await res.text()
+  if (res.status === 201) {
+    let key: unknown
+    try {
+      key = (JSON.parse(text) as { key?: unknown }).key
+    } catch {
+      key = undefined
+    }
+    if (typeof key === 'string' && key.length > 0)
+      return { status: 'issued', key }
+    return { status: 'refused', message: 'the server sent no key' }
+  }
+  return {
+    status: 'refused',
+    message: `${extractErrorMessage(text)} (HTTP ${res.status})`,
+  }
+}
+
 export function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '')
 }

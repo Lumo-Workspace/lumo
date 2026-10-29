@@ -39,6 +39,12 @@ jest.mock('@/lib/repositories/auth-user.repository', () => ({
 }))
 jest.mock('@/lib/integrations/email/client', () => ({ sendEmail: jest.fn() }))
 jest.mock('@/lib/runtime/wait-until', () => ({ waitUntil: () => undefined }))
+const mockEnsureWorkspace = jest.fn()
+jest.mock('@/lib/services/local-mode.service', () => ({
+  localModeService: {
+    ensureWorkspace: (...a: unknown[]) => mockEnsureWorkspace(...a),
+  },
+}))
 const mockLogger = { warn: jest.fn(), error: jest.fn(), info: jest.fn() }
 jest.mock('@/lib/logger', () => ({ logger: mockLogger }))
 
@@ -128,6 +134,7 @@ afterAll(() => {
 beforeEach(() => {
   for (const rows of Object.values(mockDb)) rows.length = 0
   mockLogger.warn.mockClear()
+  mockEnsureWorkspace.mockReset().mockResolvedValue(undefined)
 })
 
 describe('local sign-in endpoint (LUM-1335)', () => {
@@ -214,5 +221,32 @@ describe('local sign-in endpoint (LUM-1335)', () => {
 
   it('an unknown LUMO_MODE refuses to build the instance', () => {
     expect(() => rebuild({ LUMO_MODE: 'demo' })).toThrow(/LUMO_MODE "demo"/)
+  })
+
+  it('gives the signed-in account a workspace', async () => {
+    await signIn(rebuild({ LUMO_MODE: 'local' }))
+    expect(mockEnsureWorkspace).toHaveBeenCalledWith(mockDb.authUser![0]!.id)
+  })
+
+  it('still signs in when setting up the workspace fails, and logs it', async () => {
+    mockEnsureWorkspace.mockRejectedValue(new Error('db down'))
+    const instance = rebuild({ LUMO_MODE: 'local' })
+    const res = await signIn(instance)
+    expect(res.status).toBe(302)
+    const session = await instance.api.getSession({
+      headers: new Headers({ cookie: cookieHeader(res) }),
+    })
+    expect(session?.user.id).toBe(mockDb.authUser![0]!.id)
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      '[auth] local mode: could not set up a workspace',
+      { error: 'db down' }
+    )
+  })
+
+  it('refuses several accounts without touching workspaces', async () => {
+    seedUser('user_a', 'a@example.test')
+    seedUser('user_b', 'b@example.test')
+    await signIn(rebuild({ LUMO_MODE: 'local' }))
+    expect(mockEnsureWorkspace).not.toHaveBeenCalled()
   })
 })

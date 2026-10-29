@@ -233,7 +233,22 @@ function createBetterAuth() {
       // LUM-1071: ban fields + the sign-in ban check (./admin-plugin).
       lumoAdminPlugin(),
       // LUM-1335: sign-in-free try-outs (./local-mode).
-      ...(localMode ? [lumoLocalModePlugin()] : []),
+      ...(localMode
+        ? [
+            lumoLocalModePlugin({
+              // Imported lazily: the service graph is not needed to sign in.
+              onSignIn: async userId => {
+                const { localModeService } =
+                  await import('@/lib/services/local-mode.service')
+                await localModeService.ensureWorkspace(userId)
+              },
+              onSignInError: err =>
+                logger.warn('[auth] local mode: could not set up a workspace', {
+                  error: err instanceof Error ? err.message : String(err),
+                }),
+            }),
+          ]
+        : []),
       // LUM-1082: email one-time-code sign-in (./email-otp).
       ...(emailCodeEnabled
         ? [

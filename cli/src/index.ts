@@ -10,7 +10,7 @@ import {
   sandboxed,
   writesLocal,
 } from './lib/command-class'
-import { authLogin } from './commands/auth-login'
+import { authLogin, type AuthLoginOptions } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { installAuthFailureTracker } from './lib/auth-failure'
@@ -470,8 +470,14 @@ const auth = program.command('auth').description('Manage Lumo authentication')
 auth
   .command('login')
   .codex(writesLocal('writes ~/.lumo credentials and opens a browser'))
-  .description('Log in to Lumo by pasting an API key')
-  .action(wrap(authLogin))
+  .description(
+    'Log in to Lumo: a self-hosted server in local mode issues the key itself; otherwise paste an API key'
+  )
+  .option(
+    '--url <url>',
+    'The Lumo server to log in to, e.g. http://localhost:3000 (default: LUMO_API_URL, else the hosted service)'
+  )
+  .action(wrap((opts: unknown) => authLogin(opts as AuthLoginOptions)))
 
 auth
   .command('logout')

@@ -141,10 +141,19 @@
     },
     "auth login": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--url": {
+          "long": "--url",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The Lumo server to log in to, e.g. http://localhost:3000 (default: LUMO_API_URL, else the hosted service)"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Log in to Lumo by pasting an API key",
+      "description": "Log in to Lumo: a self-hosted server in local mode issues the key itself; otherwise paste an API key",
       "codex": {
         "serverOnly": false,
         "localFiles": "writes",

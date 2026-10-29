@@ -70,11 +70,13 @@ lumo uninstall --agent codex --confirm
 
 ```bash
 lumo auth login     # opens the API Keys page; paste a key starting with lum_
+lumo auth login --url http://localhost:3000   # a self-hosted server; in local mode it issues the key itself
 lumo auth logout    # clears ~/.lumo/credentials.json (idempotent)
 lumo whoami         # cli@uselumo.ai · workspace lumo · key lum_68d4...
 lumo whoami --full  # + workspace name, key name, API URL
 ```
 
+- `--url <url>` logs in to that server (a self-hosted Lumo) instead of `LUMO_API_URL` / the hosted service; https only, http for localhost. When the server runs `LUMO_MODE=local` (`setup.sh --local`), it issues an API key for its one account and nothing is pasted (`Local mode: <url> issued an API key for this machine.`); any other server answers 404 and the usual paste flow runs. A local-mode server that refuses (no account yet — open the app once — or several accounts) prints `Local mode did not issue a key: <reason>` and falls back to pasting.
 - `auth login` is the only auth path (no `--token`). Suggest it when a command reports `not logged in`, `API key invalid or revoked`, or ends with the `Hint: … HTTP 401 … lumo auth login` line, and when the user switches workspaces.
 - `whoami` reads local credentials only (no network — it does not prove the key works); `--json` prints `{ version, email, workspace: { slug, name }, apiKey: { name, prefix }, apiUrl }` (never the token). **Not a pre-flight check** — don't run it (or `lumo --version`) before other commands. Use it when the user asks which account/workspace this is, or before a destructive command on a shared machine.
 

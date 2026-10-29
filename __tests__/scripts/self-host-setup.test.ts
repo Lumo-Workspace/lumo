@@ -369,6 +369,7 @@ describe('scripts/self-host/setup.sh', () => {
     expect(status).toBe(0)
     expect(out).toContain('Lumo is running at http://localhost:3000')
     expect(out).toContain('no sign-in needed')
+    expect(out).toContain('lumo auth login --url http://localhost:3000')
     expect(runWithDocker(['--check', '--local']).status).toBe(2)
   })
 

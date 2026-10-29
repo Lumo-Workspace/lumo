@@ -91,6 +91,20 @@ is signed in as that account, so use it only where nobody else can reach
 the app — on a URL other machines can reach, the app logs a warning and the
 check shows `⚠ Sign-in`.
 
+The first visit also gives the account a workspace, **My workspace**, so
+there is no onboarding step either. To connect the `lumo` CLI, run the
+command `setup.sh --local` prints at the end:
+
+```bash
+lumo auth login --url http://localhost:3000
+```
+
+In local mode the server issues an API key for the account itself (no
+browser, nothing to copy); open the app once first so the account exists.
+On any other server the same command falls back to pasting a key from
+Settings → API Keys. Anyone who can reach a local-mode instance can get such
+a key, exactly as they can sign in.
+
 The account is an ordinary one (`local@lumo.localhost`, no password), so
 everything you create stays when you leave local mode. If the instance
 already has one account (you signed up before), local mode signs you in as

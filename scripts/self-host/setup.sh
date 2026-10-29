@@ -337,7 +337,10 @@ if run_check; then
   echo
   app_url=$(get_var NEXT_PUBLIC_APP_URL)
   echo "Lumo is running at ${app_url:-http://localhost:3000}"
-  [ -z "$local_on" ] || echo "Local mode: open it in a browser, no sign-in needed."
+  if [ -n "$local_on" ]; then
+    echo "Local mode: open it in a browser, no sign-in needed."
+    echo "Connect the lumo CLI (no key to copy): lumo auth login --url ${app_url:-http://localhost:3000}"
+  fi
 else
   exit $?
 fi
