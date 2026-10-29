@@ -44,9 +44,13 @@ export function MentionStatusProvider({
     // the new batch loads instead of flashing them back to plain text.
     placeholderData: keepPreviousData,
   })
+  // With no mentions left there is nothing to keep: drop the placeholder.
+  const hasIdentifiers = identifiers.length > 0
   const map = useMemo(
-    () => query.data ?? new Map<string, MentionStatusItem>(),
-    [query.data]
+    () =>
+      (hasIdentifiers ? query.data : undefined) ??
+      new Map<string, MentionStatusItem>(),
+    [hasIdentifiers, query.data]
   )
 
   const lookup = useCallback<MentionStatusLookup>(

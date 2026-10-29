@@ -4,7 +4,7 @@ jest.mock('@/lib/api-client/mention-status', () => ({
 }))
 
 import { useContext } from 'react'
-import { screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import {
   MentionStatusProvider,
   indexMentionStatus,
@@ -12,7 +12,12 @@ import {
 import { MentionStatusContext } from '@/lib/editor/mention-status-context'
 import { mentionStatusClient } from '@/lib/api-client/mention-status'
 import type { MentionStatusItem } from '@/types/mention'
-import { renderWithQueryClient } from '../helpers/query-client'
+import { queryKeys } from '@/lib/query/keys'
+import {
+  createQueryWrapper,
+  createTestQueryClient,
+  renderWithQueryClient,
+} from '../helpers/query-client'
 
 const mockFetch = mentionStatusClient.fetch as jest.Mock
 
@@ -61,12 +66,19 @@ describe('MentionStatusProvider', () => {
 
   it('degrades to no status when the lookup fails', async () => {
     mockFetch.mockRejectedValue(new Error('down'))
-    renderWithQueryClient(
+    const client = createTestQueryClient()
+    render(
       <MentionStatusProvider identifiers={['LUM-1']}>
         <Probe id='LUM-1' />
-      </MentionStatusProvider>
+      </MentionStatusProvider>,
+      { wrapper: createQueryWrapper(client) }
     )
-    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+    // Wait until the rejection has landed in the cache, then check the chip.
+    await waitFor(() =>
+      expect(
+        client.getQueryState(queryKeys.mentionStatus('', ['LUM-1']))?.status
+      ).toBe('error')
+    )
     expect(screen.getByTestId('LUM-1')).toHaveTextContent('none')
   })
 
@@ -94,5 +106,23 @@ describe('MentionStatusProvider', () => {
     await waitFor(() =>
       expect(screen.getByTestId('LUM-1')).toHaveTextContent('IN_REVIEW')
     )
+  })
+
+  it('drops the last statuses once every mention is removed', async () => {
+    mockFetch.mockResolvedValueOnce([status('LUM-1', 'DONE')])
+    const { rerender } = renderWithQueryClient(
+      <MentionStatusProvider identifiers={['LUM-1']}>
+        <Probe id='LUM-1' />
+      </MentionStatusProvider>
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('LUM-1')).toHaveTextContent('DONE')
+    )
+    rerender(
+      <MentionStatusProvider identifiers={[]}>
+        <Probe id='LUM-1' />
+      </MentionStatusProvider>
+    )
+    expect(screen.getByTestId('LUM-1')).toHaveTextContent('none')
   })
 })
