@@ -886,7 +886,12 @@ async function runHookBody(
   stdoutState: { written: boolean }
 ): Promise<void> {
   try {
-    const creds = readCredentials()
+    // LUM-1337: the login of the repository the event came from. A binding
+    // to a server that is no longer logged in falls back to the default,
+    // noted in hook.log.
+    const creds = readCredentials(payloadCwd(body), {
+      onNote: note => logHookError(`[${path}]`, note),
+    })
     if (!creds) {
       logHookError(`[${path}]`, 'no credentials; skipping')
       return

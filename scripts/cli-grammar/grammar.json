@@ -142,6 +142,14 @@
     "auth login": {
       "arguments": [],
       "flags": {
+        "--no-bind": {
+          "long": "--no-bind",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Store the login without pointing the current repository at it (the first login still becomes the default)"
+        },
         "--no-paste": {
           "long": "--no-paste",
           "short": null,
@@ -170,14 +178,52 @@
     },
     "auth logout": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--url": {
+          "long": "--url",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The server whose login to remove"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Log out and remove local credentials",
+      "description": "Remove one login: the server given by --url, else the one this directory uses",
       "codex": {
         "serverOnly": false,
         "localFiles": "writes",
-        "detail": "deletes ~/.lumo credentials"
+        "detail": "deletes a login from ~/.lumo credentials"
+      }
+    },
+    "auth use": {
+      "arguments": [{ "name": "url", "required": false, "variadic": false }],
+      "flags": {
+        "--default": {
+          "long": "--default",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Make it the default login instead of binding this repository"
+        },
+        "--unbind": {
+          "long": "--unbind",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Drop this repository's binding so it uses the default login"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Point this repository (or, with --default, every unbound one) at a server you are logged in to",
+      "codex": {
+        "serverOnly": false,
+        "localFiles": "writes",
+        "detail": "writes the repository binding to ~/.lumo credentials"
       }
     },
     "crossing": {
@@ -5451,7 +5497,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Also print workspace name, key name and API URL"
+          "description": "Also print workspace name, key name, API URL and binding"
         },
         "--json": {
           "long": "--json",
@@ -5464,7 +5510,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the logged-in identity from local credentials (one line; no network call)",
+      "description": "Show every login and mark (*) the one this directory uses (no network call)",
       "codex": {
         "serverOnly": false,
         "localFiles": "none",

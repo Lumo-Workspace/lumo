@@ -8,7 +8,7 @@ import {
   serverLabel,
   verifyToken,
 } from '../lib/api'
-import { writeCredentials } from '../lib/config'
+import { saveLogin } from '../lib/config'
 import { sanitizeField } from '../lib/sanitize'
 
 const KEY_PREFIX = 'lum_'
@@ -18,6 +18,8 @@ export interface AuthLoginOptions {
   url?: string
   /** LUM-1335: fail instead of asking for a key (scripts, e.g. setup.sh --local). */
   paste?: boolean
+  /** LUM-1337: false = store the login without pointing this repository at it. */
+  bind?: boolean
 }
 
 /** The key to log in with: issued by a local-mode server, else pasted. */
@@ -109,18 +111,21 @@ export async function authLogin(
     return 1
   }
 
-  writeCredentials({
-    token,
-    apiUrl,
-    userId: resp.user.id,
-    email: resp.user.email,
-    workspaceId: resp.workspace.id,
-    workspaceSlug: resp.workspace.slug,
-    workspaceName: resp.workspace.name,
-    apiKeyId: resp.apiKey.id,
-    apiKeyName: resp.apiKey.name,
-    apiKeyPrefix: resp.apiKey.prefix,
-  })
+  const saved = saveLogin(
+    {
+      token,
+      apiUrl,
+      userId: resp.user.id,
+      email: resp.user.email,
+      workspaceId: resp.workspace.id,
+      workspaceSlug: resp.workspace.slug,
+      workspaceName: resp.workspace.name,
+      apiKeyId: resp.apiKey.id,
+      apiKeyName: resp.apiKey.name,
+      apiKeyPrefix: resp.apiKey.prefix,
+    },
+    opts.bind === false ? {} : { bindCwd: process.cwd() }
+  )
 
   console.log('')
   console.log(`✓ Logged in as ${sanitizeField(resp.user.email)}`)
@@ -131,4 +136,16 @@ export async function authLogin(
   console.log(
     `  Key: ${sanitizeField(resp.apiKey.name)} (${resp.apiKey.prefix})`
   )
+  // LUM-1337: say which repositories this login now serves.
+  if (saved.isDefault) {
+    console.log(
+      '  Used by: every repository not bound to another login (default)'
+    )
+  } else if (saved.boundRepo) {
+    console.log(`  Used by: ${sanitizeField(saved.boundRepo)}`)
+  } else {
+    console.log(
+      `  Not used yet — in a repository: lumo auth use ${saved.key}; everywhere: lumo auth use ${saved.key} --default`
+    )
+  }
 }
