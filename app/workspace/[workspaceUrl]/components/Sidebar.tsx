@@ -153,7 +153,7 @@ export function AppSidebar({
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className='cursor-pointer'>
-                  <Link href={`/workspace/${workspaceUrl}/settings/workspace`}>
+                  <Link href={`/workspace/${workspaceUrl}/settings/general`}>
                     <Settings size={13} />
                     {intl.formatMessage({ id: 'sidebar.settings' })}
                   </Link>

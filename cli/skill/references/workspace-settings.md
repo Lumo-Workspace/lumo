@@ -2,7 +2,7 @@
 
 ### `lumo workspace security-scan show` / `update` — PR security-scan switches
 
-`show` reads and `update` changes (`update` with no setting exits 2) the workspace's PR security-scan switches — the same switches as Settings → Workspace → **Code review → Pull request review** in the web app (where some carry plainer names — e.g. the hunt is "Exploitability check", agent behavior is "Agent shortcut check"):
+`show` reads and `update` changes (`update` with no setting exits 2) the workspace's PR security-scan switches — the same switches as Settings → **Code review → Review behavior** in the web app (where some carry plainer names — e.g. the hunt is "Exploitability check", agent behavior is "Agent shortcut check"):
 
 - **Security scan** (master) — off = no layer runs on new pushes and no scan comment is posted.
 - **AI review** (**off for a new workspace**; workspaces created before LUM-1328 keep their value) — LLM security review, change summary, false-positive suggestions, semantic rules, claim checks and AI triage of boundary crossings. The default security review is the developer's own agent review, imported with `lumo review import` ([security-scan.md](security-scan.md)).
@@ -59,7 +59,7 @@ Flags:
 
 ### `lumo workspace done-requirements show` / `update` — what DONE requires
 
-Two OWNER switches, **both off by default**, the same as Settings → Workspace → **Done requirements**. While one is on, every task with a linked PR (closed-unmerged PRs don't count) is refused DONE (409 / exit 5 `DONE_REQUIREMENT`, [confirmation.md](confirmation.md)) until **each** such PR has, on its latest commit:
+Two OWNER switches, **both off by default**, the same as Settings → **Workflow → Done requirements**. While one is on, every task with a linked PR (closed-unmerged PRs don't count) is refused DONE (409 / exit 5 `DONE_REQUIREMENT`, [confirmation.md](confirmation.md)) until **each** such PR has, on its latest commit:
 
 - **`--test-case on`** — a test case whose **latest** run is PASS (not capped UNPROVEN), on a clean tree, at the PR's head or merge commit, recorded against that PR or no PR ([test-case-runs.md](test-case-runs.md)).
 - **`--review on`** — a review of the head: Lumo's AI review ran on it, an agent review was imported into it (`lumo review import`), or a GitHub approval on that commit from a person (not a bot) who is the repo owner, a collaborator or a member of the owning org, that was not later dismissed or followed by that reviewer's change request.
@@ -73,7 +73,7 @@ lumo workspace done-requirements update --test-case on --review on --confirm  # 
 
 ### Per-repository automatic review — `--repos` / `--repo`
 
-Lumo reviews every PR of each repository the workspace confirmed, including PRs **without a Lumo task**. Per repository (Settings → Workspace → **Automatic review by repository**): `Review` (default on) — whether task-less PRs are reviewed automatically; `Drafts` (default off) — whether drafts are reviewed before they are marked ready. Task-linked PRs are always scanned (Done checks their findings).
+Lumo reviews every PR of each repository the workspace confirmed, including PRs **without a Lumo task**. Per repository (Settings → **Code review → Repositories**): `Review` (default on) — whether task-less PRs are reviewed automatically; `Drafts` (default off) — whether drafts are reviewed before they are marked ready. Task-linked PRs are always scanned (Done checks their findings).
 
 ```bash
 lumo workspace security-scan show --repos                                  # list every connected repository

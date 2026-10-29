@@ -110,7 +110,7 @@ describe('locale option list is single-sourced', () => {
     // The drift this guards: a locale added here but not there, so the two
     // switchers disagree about what the app supports.
     for (const file of [
-      'app/workspace/[workspaceUrl]/components/pages/PreferencesPage.tsx',
+      'app/workspace/[workspaceUrl]/components/pages/PreferencesSettings.tsx',
       'app/workspace/[workspaceUrl]/components/pages/project-detail/ProjectHeader.tsx',
     ]) {
       const src = readFileSync(join(process.cwd(), file), 'utf8')

@@ -885,7 +885,7 @@ describe('oss/manifest.json', () => {
       'components/landing/home/compare.tsx',
       'app/layout.tsx',
       'components/security/SecurityPage.tsx',
-      'app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx',
+      'app/workspace/[workspaceUrl]/components/pages/ApiKeysSettings.tsx',
     ]
     /** Plugin features described in the snapshot's user-facing copy. */
     const PLUGIN_COPY =

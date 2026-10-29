@@ -23,7 +23,7 @@ import { logger } from '@/lib/logger'
 export const MCP_OAUTH_UNSUPPORTED_MESSAGE =
   `MCP OAuth needs a public URL when AUTH_PROVIDER=better-auth: set ${BETTER_AUTH_URL_ENV} ` +
   '(e.g. https://lumo.example.com). Until then use the Lumo CLI with an API key ' +
-  '(Settings → API Keys).'
+  '(Settings → CLI & API keys).'
 
 /** Whether this self-hosted instance can issue and verify MCP tokens. */
 export function isBetterAuthMcpOAuthConfigured(): boolean {

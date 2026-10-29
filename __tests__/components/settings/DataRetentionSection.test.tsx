@@ -71,6 +71,7 @@ const DEFAULTS = {
 function renderSection(settings = DEFAULTS) {
   return render(
     <DataRetentionSection
+      label='Data retention'
       settings={settings}
       // LUM-1062: plugin rows (slots) read the workspace row.
       workspace={settings}
@@ -95,7 +96,12 @@ describe('DataRetentionSection', () => {
   // __tests__/ee/security/components/settings/DataRetentionSection.scan-row.test.tsx.
   it('data retention block shows the core rows with their defaults', async () => {
     renderSection()
-    expect(screen.getByText('Data retention')).toBeInTheDocument()
+    // LUM-1339: the page carries the heading; the section is named by it.
+    expect(
+      screen.getByRole('region', { name: 'Data retention' })
+    ).toBeInTheDocument()
+    // The AI-generated content switch moved to the AI page.
+    expect(screen.queryByTestId('retention-row-ai-derived')).toBeNull()
     for (const row of ['session-record', 'crossing-raw', 'dead-letter']) {
       expect(screen.getByTestId(`retention-row-${row}`)).toBeInTheDocument()
     }

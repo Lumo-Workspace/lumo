@@ -28,7 +28,7 @@ export function sessionRecordSettingsUrl(
   baseUrl: string,
   workspaceSlug: string
 ): string {
-  return `${baseUrl}/workspace/${encodeURIComponent(workspaceSlug)}/settings/workspace#data-retention`
+  return `${baseUrl}/workspace/${encodeURIComponent(workspaceSlug)}/settings/data-retention`
 }
 
 /**

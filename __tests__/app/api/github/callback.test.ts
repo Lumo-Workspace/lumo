@@ -157,7 +157,7 @@ describe('GET /api/github/callback', () => {
     const res = await GET(makeReq({ code: 'c', state: makeState() }))
 
     expect(res.headers.get('location')).toBe(
-      'https://lumo.test/workspace/lumo/settings/integrations'
+      'https://lumo.test/workspace/lumo/settings/connected-accounts'
     )
     expect(githubService.upsertIntegration).toHaveBeenCalledWith(
       expect.objectContaining({

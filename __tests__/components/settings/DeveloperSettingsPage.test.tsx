@@ -18,6 +18,10 @@ const en: Record<string, string> = {
   'cli.copy': 'Copy',
   'cli.copied': 'Copied',
   'settings.cli': 'CLI',
+  'settings.developer': 'CLI & API keys',
+  'apiKeys.title': 'API Keys',
+  'apiKeys.subtitle': 'Use API keys to authenticate Lumo CLI and local tools.',
+  'apiKeys.ingest.title': 'CI security ingest key',
 }
 
 jest.mock('react-intl', () => ({
@@ -49,51 +53,70 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useApiKeys', () => ({
 }))
 
 import { render, screen } from '@testing-library/react'
-import { CliPage } from '@/app/workspace/[workspaceUrl]/components/pages/CliPage'
+import { CliSetupSteps } from '@/app/workspace/[workspaceUrl]/components/pages/CliSetupSteps'
+import { DeveloperSettingsPage } from '@/app/workspace/[workspaceUrl]/components/pages/PersonalSettingsPages'
 
-describe('CliPage', () => {
-  it('renders the page title and subtitle', () => {
-    render(<CliPage />)
-    expect(screen.getByRole('heading', { name: 'CLI' })).toBeInTheDocument()
+// LUM-1339: the CLI steps and the API key list share one page.
+describe('DeveloperSettingsPage', () => {
+  it('renders the page title, subtitle and both sections', () => {
+    render(<DeveloperSettingsPage />)
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'CLI & API keys' })
+    ).toBeInTheDocument()
     expect(
       screen.getByText(
         'Lumo command-line interface — install, log in, and stay up to date.'
       )
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'CLI' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'API Keys' })
+    ).toBeInTheDocument()
+    // The CI ingest key stays with the member's own keys (it is one).
+    expect(screen.getByText('CI security ingest key')).toBeInTheDocument()
   })
 
+  it('anchors the key list at #api-keys (old /settings/api-keys links land there)', () => {
+    const { container } = render(<DeveloperSettingsPage />)
+    expect(container.querySelector('section#api-keys')).not.toBeNull()
+  })
+})
+
+describe('CliSetupSteps', () => {
   it('renders all three step titles', () => {
-    render(<CliPage />)
+    render(<CliSetupSteps />)
     expect(screen.getByText('Install')).toBeInTheDocument()
     expect(screen.getByText('Log in')).toBeInTheDocument()
     expect(screen.getByText('Stay up to date')).toBeInTheDocument()
   })
 
   it('renders all three numeric badges', () => {
-    render(<CliPage />)
+    render(<CliSetupSteps />)
     expect(screen.getByText('1')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
   })
 
   it('renders the install commands', () => {
-    render(<CliPage />)
+    render(<CliSetupSteps />)
     expect(screen.getByText('npm install -g @lumoai/cli')).toBeInTheDocument()
     expect(screen.getByText('lumo init')).toBeInTheDocument()
   })
 
   it('renders the login command', () => {
-    render(<CliPage />)
+    render(<CliSetupSteps />)
     expect(screen.getByText('lumo auth login')).toBeInTheDocument()
   })
 
   it('renders the update command', () => {
-    render(<CliPage />)
+    render(<CliSetupSteps />)
     expect(screen.getByText('lumo update')).toBeInTheDocument()
   })
 
   it('embeds the create-API-key form inside step 2', () => {
-    render(<CliPage />)
+    render(<CliSetupSteps />)
     expect(
       screen.getByPlaceholderText('Key label (e.g. Claude Code on Macbook)')
     ).toBeInTheDocument()

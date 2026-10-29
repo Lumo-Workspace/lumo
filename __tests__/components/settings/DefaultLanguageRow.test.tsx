@@ -1,5 +1,5 @@
 /**
- * LUM-1097 — Settings → Workspace → Default language: lists every supported
+ * LUM-1097 — Settings → General → Workspace language: lists every supported
  * language by its own name, saves only on Save, reports the result, and
  * resets the choice when the server refuses it. The ProjectSlackDialog event
  * labels come from the catalogues too (checked in the slack index test).
@@ -44,7 +44,7 @@ beforeEach(() => jest.clearAllMocks())
 
 it('shows the current language with a translated label and every option', async () => {
   render(<DefaultLanguageRow value='en' onSaved={jest.fn()} />)
-  const trigger = screen.getByLabelText('默认语言')
+  const trigger = screen.getByLabelText('工作区语言')
   expect(trigger).toHaveTextContent(PUBLIC_LOCALE_NAMES.en)
   // Nothing changed yet → no Save button.
   expect(screen.queryByRole('button', { name: '保存' })).toBeNull()
@@ -57,11 +57,11 @@ it('saves the chosen language', async () => {
   updateMe.mockResolvedValue({ workspace: { defaultLocale: 'zh-CN' } })
   const onSaved = jest.fn()
   render(<DefaultLanguageRow value='en' onSaved={onSaved} />)
-  await pickOption(screen.getByLabelText('默认语言'), '简体中文')
+  await pickOption(screen.getByLabelText('工作区语言'), '简体中文')
   fireEvent.click(screen.getByRole('button', { name: '保存' }))
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith('zh-CN'))
   expect(updateMe).toHaveBeenCalledWith({ defaultLocale: 'zh-CN' })
-  expect(toast.success).toHaveBeenCalledWith('默认语言已更新')
+  expect(toast.success).toHaveBeenCalledWith('工作区语言已更新')
 })
 
 it('a refused save resets the choice and reports the error', async () => {
@@ -70,7 +70,7 @@ it('a refused save resets the choice and reports the error', async () => {
   )
   const onSaved = jest.fn()
   render(<DefaultLanguageRow value='fr' onSaved={onSaved} />)
-  const trigger = screen.getByLabelText('默认语言')
+  const trigger = screen.getByLabelText('工作区语言')
   await pickOption(trigger, PUBLIC_LOCALE_NAMES.de)
   fireEvent.click(screen.getByRole('button', { name: '保存' }))
   await waitFor(() =>
@@ -88,7 +88,7 @@ it.each(['{Enter}', ' '])(
   'opens with %s and picks with the arrows',
   async key => {
     render(<DefaultLanguageRow value='en' onSaved={jest.fn()} />)
-    const trigger = screen.getByLabelText('默认语言')
+    const trigger = screen.getByLabelText('工作区语言')
     trigger.focus()
     await userEvent.keyboard(key)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')

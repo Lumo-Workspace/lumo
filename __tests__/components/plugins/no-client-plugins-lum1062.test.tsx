@@ -181,10 +181,10 @@ describe('LUM-1062 core UI without client plugins', () => {
       hookEventRetentionDays: null,
       crossingRawRetentionDays: 7,
       deadLetterRetentionDays: 7,
-      aiDerivedContentEnabled: true,
     }
     render(
       <DataRetentionSection
+        label='Data retention'
         settings={settings}
         workspace={{ id: 'w1', ...settings, scanEvidenceRetentionDays: 7 }}
       />
@@ -205,7 +205,7 @@ describe('LUM-1062 core UI without client plugins', () => {
     const { container } = render(
       <>
         <PluginSlot
-          name='settings.workspace.section'
+          name='settings.codeReview.behavior'
           props={{
             workspace: { id: 'w1' },
             me: {

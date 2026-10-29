@@ -29,7 +29,7 @@ describe('buildWorkspaceDeletionEmail', () => {
       workspaceName: 'Acme <script>',
       actorName: 'Ada',
       executeAt,
-      settingsUrl: 'https://app.test/workspace/acme/settings/workspace',
+      settingsUrl: 'https://app.test/workspace/acme/settings/general',
     })
     expect(subject).toContain('scheduled for deletion')
     expect(html).toContain('2026-10-03 12:00 UTC')

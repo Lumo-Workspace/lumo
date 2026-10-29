@@ -120,12 +120,12 @@ describe('PluginSlot', () => {
   })
 })
 
-// LUM-1327: Settings → Workspace drops the Code review heading without one.
+// LUM-1339: the Code review nav group and pages need the plugin.
 describe('hasPluginSlot', () => {
   it('is true only when an installed plugin fills the slot', () => {
     const plugins = [badgePlugin('a')]
     expect(hasPluginSlot('task.pullRequest.badge', plugins)).toBe(true)
-    expect(hasPluginSlot('settings.workspace.section', plugins)).toBe(false)
+    expect(hasPluginSlot('settings.codeReview.behavior', plugins)).toBe(false)
     expect(hasPluginSlot('task.pullRequest.badge', [])).toBe(false)
   })
 })
