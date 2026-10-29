@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { mentionStatusClient } from '@/lib/api-client/mention-status'
 import {
@@ -40,6 +40,9 @@ export function MentionStatusProvider({
     queryFn: async () =>
       indexMentionStatus(await mentionStatusClient.fetch(identifiers)),
     enabled: identifiers.length > 0,
+    // Adding a mention changes the key; keep the chips' last statuses while
+    // the new batch loads instead of flashing them back to plain text.
+    placeholderData: keepPreviousData,
   })
   const map = useMemo(
     () => query.data ?? new Map<string, MentionStatusItem>(),

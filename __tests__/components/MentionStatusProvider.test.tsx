@@ -69,4 +69,30 @@ describe('MentionStatusProvider', () => {
     await waitFor(() => expect(mockFetch).toHaveBeenCalled())
     expect(screen.getByTestId('LUM-1')).toHaveTextContent('none')
   })
+
+  it('keeps the known statuses while a grown identifier set loads', async () => {
+    mockFetch.mockResolvedValueOnce([status('LUM-1', 'DONE')])
+    const { rerender } = renderWithQueryClient(
+      <MentionStatusProvider identifiers={['LUM-1']}>
+        <Probe id='LUM-1' />
+      </MentionStatusProvider>
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('LUM-1')).toHaveTextContent('DONE')
+    )
+
+    let release: (v: MentionStatusItem[]) => void = () => {}
+    mockFetch.mockReturnValueOnce(new Promise(r => (release = r)))
+    rerender(
+      <MentionStatusProvider identifiers={['LUM-1', 'LUM-2']}>
+        <Probe id='LUM-1' />
+      </MentionStatusProvider>
+    )
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+    expect(screen.getByTestId('LUM-1')).toHaveTextContent('DONE')
+    release([status('LUM-1', 'IN_REVIEW'), status('LUM-2', 'TODO')])
+    await waitFor(() =>
+      expect(screen.getByTestId('LUM-1')).toHaveTextContent('IN_REVIEW')
+    )
+  })
 })
