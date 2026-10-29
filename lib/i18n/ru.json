@@ -641,9 +641,7 @@
   "cli.step.install.title": "Установить",
   "cli.step.install.description": "Устанавливает CLI глобально и настраивает skill и hooks для Claude Code и Codex.",
   "cli.step.login.title": "Войти",
-  "cli.step.login.description": "Открывает эту страницу в браузере. Создайте ключ ниже или на странице API Keys и вставьте его обратно в терминал.",
-  "cli.step.login.labelPlaceholder": "Название ключа (например, Claude Code on Macbook)",
-  "cli.step.login.createSubmit": "Создать API-ключ",
+  "cli.step.login.description": "Открывает эту страницу в браузере. Создайте ключ в разделе «API-ключи» ниже и вставьте его обратно в терминал.",
   "cli.step.update.title": "Поддерживать актуальность",
   "cli.step.update.description": "Обновляется до последнего релиза npm. Не запускайте npm install -g вручную повторно после первой установки.",
   "cli.copy": "Копировать",
@@ -3298,7 +3296,6 @@
   "settings.codeReview.rules": "Покрытие правил",
   "settings.ai": "ИИ",
   "settings.ai.subtitle": "Какие функции ИИ работают в этом рабочем пространстве и какой контент Lumo пишет с помощью ИИ.",
-  "settings.ai.derivedContent": "Контент, созданный ИИ",
   "settings.export": "Экспорт",
   "integrations.team.noneConnected": "Командные интеграции пока не подключены. Владелец рабочего пространства устанавливает их здесь."
 }

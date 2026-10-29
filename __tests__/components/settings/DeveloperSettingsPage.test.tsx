@@ -9,9 +9,7 @@ const en: Record<string, string> = {
     'Installs the CLI globally and wires up the Claude Code skill and hooks.',
   'cli.step.login.title': 'Log in',
   'cli.step.login.description':
-    'Opens this page in your browser. Create a key below or on the API Keys page, then paste it back into the terminal.',
-  'cli.step.login.labelPlaceholder': 'Key label (e.g. Claude Code on Macbook)',
-  'cli.step.login.createSubmit': 'Create API key',
+    'Opens this page in your browser. Create a key under API keys below, then paste it back into the terminal.',
   'cli.step.update.title': 'Stay up to date',
   'cli.step.update.description':
     "Upgrades to the latest npm release. Don't run npm install -g manually after the first install.",
@@ -115,13 +113,9 @@ describe('CliSetupSteps', () => {
     expect(screen.getByText('lumo update')).toBeInTheDocument()
   })
 
-  it('embeds the create-API-key form inside step 2', () => {
+  it('has no create-key form of its own (the API keys section below has it, LUM-1339)', () => {
     render(<CliSetupSteps />)
-    expect(
-      screen.getByPlaceholderText('Key label (e.g. Claude Code on Macbook)')
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Create API key' })
-    ).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(screen.queryByRole('button', { name: /create/i })).toBeNull()
   })
 })

@@ -145,10 +145,8 @@ export function AiSettingsPage() {
           >
             <AiFeaturesSection />
           </SettingsSection>
-          <SettingsSection
-            id='ai-derived-content'
-            title={intl.formatMessage({ id: 'settings.ai.derivedContent' })}
-          >
+          {/* The row carries its own label, so the section has no title. */}
+          <SettingsSection id='ai-derived-content'>
             <div className='rounded-lg border border-border overflow-hidden'>
               <AiDerivedContentRow
                 key={`ai-derived:${workspace.id}`}

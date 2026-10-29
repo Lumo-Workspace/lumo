@@ -641,9 +641,7 @@
   "cli.step.install.title": "インストール",
   "cli.step.install.description": "CLI をグローバルにインストールし、Claude Code と Codex の skill と hooks を設定します。",
   "cli.step.login.title": "ログイン",
-  "cli.step.login.description": "このページをブラウザで開きます。下のフォームまたは API Keys ページで key を作成し、ターミナルに貼り付けてください。",
-  "cli.step.login.labelPlaceholder": "Key の名前（例: Claude Code on Macbook）",
-  "cli.step.login.createSubmit": "API key を作成",
+  "cli.step.login.description": "このページをブラウザで開きます。下の「APIキー」で key を作成し、ターミナルに貼り付けてください。",
   "cli.step.update.title": "最新の状態を維持",
   "cli.step.update.description": "最新の npm リリースにアップグレードします。最初のインストール後、手動で npm install -g を再実行しないでください。",
   "cli.copy": "コピー",
@@ -3298,7 +3296,6 @@
   "settings.codeReview.rules": "ルールのカバレッジ",
   "settings.ai": "AI",
   "settings.ai.subtitle": "このワークスペースで動かす AI 機能と、Lumo が AI で書いた内容。",
-  "settings.ai.derivedContent": "AI が生成した内容",
   "settings.export": "エクスポート",
   "integrations.team.noneConnected": "チームの連携はまだ接続されていません。ワークスペースのオーナーがここでインストールします。"
 }

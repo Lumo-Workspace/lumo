@@ -641,9 +641,7 @@
   "cli.step.install.title": "Cài đặt",
   "cli.step.install.description": "Cài đặt CLI ở phạm vi toàn cục và thiết lập skill cùng hooks cho Claude Code và Codex.",
   "cli.step.login.title": "Đăng nhập",
-  "cli.step.login.description": "Mở trang này trong trình duyệt của bạn. Tạo key bên dưới hoặc trên trang API Keys, sau đó dán lại vào terminal.",
-  "cli.step.login.labelPlaceholder": "Tên key (ví dụ: Claude Code on Macbook)",
-  "cli.step.login.createSubmit": "Tạo API key",
+  "cli.step.login.description": "Mở trang này trong trình duyệt của bạn. Tạo key ở mục Khóa API bên dưới, sau đó dán lại vào terminal.",
   "cli.step.update.title": "Luôn cập nhật",
   "cli.step.update.description": "Nâng cấp lên phiên bản npm mới nhất. Không chạy lại npm install -g thủ công sau lần cài đặt đầu tiên.",
   "cli.copy": "Sao chép",
@@ -3298,7 +3296,6 @@
   "settings.codeReview.rules": "Độ phủ quy tắc",
   "settings.ai": "AI",
   "settings.ai.subtitle": "Những tính năng AI chạy trong workspace này và nội dung Lumo viết bằng AI.",
-  "settings.ai.derivedContent": "Nội dung do AI tạo",
   "settings.export": "Xuất dữ liệu",
   "integrations.team.noneConnected": "Chưa có tích hợp nào của nhóm được kết nối. Chủ sở hữu workspace cài đặt chúng tại đây."
 }

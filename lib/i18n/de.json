@@ -641,9 +641,7 @@
   "cli.step.install.title": "Installieren",
   "cli.step.install.description": "Installiert das CLI global und richtet den Skill und die Hooks für Claude Code und Codex ein.",
   "cli.step.login.title": "Anmelden",
-  "cli.step.login.description": "Öffnet diese Seite im Browser. Erstellen Sie unten oder auf der API-Keys-Seite einen Schlüssel und fügen Sie ihn dann im Terminal ein.",
-  "cli.step.login.labelPlaceholder": "Schlüsselname (z. B. Claude Code on Macbook)",
-  "cli.step.login.createSubmit": "API-Schlüssel erstellen",
+  "cli.step.login.description": "Öffnet diese Seite im Browser. Erstellen Sie unten unter „API-Schlüssel“ einen Schlüssel und fügen Sie ihn dann im Terminal ein.",
   "cli.step.update.title": "Aktuell bleiben",
   "cli.step.update.description": "Aktualisiert auf die neueste npm-Version. Führen Sie nach der ersten Installation nicht erneut npm install -g aus.",
   "cli.copy": "Kopieren",
@@ -3298,7 +3296,6 @@
   "settings.codeReview.rules": "Regelabdeckung",
   "settings.ai": "KI",
   "settings.ai.subtitle": "Welche KI-Funktionen in diesem Workspace laufen und welche Inhalte Lumo mit KI schreibt.",
-  "settings.ai.derivedContent": "KI-generierte Inhalte",
   "settings.export": "Export",
   "integrations.team.noneConnected": "Für das Team ist noch keine Integration verbunden. Der Workspace-Owner installiert sie hier."
 }

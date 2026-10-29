@@ -641,9 +641,7 @@
   "cli.step.install.title": "설치",
   "cli.step.install.description": "CLI를 전역으로 설치하고 Claude Code와 Codex의 skill과 hooks를 설정합니다.",
   "cli.step.login.title": "로그인",
-  "cli.step.login.description": "이 페이지가 브라우저에서 열립니다. 아래 폼이나 API Keys 페이지에서 key를 생성한 뒤 터미널에 붙여 넣으세요.",
-  "cli.step.login.labelPlaceholder": "Key 이름 (예: Claude Code on Macbook)",
-  "cli.step.login.createSubmit": "API key 생성",
+  "cli.step.login.description": "이 페이지가 브라우저에서 열립니다. 아래 'API 키'에서 key를 생성한 뒤 터미널에 붙여 넣으세요.",
   "cli.step.update.title": "최신 상태 유지",
   "cli.step.update.description": "최신 npm 릴리스로 업그레이드합니다. 최초 설치 이후에는 npm install -g를 수동으로 다시 실행하지 마세요.",
   "cli.copy": "복사",
@@ -3298,7 +3296,6 @@
   "settings.codeReview.rules": "규칙 커버리지",
   "settings.ai": "AI",
   "settings.ai.subtitle": "이 워크스페이스에서 실행할 AI 기능과 Lumo가 AI로 작성한 콘텐츠.",
-  "settings.ai.derivedContent": "AI 생성 콘텐츠",
   "settings.export": "내보내기",
   "integrations.team.noneConnected": "아직 연결된 팀 통합이 없습니다. 워크스페이스 소유자가 여기에서 설치합니다."
 }

@@ -641,9 +641,7 @@
   "cli.step.install.title": "安装",
   "cli.step.install.description": "全局安装 CLI，并自动为 Claude Code 和 Codex 配置 skill 与 hooks。",
   "cli.step.login.title": "登录",
-  "cli.step.login.description": "会在浏览器中打开本页面。可以在下方或 API Keys 页面创建一个 key，再粘贴回终端。",
-  "cli.step.login.labelPlaceholder": "Key 名称（如 Claude Code on Macbook）",
-  "cli.step.login.createSubmit": "创建 API key",
+  "cli.step.login.description": "会在浏览器中打开本页面。在下方「API 密钥」中创建一个 key，再粘贴回终端。",
   "cli.step.update.title": "保持最新",
   "cli.step.update.description": "升级到最新的 npm 版本。首次安装后不要再手动跑 npm install -g。",
   "cli.copy": "复制",
@@ -3298,7 +3296,6 @@
   "settings.codeReview.rules": "规则覆盖",
   "settings.ai": "AI",
   "settings.ai.subtitle": "这个工作区启用哪些 AI 功能，以及 Lumo 用 AI 写下的内容。",
-  "settings.ai.derivedContent": "AI 生成内容",
   "settings.export": "导出",
   "integrations.team.noneConnected": "团队还没有连接任何集成。工作区所有者在这里安装。"
 }

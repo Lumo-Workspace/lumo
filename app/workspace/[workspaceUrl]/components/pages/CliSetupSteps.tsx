@@ -3,7 +3,6 @@
 import { useIntl } from 'react-intl'
 import { CliStep } from '../cli/CliStep'
 import { CodeBlock } from '../cli/CodeBlock'
-import { CliCreateKeyForm } from '../cli/CliCreateKeyForm'
 
 export function CliSetupSteps() {
   const intl = useIntl()
@@ -28,7 +27,6 @@ export function CliSetupSteps() {
         })}
       >
         <CodeBlock lines={['lumo auth login']} />
-        <CliCreateKeyForm />
       </CliStep>
 
       <CliStep

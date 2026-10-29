@@ -641,9 +641,7 @@
   "cli.step.install.title": "Pasang",
   "cli.step.install.description": "Memasang CLI secara global dan menyediakan skill serta hooks untuk Claude Code dan Codex.",
   "cli.step.login.title": "Log masuk",
-  "cli.step.login.description": "Membuka halaman ini di pelayar anda. Cipta key di bawah atau pada halaman API Keys, kemudian tampalkannya semula ke terminal.",
-  "cli.step.login.labelPlaceholder": "Nama key (cth. Claude Code on Macbook)",
-  "cli.step.login.createSubmit": "Cipta API key",
+  "cli.step.login.description": "Membuka halaman ini di pelayar anda. Cipta key di bahagian Kunci API di bawah, kemudian tampalkannya semula ke terminal.",
   "cli.step.update.title": "Kekal terkini",
   "cli.step.update.description": "Naik taraf ke keluaran npm terkini. Jangan jalankan npm install -g secara manual selepas pemasangan pertama.",
   "cli.copy": "Salin",
@@ -3298,7 +3296,6 @@
   "settings.codeReview.rules": "Liputan peraturan",
   "settings.ai": "AI",
   "settings.ai.subtitle": "Ciri AI yang berjalan dalam ruang kerja ini, dan kandungan yang ditulis oleh Lumo dengan AI.",
-  "settings.ai.derivedContent": "Kandungan janaan AI",
   "settings.export": "Eksport",
   "integrations.team.noneConnected": "Belum ada integrasi pasukan yang disambungkan. Pemilik ruang kerja memasangnya di sini."
 }
