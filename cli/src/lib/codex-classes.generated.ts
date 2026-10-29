@@ -13,7 +13,12 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'auth logout': {
     serverOnly: false,
     localFiles: 'writes',
-    detail: 'deletes ~/.lumo credentials',
+    detail: 'deletes a login from ~/.lumo credentials',
+  },
+  'auth use': {
+    serverOnly: false,
+    localFiles: 'writes',
+    detail: 'writes the repository binding to ~/.lumo credentials',
   },
   'crossing disposition': {
     serverOnly: false,

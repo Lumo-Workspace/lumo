@@ -86,6 +86,9 @@ const DEVIATIONS = {
     uninstall: 'deletes hook and rules entries in this repo',
     doctor:
       "reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable)",
+    // LUM-1337: logout removes one login of several; `auth use` binds a repo.
+    'auth logout': 'deletes a login from ~/.lumo credentials',
+    'auth use': 'writes the repository binding to ~/.lumo credentials',
   } as Record<string, string>,
   // LUM-1292: `skill status` / `skill update` were deleted.
   sandboxedRemoved: ['skill status', 'skill update'],

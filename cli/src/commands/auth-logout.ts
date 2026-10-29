@@ -1,13 +1,31 @@
-import { readCredentials, deleteCredentials } from '../lib/config'
+import { loginKey, removeLogin, resolveLogin } from '../lib/config'
 import { sanitizeField } from '../lib/sanitize'
 
-export async function authLogout(): Promise<number | void> {
-  const creds = readCredentials()
-  if (!creds) {
-    console.log('Not logged in')
+export interface AuthLogoutOptions {
+  /** LUM-1337: the server whose login to remove; else the one this directory uses. */
+  url?: string
+}
+
+export async function authLogout(
+  opts: AuthLogoutOptions = {}
+): Promise<number | void> {
+  let key: string | null
+  if (opts.url !== undefined) {
+    key = loginKey(opts.url)
+    if (!key) {
+      console.error(`Error: --url "${opts.url}" is not a valid URL`)
+      return 1
+    }
+  } else {
+    const login = resolveLogin()
+    key = login ? loginKey(login.creds.apiUrl) : null
+  }
+  const removed = key ? removeLogin(key) : null
+  if (!removed) {
+    console.log(
+      opts.url !== undefined ? `Not logged in to ${key}` : 'Not logged in'
+    )
     return 0
   }
-  const email = creds.email
-  deleteCredentials()
-  console.log(`✓ Logged out (${sanitizeField(email)})`)
+  console.log(`✓ Logged out of ${key} (${sanitizeField(removed.email)})`)
 }

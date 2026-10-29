@@ -18,9 +18,9 @@
 # - --caddy adds the caddy profile (HTTPS on LUMO_DOMAIN) to COMPOSE_PROFILES;
 #   --no-caddy removes it. Other profiles are left alone.
 # - --local sets LUMO_MODE=local (opens without a sign-in, one account) and,
-#   once the stack is up, connects the lumo CLI when that replaces no other
-#   login; --no-local removes it. --init <repo> then runs `lumo init` in that
-#   git repository (the Lumo skill and hooks for Claude Code / Codex).
+#   once the stack is up, connects the lumo CLI alongside any other
+#   login; --no-local removes it. --init <repo> then binds that git repository
+#   to it and runs `lumo init` there (the Lumo skill and hooks for Claude Code / Codex).
 # - Then runs `docker compose up -d`, waits until the stack is healthy and
 #   checks every configured component against the real service
 #   (scripts/self-host/check-config.mjs, inside the app container).
@@ -79,13 +79,13 @@ Options:
                   visit signs you in as this instance's one account. For
                   trying Lumo on your own machine — anyone who can reach the
                   URL is signed in. Without --url it does not ask for one.
-                  Also connects the lumo CLI when it is installed and not
-                  logged in elsewhere (otherwise prints the command).
+                  Also connects the lumo CLI when it is installed, next to
+                  any other login it has (the hosted one is kept).
   --no-local      Back to normal sign-in; the account keeps its workspaces.
   --init <repo>   With local mode: once the CLI is connected to this Lumo,
-                  run `lumo init` in that git repository, so Claude Code and
-                  Codex there get the Lumo skill and hooks. Skipped (with
-                  the commands printed) when the CLI is logged in elsewhere.
+                  point that git repository at it (lumo auth use) and run
+                  `lumo init` there, so Claude Code and Codex there get the
+                  Lumo skill and hooks. Other repositories are not moved.
   --no-start      Only write .env; start it yourself with docker compose.
   --check         Only re-run the configuration check on the running stack.
   -h, --help      Show this help.
@@ -163,10 +163,10 @@ need_docker() {
   }
 }
 
-# LUM-1335: in local mode, connect the lumo CLI too — only when that cannot
-# take anything away: lumo is installed and not logged in, or logged in to this
-# same URL. Logged in elsewhere (the hosted service, another server), it is
-# left alone and the command is printed instead. Never fails setup.
+# LUM-1335/1337: in local mode, connect the lumo CLI too. The login is added
+# next to any other (the hosted service, another server) without replacing it
+# or moving any repository off it (--no-bind); only --init <repo> points that
+# one repository at this Lumo. Never fails setup.
 CLI_CONNECTED=
 connect_cli() {
   cli_url=$1
@@ -175,37 +175,29 @@ connect_cli() {
     echo "Connect the lumo CLI: npm install -g @lumoai/cli, then $cli_cmd"
     return 0
   fi
-  current=$(lumo whoami --json 2>/dev/null | sed -n 's/.*"apiUrl":"\([^"]*\)".*/\1/p')
-  current=${current%/}
-  if [ -n "$current" ] && [ "$current" != "${cli_url%/}" ]; then
-    echo "The lumo CLI is logged in to $current; left as it is."
-    echo "  To use it with this Lumo instead (replaces that login): $cli_cmd"
-    return 0
-  fi
-  if lumo auth login --url "$cli_url" --no-paste < /dev/null > /dev/null 2>&1; then
-    echo "✓ lumo CLI connected to $cli_url"
+  if lumo auth login --url "$cli_url" --no-paste --no-bind < /dev/null > /dev/null 2>&1; then
+    echo "✓ lumo CLI connected to $cli_url (other logins kept)"
     CLI_CONNECTED=1
   else
     echo "Could not connect the lumo CLI automatically; run: $cli_cmd"
   fi
 }
 
-# LUM-1335: the Lumo skill and hooks in the user's own repository. Only once
-# the CLI talks to this Lumo — otherwise that repository's sessions would be
-# reported to whichever server the CLI is logged in to.
+# LUM-1335/1337: the Lumo skill and hooks in the user's own repository, bound
+# to this Lumo first so its commands and session records go here.
 init_repo() {
   repo=$1
-  init_cmd="cd $repo && lumo init"
+  init_cmd="cd $repo && lumo auth use $cli_url && lumo init"
   if [ -z "$repo" ]; then
-    echo "Next, in your own project (adds the Lumo skill and hooks for Claude Code / Codex): cd <your repo> && lumo init"
+    echo "Next, in your own project (uses this Lumo, adds the Lumo skill and hooks for Claude Code / Codex): cd <your repo> && lumo auth use $cli_url && lumo init"
     return 0
   fi
   if [ -z "$CLI_CONNECTED" ]; then
     echo "Skipped lumo init in $repo: the CLI is not connected to this Lumo. Once it is: $init_cmd"
     return 0
   fi
-  if (cd "$repo" && lumo init < /dev/null); then
-    echo "✓ $repo is set up (lumo init); commit what it added there"
+  if (cd "$repo" && lumo auth use "$cli_url" > /dev/null && lumo init < /dev/null); then
+    echo "✓ $repo uses this Lumo and is set up (lumo init); commit what it added there"
   else
     echo "lumo init did not finish in $repo; run: $init_cmd"
   fi
