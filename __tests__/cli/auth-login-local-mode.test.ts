@@ -201,4 +201,24 @@ describe('lumo auth login (LUM-1335)', () => {
       expect.objectContaining({ token: 'lum_issued' })
     )
   })
+
+  it('a server that does not answer the key request in time: the paste flow', async () => {
+    serve(() => json({}, 200))
+    const timeout = Object.assign(
+      new Error('The operation was aborted due to timeout'),
+      {
+        name: 'TimeoutError',
+      }
+    )
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/api/auth/lumo/local-cli-key')) throw timeout
+      return json(VERIFY, 200)
+    }) as typeof fetch
+    mockPrompt.mockResolvedValue('lum_pasted')
+    await authLogin({ url: 'https://lumo.example.com' })
+    expect(mockPrompt).toHaveBeenCalled()
+    expect(mockWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'lum_pasted' })
+    )
+  })
 })

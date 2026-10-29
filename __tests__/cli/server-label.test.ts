@@ -21,6 +21,12 @@ describe('serverLabel', () => {
       'https://www.uselumo.ai.evil.example',
       'self-hosted · https://www.uselumo.ai.evil.example',
     ],
+    // The hosted host on another scheme or port is not the hosted service.
+    ['http://uselumo.ai:8080', 'self-hosted · http://uselumo.ai:8080'],
+    [
+      'https://www.uselumo.ai:8443',
+      'self-hosted · https://www.uselumo.ai:8443',
+    ],
   ])('%s → %s', (url, label) => expect(serverLabel(url)).toBe(label))
 
   it('an unparsable URL has no label', () => {

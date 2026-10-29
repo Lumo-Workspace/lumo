@@ -89,6 +89,9 @@ export function resolveApiUrl(): string {
 /** The local-mode refusal codes the server answers with (LUM-1335). */
 const LOCAL_MODE_ERROR_PREFIX = 'local_mode_'
 
+/** How long `auth login` waits for a local-mode key before pasting instead. */
+export const LOCAL_CLI_KEY_TIMEOUT_MS = 15_000
+
 /**
  * LUM-1335 — ask a self-hosted server in local mode (`LUMO_MODE=local`) for
  * an API key, so `lumo auth login` needs no copy-paste there. `refused` is
@@ -112,9 +115,14 @@ export async function requestLocalCliKey(
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: '{}',
+        signal: AbortSignal.timeout(LOCAL_CLI_KEY_TIMEOUT_MS),
       }
     )
   } catch (err) {
+    // A server that does not answer in time is not a local-mode one.
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      return { status: 'unavailable' }
+    }
     const msg = err instanceof Error ? err.message : String(err)
     throw new Error(`Could not reach Lumo API at ${apiUrl} (${msg})`)
   }
@@ -152,7 +160,14 @@ export function serverLabel(apiUrl: string): string | null {
   }
   const hosted = new URL(DEFAULT_API_URL).hostname
   const host = parsed.hostname
-  if (host === hosted || `www.${host}` === hosted) return null
+  // Only the hosted service itself: https on its default port.
+  if (
+    (host === hosted || `www.${host}` === hosted) &&
+    parsed.protocol === 'https:' &&
+    parsed.port === ''
+  ) {
+    return null
+  }
   const url = trimTrailingSlash(apiUrl)
   const local = LOCALHOST_HOSTNAMES.has(host) || host.endsWith('.localhost')
   return `${local ? 'local' : 'self-hosted'} · ${url}`
