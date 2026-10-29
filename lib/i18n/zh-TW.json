@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "一鍵開啟或關閉此工作區的所有 AI 功能。關閉後，不會向任何模型傳送內容。",
   "aiFeatures.notConfigured": "此部署尚未設定 AI 模型，因此無法開啟 AI 功能。請在部署環境中設定 AI_GATEWAY_API_KEY（或 ANTHROPIC_API_KEY、OPENAI_COMPATIBLE_BASE_URL），然後重新啟動 Lumo。",
   "aiFeatures.saveFailed": "AI 功能設定儲存失敗，請再試一次。",
+  "aiFeatures.loadFailed": "AI 功能設定載入失敗，請重新整理頁面再試一次。",
   "aiFeatures.error.unavailable": "此 AI 功能已在本工作區關閉，或此部署未設定 AI。",
   "aiFeatures.group.assist": "任務建立輔助",
   "aiFeatures.group.assist.description": "建立和編輯任務時的 AI 協助。",

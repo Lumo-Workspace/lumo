@@ -73,9 +73,18 @@ function SwitchRow({
  */
 export function AiFeaturesSection() {
   const intl = useIntl()
-  const { status, isLoading } = useAiFeatures()
+  const { status, isLoading, error } = useAiFeatures()
   const setFeature = useSetAiFeature()
 
+  if (error && !status)
+    return (
+      <Alert variant='danger' data-testid='ai-features-load-failed'>
+        <CircleAlert />
+        <AlertDescription>
+          {intl.formatMessage({ id: 'aiFeatures.loadFailed' })}
+        </AlertDescription>
+      </Alert>
+    )
   if (isLoading || !status) return <RowListSkeleton rows={4} />
 
   const { aiConfigured, switches, available } = status

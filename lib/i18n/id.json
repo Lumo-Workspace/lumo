@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "Mengaktifkan atau menonaktifkan semua fitur AI di workspace ini. Saat nonaktif, tidak ada konten yang dikirim ke model.",
   "aiFeatures.notConfigured": "Tidak ada model AI yang dikonfigurasi pada deployment ini, sehingga fitur AI tidak dapat diaktifkan. Setel AI_GATEWAY_API_KEY (atau ANTHROPIC_API_KEY, atau OPENAI_COMPATIBLE_BASE_URL) di environment deployment lalu mulai ulang Lumo.",
   "aiFeatures.saveFailed": "Tidak dapat menyimpan pengaturan fitur AI. Coba lagi.",
+  "aiFeatures.loadFailed": "Pengaturan fitur AI gagal dimuat. Muat ulang halaman untuk mencoba lagi.",
   "aiFeatures.error.unavailable": "Fitur AI ini dinonaktifkan untuk workspace ini, atau AI belum dikonfigurasi pada deployment ini.",
   "aiFeatures.group.assist": "Bantuan membuat tugas",
   "aiFeatures.group.assist.description": "Bantuan AI saat Anda membuat dan mengedit tugas.",

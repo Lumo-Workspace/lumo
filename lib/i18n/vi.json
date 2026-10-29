@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "Bật hoặc tắt mọi tính năng AI trong workspace này. Khi tắt, không có nội dung nào được gửi tới mô hình.",
   "aiFeatures.notConfigured": "Bản triển khai này chưa cấu hình mô hình AI nên không thể bật các tính năng AI. Hãy đặt AI_GATEWAY_API_KEY (hoặc ANTHROPIC_API_KEY, hoặc OPENAI_COMPATIBLE_BASE_URL) trong môi trường triển khai rồi khởi động lại Lumo.",
   "aiFeatures.saveFailed": "Không thể lưu cài đặt tính năng AI. Hãy thử lại.",
+  "aiFeatures.loadFailed": "Không tải được cài đặt tính năng AI. Hãy tải lại trang để thử lại.",
   "aiFeatures.error.unavailable": "Tính năng AI này đã bị tắt cho workspace này, hoặc AI chưa được cấu hình trong bản triển khai này.",
   "aiFeatures.group.assist": "Trợ giúp tạo tác vụ",
   "aiFeatures.group.assist.description": "AI hỗ trợ khi bạn tạo và chỉnh sửa tác vụ.",

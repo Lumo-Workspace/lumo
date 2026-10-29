@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "このワークスペースのすべてのAI機能をオン・オフします。オフにすると、モデルにコンテンツは送信されません。",
   "aiFeatures.notConfigured": "このデプロイにはAIモデルが設定されていないため、AI機能をオンにできません。デプロイ環境で AI_GATEWAY_API_KEY（または ANTHROPIC_API_KEY、OPENAI_COMPATIBLE_BASE_URL）を設定し、Lumo を再起動してください。",
   "aiFeatures.saveFailed": "AI機能の設定を保存できませんでした。もう一度お試しください。",
+  "aiFeatures.loadFailed": "AI機能の設定を読み込めませんでした。ページを再読み込みしてもう一度お試しください。",
   "aiFeatures.error.unavailable": "このAI機能はこのワークスペースでオフになっているか、このデプロイでAIが設定されていません。",
   "aiFeatures.group.assist": "タスク作成サポート",
   "aiFeatures.group.assist.description": "タスクの作成・編集中にAIがサポートします。",

@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "Turns every AI feature in this workspace on or off. When off, no content is sent to a model.",
   "aiFeatures.notConfigured": "No AI model is configured on this deployment, so AI features can't be turned on. Set AI_GATEWAY_API_KEY (or ANTHROPIC_API_KEY, or OPENAI_COMPATIBLE_BASE_URL) in the deployment environment and restart Lumo.",
   "aiFeatures.saveFailed": "Couldn't save the AI feature setting. Try again.",
+  "aiFeatures.loadFailed": "Couldn't load the AI feature settings. Refresh the page to try again.",
   "aiFeatures.error.unavailable": "This AI feature is turned off for this workspace, or AI isn't configured on this deployment.",
   "aiFeatures.group.assist": "Task creation helpers",
   "aiFeatures.group.assist.description": "AI help while you create and edit tasks.",

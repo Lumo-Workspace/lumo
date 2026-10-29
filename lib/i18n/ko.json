@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "이 워크스페이스의 모든 AI 기능을 켜거나 끕니다. 끄면 어떤 콘텐츠도 모델로 전송되지 않습니다.",
   "aiFeatures.notConfigured": "이 배포에 AI 모델이 구성되어 있지 않아 AI 기능을 켤 수 없습니다. 배포 환경에서 AI_GATEWAY_API_KEY(또는 ANTHROPIC_API_KEY, OPENAI_COMPATIBLE_BASE_URL)를 설정한 뒤 Lumo를 다시 시작하세요.",
   "aiFeatures.saveFailed": "AI 기능 설정을 저장하지 못했습니다. 다시 시도하세요.",
+  "aiFeatures.loadFailed": "AI 기능 설정을 불러오지 못했습니다. 페이지를 새로고침하여 다시 시도하세요.",
   "aiFeatures.error.unavailable": "이 AI 기능은 이 워크스페이스에서 꺼져 있거나, 이 배포에 AI가 구성되어 있지 않습니다.",
   "aiFeatures.group.assist": "작업 생성 도우미",
   "aiFeatures.group.assist.description": "작업을 만들고 편집할 때 AI가 도와줍니다.",

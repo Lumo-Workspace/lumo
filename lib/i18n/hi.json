@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "इस वर्कस्पेस के सभी AI फ़ीचर चालू या बंद करता है। बंद होने पर किसी मॉडल को कोई सामग्री नहीं भेजी जाती।",
   "aiFeatures.notConfigured": "इस डिप्लॉयमेंट पर कोई AI मॉडल कॉन्फ़िगर नहीं है, इसलिए AI फ़ीचर चालू नहीं किए जा सकते। डिप्लॉयमेंट एनवायरनमेंट में AI_GATEWAY_API_KEY (या ANTHROPIC_API_KEY, या OPENAI_COMPATIBLE_BASE_URL) सेट करें और Lumo को रीस्टार्ट करें।",
   "aiFeatures.saveFailed": "AI फ़ीचर की सेटिंग सहेजी नहीं जा सकी। फिर से कोशिश करें।",
+  "aiFeatures.loadFailed": "AI फ़ीचर सेटिंग लोड नहीं हो सकीं। फिर से कोशिश करने के लिए पेज रीफ़्रेश करें।",
   "aiFeatures.error.unavailable": "यह AI फ़ीचर इस वर्कस्पेस के लिए बंद है, या इस डिप्लॉयमेंट पर AI कॉन्फ़िगर नहीं है।",
   "aiFeatures.group.assist": "टास्क बनाने में सहायक",
   "aiFeatures.group.assist.description": "टास्क बनाते और संपादित करते समय AI की मदद।",

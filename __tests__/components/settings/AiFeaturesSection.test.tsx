@@ -28,12 +28,13 @@ jest.mock('react-intl', () => {
 
 const mutate = jest.fn()
 let mockStatus: unknown = null
+let mockError: unknown = null
 
 jest.mock('@/hooks/use-ai-features', () => ({
   useAiFeatures: () => ({
     status: mockStatus,
     isLoading: false,
-    error: null,
+    error: mockError,
     isOn: () => true,
   }),
   useSetAiFeature: () => ({ mutate, isPending: false }),
@@ -59,6 +60,14 @@ const sw = (id: string) =>
 
 beforeEach(() => {
   mutate.mockReset()
+  mockError = null
+})
+
+it('says the settings failed to load instead of a skeleton forever', () => {
+  mockStatus = null
+  mockError = new Error('500')
+  renderSection()
+  expect(screen.getByTestId('ai-features-load-failed')).toBeTruthy()
 })
 
 it('without a model: says how to configure one and every switch is off and disabled', () => {

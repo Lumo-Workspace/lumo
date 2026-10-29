@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "Activa o desactiva todas las funciones de IA de este espacio de trabajo. Si está desactivado, no se envía ningún contenido a un modelo.",
   "aiFeatures.notConfigured": "No hay ningún modelo de IA configurado en este despliegue, por lo que no se pueden activar las funciones de IA. Define AI_GATEWAY_API_KEY (o ANTHROPIC_API_KEY, o OPENAI_COMPATIBLE_BASE_URL) en el entorno del despliegue y reinicia Lumo.",
   "aiFeatures.saveFailed": "No se pudo guardar el ajuste de las funciones de IA. Inténtalo de nuevo.",
+  "aiFeatures.loadFailed": "No se pudo cargar la configuración de las funciones de IA. Actualiza la página para volver a intentarlo.",
   "aiFeatures.error.unavailable": "Esta función de IA está desactivada para este espacio de trabajo, o la IA no está configurada en este despliegue.",
   "aiFeatures.group.assist": "Ayudas para crear tareas",
   "aiFeatures.group.assist.description": "Ayuda de IA al crear y editar tareas.",

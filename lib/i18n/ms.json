@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "Menghidupkan atau mematikan semua ciri AI dalam ruang kerja ini. Apabila dimatikan, tiada kandungan dihantar kepada model.",
   "aiFeatures.notConfigured": "Tiada model AI dikonfigurasikan pada deployment ini, jadi ciri AI tidak boleh dihidupkan. Tetapkan AI_GATEWAY_API_KEY (atau ANTHROPIC_API_KEY, atau OPENAI_COMPATIBLE_BASE_URL) dalam persekitaran deployment dan mulakan semula Lumo.",
   "aiFeatures.saveFailed": "Tidak dapat menyimpan tetapan ciri AI. Cuba lagi.",
+  "aiFeatures.loadFailed": "Tetapan ciri AI gagal dimuatkan. Muat semula halaman untuk mencuba lagi.",
   "aiFeatures.error.unavailable": "Ciri AI ini dimatikan untuk ruang kerja ini, atau AI belum dikonfigurasikan pada deployment ini.",
   "aiFeatures.group.assist": "Pembantu penciptaan tugas",
   "aiFeatures.group.assist.description": "Bantuan AI semasa anda mencipta dan menyunting tugas.",

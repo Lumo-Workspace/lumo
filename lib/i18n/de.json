@@ -3244,6 +3244,7 @@
   "aiFeatures.master.description": "Schaltet alle KI-Funktionen in diesem Workspace ein oder aus. Wenn ausgeschaltet, werden keine Inhalte an ein Modell gesendet.",
   "aiFeatures.notConfigured": "Für diese Bereitstellung ist kein KI-Modell konfiguriert, daher können KI-Funktionen nicht eingeschaltet werden. Setze AI_GATEWAY_API_KEY (oder ANTHROPIC_API_KEY oder OPENAI_COMPATIBLE_BASE_URL) in der Umgebung der Bereitstellung und starte Lumo neu.",
   "aiFeatures.saveFailed": "Die Einstellung für KI-Funktionen konnte nicht gespeichert werden. Versuche es erneut.",
+  "aiFeatures.loadFailed": "Die KI-Funktionseinstellungen konnten nicht geladen werden. Lade die Seite neu, um es erneut zu versuchen.",
   "aiFeatures.error.unavailable": "Diese KI-Funktion ist für diesen Workspace ausgeschaltet oder KI ist für diese Bereitstellung nicht konfiguriert.",
   "aiFeatures.group.assist": "Hilfen beim Erstellen von Aufgaben",
   "aiFeatures.group.assist.description": "KI-Unterstützung beim Erstellen und Bearbeiten von Aufgaben.",
