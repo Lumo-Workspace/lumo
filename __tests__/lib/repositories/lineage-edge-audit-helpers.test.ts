@@ -46,4 +46,27 @@ describe('listUnvotedSessionIdsForDoneTasks', () => {
     })
     expect(arg.take).toBe(50)
   })
+
+  it('LUM-1338: leaves out workspaces that switched the feature off, in the query', async () => {
+    ;(prisma.lineageEdge.groupBy as jest.Mock).mockResolvedValue([])
+    await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(
+      50,
+      undefined,
+      { skipFeatureOff: 'memoryConsolidation' }
+    )
+    const calls = (prisma.lineageEdge.groupBy as jest.Mock).mock.calls
+    const arg = calls[calls.length - 1][0]
+    expect(arg.where.task.project.workspace.NOT).toEqual({
+      OR: [
+        { aiFeatureSwitches: { path: ['master'], equals: false } },
+        { aiFeatureSwitches: { path: ['groups', 'memory'], equals: false } },
+        {
+          aiFeatureSwitches: {
+            path: ['features', 'memoryConsolidation'],
+            equals: false,
+          },
+        },
+      ],
+    })
+  })
 })

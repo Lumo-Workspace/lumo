@@ -74,6 +74,17 @@ export type DoneBlocker =
       /** The web Test cases section, where a human can rule on it. */
       url: string
     }
+  /**
+   * LUM-1334: the workspace requires a passing test case / a review on each
+   * linked PR's latest commit and this PR lacks it — read from the status
+   * model's `DONE_REQUIREMENT` rows. Cleared by evidence, not by a ruling.
+   */
+  | {
+      kind: 'DONE_REQUIREMENT'
+      requirement: 'TEST_CASE' | 'REVIEW'
+      prNumber: number
+      statement: string
+    }
 
 /** LUM-771: an open crossing the server DONE gate does NOT count (advisory,
  *  or below HIGH with the workspace gate off) — listed for awareness, never as
@@ -135,6 +146,12 @@ interface StatusSlice {
         filePath: string
         line: number | null
       }
+    | {
+        kind: 'DONE_REQUIREMENT'
+        requirement: 'TEST_CASE' | 'REVIEW'
+        prNumber: number
+        statement: string
+      }
   >
 }
 
@@ -167,7 +184,14 @@ export async function collectDoneBlockers(args: {
     } else {
       const data = (await res.json()) as StatusSlice
       for (const a of data.nextActions ?? []) {
-        if (a.kind === 'SECURITY_FINDING' && a.blocking) {
+        if (a.kind === 'DONE_REQUIREMENT') {
+          blockers.push({
+            kind: 'DONE_REQUIREMENT',
+            requirement: a.requirement,
+            prNumber: a.prNumber,
+            statement: a.statement,
+          })
+        } else if (a.kind === 'SECURITY_FINDING' && a.blocking) {
           blockers.push({
             kind: 'SECURITY_FINDING',
             findingId: a.findingId,
@@ -283,6 +307,26 @@ export function buildRemediation(
       `TEST_CASE_DEFECT: ${defects.map(d => d.ref).join(', ')} — the latest run proved an implementation defect and blocks DONE until the user rules on that run. The ruling is the user's, never the agent's: relay each case to the user and, once they rule, record it with \`lumo task testcase disposition ${defects[0]!.ref} --known-defect\` (ship anyway) or \`--not-a-defect\` — it prints exit-4 envelopes (a three-step handshake) for the user to approve step by step; never self-approve. Fixing the defect first is not required to clear this. The web panel also works: ${url}`
     )
   }
+  if (kinds.has('DONE_REQUIREMENT')) {
+    const reqs = blockers.filter(
+      (b): b is Extract<DoneBlocker, { kind: 'DONE_REQUIREMENT' }> =>
+        b.kind === 'DONE_REQUIREMENT'
+    )
+    const parts: string[] = []
+    const tests = reqs.filter(r => r.requirement === 'TEST_CASE')
+    const reviews = reqs.filter(r => r.requirement === 'REVIEW')
+    if (tests.length > 0)
+      parts.push(
+        `record a passing run on the latest commit of ${tests.map(r => `PR #${r.prNumber}`).join(', ')} — \`lumo task testcase run ${ctx.identifier}/TC<n> --result pass --pr <n>\` (add a case first with \`lumo task testcase add\` if there is none)`
+      )
+    if (reviews.length > 0)
+      parts.push(
+        `get the latest commit of ${reviews.map(r => `PR #${r.prNumber}`).join(', ')} reviewed — Lumo's AI review, \`lumo review import <file>\`, or a GitHub approval`
+      )
+    lines.push(
+      `DONE_REQUIREMENT: this workspace requires evidence on each linked PR's latest commit. ${parts.join('; and ')}. This is evidence, not a ruling — you may supply it yourself; never fake a run. Only a workspace owner can turn the requirement off (Settings → Done requirements).`
+    )
+  }
   if (unconfirmed.length > 0) {
     lines.push(
       `Could not confirm the full blocker list (${unconfirmed.join('; ')}) — run \`lumo task status ${ctx.identifier}\` and check the task page before assuming the list above is complete.`
@@ -337,6 +381,8 @@ function blockerLine(b: DoneBlocker): string {
       return `[${b.severity}] ${b.ruleId} ${shortRef(b.findingId)} — ${b.filePath}${b.line != null ? `:${b.line}` : ''} (PR #${b.prNumber}): ${b.statement}`
     case 'TEST_CASE_DEFECT':
       return `[TEST CASE] ${b.ref} ${b.title} — implementation defect, with evidence (blocks DONE until the user rules on it)`
+    case 'DONE_REQUIREMENT':
+      return `[REQUIRED] PR #${b.prNumber} — no ${b.requirement === 'TEST_CASE' ? 'passing test-case run' : 'review'} on its latest commit`
   }
 }
 

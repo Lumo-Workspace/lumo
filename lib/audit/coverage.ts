@@ -250,6 +250,7 @@ export const AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
   'lib/services/ai-derived-content.service.ts#getStatus': READ_ONLY,
   'lib/services/github-app-install.service.ts#getStatus': READ_ONLY,
   'lib/services/codeup.service.ts#listRepositories': READ_ONLY,
+  'lib/services/done-requirements-settings.service.ts#get': READ_ONLY,
   'lib/services/github-app-install.service.ts#startReverify':
     'read-only gate before the GitHub round trip; reverify is audited',
   'lib/services/workspace-export.service.ts#listExports': READ_ONLY,

@@ -95,11 +95,10 @@ The first visit (or the first CLI connect) also gives the account a
 workspace, **My workspace**, with one project, **My project**, so there is no
 onboarding step and tasks can be filed right away.
 
-`setup.sh --local` also connects the `lumo` CLI, but only when that takes no
-other login away: `lumo` is installed and either not logged in or already
-logged in to this same URL. The CLI keeps one login, so when it is logged in
-somewhere else (the hosted service, another server) setup leaves it alone
-and prints the command instead; running it replaces that login:
+`setup.sh --local` also connects the `lumo` CLI when it is installed. The
+CLI keeps one login per server, so this login is added next to any other
+(the hosted service, another server) and moves no repository off it — only
+a repository you bind (below) uses this Lumo. To connect it yourself:
 
 ```bash
 lumo auth login --url http://localhost:3000
@@ -113,17 +112,18 @@ instead, for scripts). Anyone who can reach a local-mode instance can get
 such a key, exactly as they can sign in.
 
 To give Claude Code and Codex the Lumo skill and hooks in your own project,
-run `lumo init` in that repository (setup prints the command), or let setup
-do it once the CLI is connected:
+point it at this Lumo and run `lumo init` there (setup prints the commands),
+or let setup do both once the CLI is connected:
 
 ```bash
-scripts/self-host/setup.sh --local --init ~/code/my-app
+cd ~/code/my-app && lumo auth use http://localhost:3000 && lumo init
+scripts/self-host/setup.sh --local --init ~/code/my-app   # the same, from setup
 ```
 
-`--init` needs a git repository and local mode. It is skipped, with the
-commands printed, when the CLI is logged in to another server — otherwise
-that repository's agent sessions would be reported there. Commit what
-`lumo init` adds in that repository.
+`--init` needs a git repository and local mode. `lumo auth use` binds only
+that repository: its commands and agent sessions go to this Lumo, while your
+other repositories keep using the hosted service (`lumo whoami` shows which
+login a directory uses). Commit what `lumo init` adds in that repository.
 
 The account is an ordinary one (`local@lumo.localhost`, no password), so
 everything you create stays when you leave local mode. If the instance

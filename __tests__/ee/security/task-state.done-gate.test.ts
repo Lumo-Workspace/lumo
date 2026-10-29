@@ -14,7 +14,13 @@ import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 // LUM-740: the workspace policy read behind every "blocking" decision;
 // null = the 732 default these expectations were written against.
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {},
+  // LUM-1334: requirement switches off — these tests are about findings.
+  workspaceRepository: {
+    findDoneRequirements: jest.fn(async () => ({
+      testCase: false,
+      review: false,
+    })),
+  },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {

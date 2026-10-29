@@ -13,6 +13,8 @@ import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: {
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
+    // LUM-1334: requirement switches off — not what these tests are about.
+    findDoneRequirements: jest.fn().mockResolvedValue(null),
   },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({

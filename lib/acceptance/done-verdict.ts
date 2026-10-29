@@ -18,6 +18,11 @@
  * `lib/services/done-verdict.service.ts`，它把三个 plane 的查询并发收成快照。
  */
 
+import type {
+  DoneRequirementSwitches,
+  MissingRequirement,
+} from './done-requirements'
+
 export type CrossingSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 
 export type TestCaseSignal =
@@ -58,6 +63,15 @@ export interface DoneVerdictSnapshot {
     /** LUM-819: 仅 `UNPROVEN_PASS` 带——封顶原因。 */
     ceilingReason?: TestCaseCeilingReason
   }>
+  /**
+   * LUM-1334: the workspace's opt-in requirements and what the task's PRs
+   * still miss (`missingDoneRequirements`). Optional so a snapshot built
+   * before this plane existed reads as "switches off".
+   */
+  requirements?: {
+    switches: DoneRequirementSwitches
+    missing: MissingRequirement[]
+  }
 }
 
 export type Blocker =
@@ -81,6 +95,17 @@ export type Blocker =
       plane: 'TEST_CASE_DEFECT'
       items: Array<{ number: number; title: string; runId: string }>
     }
+  /**
+   * LUM-1334: the workspace requires a passing test case and/or a review on
+   * each PR's head, and some PR lacks one. Unlike the planes above this asks
+   * for evidence, not a human ruling: recording the run or getting the review
+   * clears it.
+   */
+  | {
+      plane: 'DONE_REQUIREMENT'
+      switches: DoneRequirementSwitches
+      missing: MissingRequirement[]
+    }
 
 export interface Advisory {
   plane: 'TEST_CASE'
@@ -95,7 +120,8 @@ export interface Advisory {
 export interface DoneVerdict {
   decision: 'CLEAR' | 'BLOCKED'
   /**
-   * 顺序固定：BOUNDARY_CROSSING → SECURITY_FINDING → TEST_CASE_DEFECT。
+   * 顺序固定：BOUNDARY_CROSSING → SECURITY_FINDING → TEST_CASE_DEFECT →
+   * DONE_REQUIREMENT（LUM-1334，排最后，不改既有任务看到的 409 文案）。
    * 这是今天三个 assert 的 await 顺序；调用方抛第一个 blocker 就与旧行为
    * 逐字一致。
    */
@@ -181,6 +207,16 @@ export function computeDoneVerdict(s: DoneVerdictSnapshot): DoneVerdict {
     })
   }
 
+  // LUM-1334: last, for the same reason as above.
+  const missing = s.requirements?.missing ?? []
+  if (missing.length > 0) {
+    blockers.push({
+      plane: 'DONE_REQUIREMENT',
+      switches: s.requirements!.switches,
+      missing,
+    })
+  }
+
   return {
     decision: blockers.length > 0 ? 'BLOCKED' : 'CLEAR',
     blockers,
@@ -230,6 +266,9 @@ export function renderDoneBlockMessage(blocker: Blocker): string {
     } (${summary}). The user rules on each as false positive or accepted risk — \`lumo finding disposition\` (exit-4 envelope) or the web panel.`
   }
 
+  if (blocker.plane === 'DONE_REQUIREMENT')
+    return renderRequirementMessage(blocker)
+
   // LUM-812. 末句刻意点明「不必先修好」：这一面拦的是「没人拍过板」，不是
   // 「缺陷还在」。少了这句，读的人会以为闸门在要求他先去修 bug。
   const n = blocker.items.length
@@ -239,4 +278,43 @@ export function renderDoneBlockMessage(blocker: Blocker): string {
   } whose latest run proved an implementation defect with evidence: ${cases}. A human must disposition ${
     n === 1 ? 'it' : 'each'
   } on the task timeline (known defect — ship anyway, or not a defect). Fixing the defect first is not required to clear this.`
+}
+
+/** "a passing test case on its latest commit" / "a review" / both. */
+function requirementPhrase(switches: DoneRequirementSwitches): string {
+  const parts = [
+    ...(switches.testCase ? ['a passing test-case run'] : []),
+    ...(switches.review ? ['a review'] : []),
+  ]
+  return parts.join(' and ')
+}
+
+/** LUM-1334: names each PR and what it lacks, then how to supply it. */
+function renderRequirementMessage(
+  blocker: Extract<Blocker, { plane: 'DONE_REQUIREMENT' }>
+): string {
+  const byPr = new Map<number, string[]>()
+  for (const m of blocker.missing) {
+    const list = byPr.get(m.prNumber) ?? []
+    list.push(m.requirement === 'TEST_CASE' ? 'passing test case' : 'review')
+    byPr.set(m.prNumber, list)
+  }
+  const summary = [...byPr.entries()]
+    .map(([n, what]) => `PR #${n}: ${what.join(', ')}`)
+    .join('; ')
+  const how = [
+    ...(blocker.missing.some(m => m.requirement === 'TEST_CASE')
+      ? [
+          "record a passing test-case run against the PR's latest commit (`lumo task testcase run <task>/TC<n> --result pass --pr <n>`)",
+        ]
+      : []),
+    ...(blocker.missing.some(m => m.requirement === 'REVIEW')
+      ? [
+          "get that commit reviewed — Lumo's AI review, an imported agent review (`lumo review import`) or a GitHub approval",
+        ]
+      : []),
+  ].join(', and ')
+  return `Cannot move this task to DONE — this workspace requires ${requirementPhrase(
+    blocker.switches
+  )} on each pull request's latest commit. Missing: ${summary}. To clear it, ${how}. A workspace owner can turn these requirements off in Settings.`
 }

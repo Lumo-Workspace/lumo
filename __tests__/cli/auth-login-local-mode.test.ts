@@ -14,7 +14,10 @@ jest.mock('@/cli/src/lib/browser', () => ({
   openBrowser: (...a: unknown[]) => mockOpen(...a),
 }))
 jest.mock('@/cli/src/lib/config', () => ({
-  writeCredentials: (...a: unknown[]) => mockWrite(...a),
+  saveLogin: (...a: unknown[]) => {
+    mockWrite(...a)
+    return { key: 'k', isDefault: true, boundRepo: null }
+  },
 }))
 
 import { authLogin } from '@/cli/src/commands/auth-login'
@@ -86,7 +89,8 @@ describe('lumo auth login (LUM-1335)', () => {
         token: 'lum_issued',
         apiUrl: 'http://localhost:3000',
         workspaceSlug: 'my-workspace',
-      })
+      }),
+      expect.anything()
     )
     expect(printed()).toContain('issued an API key for this machine')
     expect(printed()).toContain('  Server: local · http://localhost:3000')
@@ -102,7 +106,8 @@ describe('lumo auth login (LUM-1335)', () => {
     await authLogin({ url: 'https://lumo.example.com' })
     expect(mockOpen).toHaveBeenCalledWith('https://lumo.example.com')
     expect(mockWrite).toHaveBeenCalledWith(
-      expect.objectContaining({ token: 'lum_pasted' })
+      expect.objectContaining({ token: 'lum_pasted' }),
+      expect.anything()
     )
     expect(printed()).not.toContain('Local mode')
     expect(printed()).toContain(
@@ -198,7 +203,8 @@ describe('lumo auth login (LUM-1335)', () => {
       authLogin({ url: 'http://localhost:3000', paste: false })
     ).resolves.toBeUndefined()
     expect(mockWrite).toHaveBeenCalledWith(
-      expect.objectContaining({ token: 'lum_issued' })
+      expect.objectContaining({ token: 'lum_issued' }),
+      expect.anything()
     )
   })
 
@@ -218,7 +224,8 @@ describe('lumo auth login (LUM-1335)', () => {
     await authLogin({ url: 'https://lumo.example.com' })
     expect(mockPrompt).toHaveBeenCalled()
     expect(mockWrite).toHaveBeenCalledWith(
-      expect.objectContaining({ token: 'lum_pasted' })
+      expect.objectContaining({ token: 'lum_pasted' }),
+      expect.anything()
     )
   })
 })

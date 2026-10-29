@@ -47,7 +47,9 @@ export async function PATCH(request: NextRequest) {
     const ws = await requireUserWorkspace(authResult.userId)
     if (ws instanceof NextResponse) return ws
 
-    const parsed = setAiFeatureSwitchSchema.safeParse(await request.json())
+    // A malformed body is a 400 from the schema, not a 500.
+    const body: unknown = await request.json().catch(() => null)
+    const parsed = setAiFeatureSwitchSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
     const { enabled, ...key } = parsed.data

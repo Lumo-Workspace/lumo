@@ -13,7 +13,12 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
   'auth logout': {
     serverOnly: false,
     localFiles: 'writes',
-    detail: 'deletes ~/.lumo credentials',
+    detail: 'deletes a login from ~/.lumo credentials',
+  },
+  'auth use': {
+    serverOnly: false,
+    localFiles: 'writes',
+    detail: 'writes the repository binding to ~/.lumo credentials',
   },
   'crossing disposition': {
     serverOnly: false,
@@ -248,6 +253,11 @@ export const CODEX_CLASSES: Readonly<Record<string, CodexClass>> = {
     localFiles: 'none',
     detail:
       'local-only (reads credentials, no Lumo API call; runs fine sandboxed)',
+  },
+  'workspace done-requirements show': { serverOnly: true, localFiles: 'none' },
+  'workspace done-requirements update': {
+    serverOnly: true,
+    localFiles: 'none',
   },
   'workspace security-scan show': { serverOnly: true, localFiles: 'none' },
   'workspace security-scan update': { serverOnly: true, localFiles: 'none' },

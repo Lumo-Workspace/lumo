@@ -1,4 +1,11 @@
-import { readCredentials, type Credentials } from '../lib/config'
+import {
+  loginKey,
+  readLoginStore,
+  resolveLogin,
+  type Credentials,
+  type LoginStore,
+  type ResolvedLogin,
+} from '../lib/config'
 import { JSON_VERSION } from '../lib/json-output'
 import { sanitizeField } from '../lib/sanitize'
 import { serverLabel } from '../lib/api'
@@ -44,12 +51,66 @@ export function formatWhoami(
   ]
 }
 
+/**
+ * LUM-1337: every login, `*` marking the one this directory uses, each tagged
+ * `default` and/or `this repo`. A single login prints exactly as before.
+ * `--json` keeps the used login's fields at the top level and adds `logins`.
+ */
+export function formatWhoamiAll(
+  store: LoginStore,
+  used: ResolvedLogin,
+  opts: WhoamiOptions = {}
+): string[] {
+  const usedKey = loginKey(used.creds.apiUrl)
+  const keys = Object.keys(store.logins).sort()
+  const tags = (key: string): string[] => [
+    ...(key === store.default ? ['default'] : []),
+    ...(key === usedKey && used.source === 'repo' ? ['this repo'] : []),
+    ...(key === usedKey && used.source === 'env' ? ['LUMO_API_URL'] : []),
+  ]
+  if (opts.json) {
+    const [line] = formatWhoami(used.creds, opts)
+    const top = JSON.parse(line as string) as Record<string, unknown>
+    top.logins = keys.map(key => {
+      const c = store.logins[key] as Credentials
+      return {
+        apiUrl: c.apiUrl,
+        email: c.email,
+        workspace: { slug: c.workspaceSlug, name: c.workspaceName },
+        apiKey: { name: c.apiKeyName, prefix: c.apiKeyPrefix },
+        default: key === store.default,
+        used: key === usedKey,
+      }
+    })
+    return [JSON.stringify(top)]
+  }
+  if (keys.length <= 1) return formatWhoami(used.creds, opts)
+  const out: string[] = []
+  for (const key of keys) {
+    const mark = key === usedKey ? '* ' : '  '
+    const t = tags(key)
+    const suffix = t.length ? ` (${t.join(', ')})` : ''
+    const [first, ...rest] = formatWhoami(
+      store.logins[key] as Credentials,
+      opts
+    )
+    out.push(`${mark}${first ?? ''}${suffix}`)
+    for (const r of rest) out.push(`  ${r}`)
+  }
+  if (opts.full && used.repo) {
+    out.push(`This repository: ${sanitizeField(used.repo)} → ${usedKey ?? ''}`)
+  }
+  return out
+}
+
 export async function whoami(opts: WhoamiOptions = {}): Promise<number | void> {
-  const creds = readCredentials()
-  if (!creds) {
+  const store = readLoginStore()
+  const used = resolveLogin(process.cwd(), store)
+  if (!used) {
     console.log('Not logged in')
     console.log('Run `lumo auth login` to log in')
     return 1
   }
-  for (const line of formatWhoami(creds, opts)) console.log(line)
+  if (used.note) console.error(`⚠ ${sanitizeField(used.note)}`)
+  for (const line of formatWhoamiAll(store, used, opts)) console.log(line)
 }

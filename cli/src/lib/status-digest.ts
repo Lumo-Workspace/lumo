@@ -93,6 +93,23 @@ export function assessDigest(input: StatusDigestInput): DigestDoneVerdict {
   // LUM-1186: a ruled-on defect no longer blocks (server `blocking: false`).
   const defects = split.testCaseVerdict.filter(testCaseVerdictBlocks).length
   if (defects > 0) blocking.push(plural(defects, 'proven test-case defect'))
+  // LUM-1334: the requirements come from the Done gate's read; when that
+  // read failed the server could not say whether one is missing.
+  if (split.requirements.length > 0)
+    blocking.push(
+      plural(split.requirements.length, 'missing requirement') +
+        ` (${split.requirements
+          .map(
+            r =>
+              `PR #${r.prNumber} ${r.requirement === 'TEST_CASE' ? 'test case' : 'review'}`
+          )
+          .join(', ')})`
+    )
+  else if (
+    data.doneGate?.confirmed === false &&
+    data.doneGate.unconfirmed.includes('done requirements')
+  )
+    unconfirmed.push('done requirements')
   return { statusOk: true, blocking, unconfirmed }
 }
 

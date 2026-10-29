@@ -72,7 +72,10 @@ export type AiSwitchKey =
   | { level: 'feature'; key: AiFeature }
 
 export function isAiFeature(value: unknown): value is AiFeature {
-  return typeof value === 'string' && value in AI_FEATURES
+  return (
+    typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(AI_FEATURES, value)
+  )
 }
 
 export function isAiFeatureGroup(value: unknown): value is AiFeatureGroup {

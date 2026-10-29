@@ -88,6 +88,11 @@ export const aiFeaturesService = {
     }
   },
 
+  /** Whether the deployment has a model configured at all. */
+  isAiConfigured(): boolean {
+    return isAiConfigured()
+  },
+
   /**
    * For user-triggered features: throw unless `feature` may run — 503
    * `AI_NOT_CONFIGURED` without a model, 409 `AI_FEATURE_OFF` when switched

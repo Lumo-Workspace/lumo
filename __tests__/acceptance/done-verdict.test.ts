@@ -278,3 +278,66 @@ describe('the formula has exactly one address', () => {
     expect(src).not.toMatch(/verdict\s*===\s*['"]FAIL['"]/)
   })
 })
+
+describe('computeDoneVerdict — DONE_REQUIREMENT plane (LUM-1334)', () => {
+  const requirements = {
+    switches: { testCase: true, review: true },
+    missing: [
+      { requirement: 'TEST_CASE' as const, prNumber: 12 },
+      { requirement: 'REVIEW' as const, prNumber: 12 },
+      { requirement: 'REVIEW' as const, prNumber: 13 },
+    ],
+  }
+
+  it('is CLEAR when nothing is missing, or the snapshot has no plane', () => {
+    expect(
+      computeDoneVerdict(
+        snapshot({ requirements: { ...requirements, missing: [] } })
+      ).decision
+    ).toBe('CLEAR')
+    expect(computeDoneVerdict(snapshot()).decision).toBe('CLEAR')
+  })
+
+  it('blocks, after every older plane, so the first 409 text is unchanged', () => {
+    const v = computeDoneVerdict(
+      snapshot({
+        crossings: {
+          open: [{ category: 'PROJECT_RULE_VIOLATION', severity: 'LOW' }],
+          gateEnabled: true,
+        },
+        requirements,
+      })
+    )
+    expect(v.blockers.map(b => b.plane)).toEqual([
+      'BOUNDARY_CROSSING',
+      'DONE_REQUIREMENT',
+    ])
+  })
+
+  it('names each PR and what clears it', () => {
+    const v = computeDoneVerdict(snapshot({ requirements }))
+    const msg = renderDoneBlockMessage(v.blockers[0]!)
+    expect(msg).toMatch(/^Cannot move this task to DONE/)
+    expect(msg).toContain(
+      'requires a passing test-case run and a review on each pull request'
+    )
+    expect(msg).toContain('PR #12: passing test case, review; PR #13: review')
+    expect(msg).toContain('lumo task testcase run')
+    expect(msg).toContain('lumo review import')
+    expect(msg).toContain('turn these requirements off in Settings')
+  })
+
+  it('only mentions the remedy for what is missing', () => {
+    const v = computeDoneVerdict(
+      snapshot({
+        requirements: {
+          switches: { testCase: false, review: true },
+          missing: [{ requirement: 'REVIEW', prNumber: 7 }],
+        },
+      })
+    )
+    const msg = renderDoneBlockMessage(v.blockers[0]!)
+    expect(msg).toContain('requires a review on each pull request')
+    expect(msg).not.toContain('testcase run')
+  })
+})

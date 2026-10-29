@@ -11,6 +11,7 @@ import { workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { DataRetentionSection } from '../settings/DataRetentionSection'
 import { DefaultLanguageRow } from '../settings/DefaultLanguageRow'
+import { DoneRequirementsCard } from '../settings/DoneRequirementsCard'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionRow } from '../settings/WorkspaceDeletionRow'
 import { AiDerivedContentDeleteRow } from '../settings/AiDerivedContentDeleteRow'
@@ -39,6 +40,8 @@ type Workspace = {
   crossingRawRetentionDays?: number
   deadLetterRetentionDays?: number
   aiDerivedContentEnabled?: boolean
+  doneRequiresTestCase?: boolean
+  doneRequiresReview?: boolean
 } & { [column: string]: unknown }
 
 type WorkspaceCache = {
@@ -234,6 +237,12 @@ export function WorkspaceSettingsPage() {
     ...(loaded
       ? [
           {
+            id: 'done-requirements',
+            label: intl.formatMessage({
+              id: 'workspaceSettings.section.doneRequirements',
+            }),
+          },
+          {
             id: 'ai-features',
             label: intl.formatMessage({
               id: 'workspaceSettings.section.aiFeatures',
@@ -402,6 +411,22 @@ export function WorkspaceSettingsPage() {
             )}
           </div>
         </SettingsSection>
+
+        {/* LUM-1334: what a task needs before it can move to Done. */}
+        {loaded && workspace && (
+          <SettingsSection
+            id='done-requirements'
+            title={intl.formatMessage({
+              id: 'workspaceSettings.section.doneRequirements',
+            })}
+          >
+            <DoneRequirementsCard
+              key={`done-requirements:${workspace.id}`}
+              testCase={workspace.doneRequiresTestCase ?? null}
+              review={workspace.doneRequiresReview ?? null}
+            />
+          </SettingsSection>
+        )}
 
         {/* AI feature switches (LUM-1338): master, groups, features. */}
         {loaded && workspace && (

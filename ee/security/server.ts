@@ -89,6 +89,13 @@ export const securityPlugin: LumoServerPlugin = {
           await import('@/ee/security/repositories/pr-security-scan.repository')
         return prSecurityScanRepository.anyScanForTask(taskId)
       },
+      // LUM-1334: the PR heads Lumo's AI review or an imported agent review
+      // covered, for the workspace's review requirement.
+      async reviewedPullRequests(heads) {
+        const { prSecurityScanRepository } =
+          await import('@/ee/security/repositories/pr-security-scan.repository')
+        return prSecurityScanRepository.findReviewedHeads(heads)
+      },
     })
 
     // Agent context (LUM-737): session-start / attach section, the

@@ -141,17 +141,19 @@ export const fragmentUsageAuditService = {
   ): Promise<{ processed: number; sessionIds: string[] }> {
     // LUM-1314: the global memory pipeline switch is on.
     if (isMemoryPipelineDisabled()) return { processed: 0, sessionIds: [] }
+    // LUM-1338: no model — nothing to judge with. Workspaces that switched
+    // memory consolidation off are left out by the query itself, so their
+    // sessions never fill the batch.
+    if (!aiFeaturesService.isAiConfigured())
+      return { processed: 0, sessionIds: [] }
     const sessionIds =
-      await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(limit)
+      await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(
+        limit,
+        undefined,
+        { skipFeatureOff: 'memoryConsolidation' }
+      )
     for (const id of sessionIds) {
       try {
-        if (
-          !(await aiFeaturesService.isEnabled(
-            { sessionId: id },
-            'memoryConsolidation'
-          ))
-        )
-          continue
         const edges = await lineageEdgeRepository.findSessionFragmentEdges(id)
         if (edges.length === 0) continue
         const task = await sessionRepository.findTaskTitleForSession(id)

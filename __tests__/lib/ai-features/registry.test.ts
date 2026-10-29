@@ -6,6 +6,7 @@ import {
   AI_FEATURES,
   AI_FEATURE_GROUPS,
   AI_FEATURE_KEYS,
+  isAiFeature,
   isAiFeatureOn,
   isAiOffCode,
   parseAiFeatureSwitches,
@@ -20,6 +21,14 @@ describe('AI feature registry', () => {
       expect(AI_FEATURE_GROUPS).toContain(AI_FEATURES[f])
     for (const g of AI_FEATURE_GROUPS)
       expect(Object.values(AI_FEATURES)).toContain(g)
+  })
+})
+
+describe('isAiFeature', () => {
+  it('accepts own feature keys only, not inherited Object keys', () => {
+    expect(isAiFeature('turnSummary')).toBe(true)
+    for (const k of ['toString', 'constructor', '__proto__', 'nope'])
+      expect(isAiFeature(k)).toBe(false)
   })
 })
 

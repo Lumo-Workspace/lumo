@@ -8,6 +8,7 @@ import {
   handleIssueComment,
   handlePullRequestReviewComment,
   handlePullRequestReviewThread,
+  handlePullRequestReview,
 } from './handlers'
 import { githubService } from '@/lib/services/github.service'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
@@ -170,6 +171,9 @@ async function dispatchRepoEvent(
         break
       case 'pull_request_review_thread':
         await handlePullRequestReviewThread(payload, workspaceId)
+        break
+      case 'pull_request_review':
+        await handlePullRequestReview(payload, workspaceId)
         break
     }
   } catch (err) {

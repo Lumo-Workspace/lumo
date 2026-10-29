@@ -11,7 +11,8 @@ import {
   writesLocal,
 } from './lib/command-class'
 import { authLogin, type AuthLoginOptions } from './commands/auth-login'
-import { authLogout } from './commands/auth-logout'
+import { authLogout, type AuthLogoutOptions } from './commands/auth-logout'
+import { authUse, type AuthUseOptions } from './commands/auth-use'
 import { whoami } from './commands/whoami'
 import { installAuthFailureTracker } from './lib/auth-failure'
 import { installSandboxNetworkTracker } from './lib/sandbox-network-hint'
@@ -127,6 +128,11 @@ import {
   workspaceSecurityScanUpdate,
   type WorkspaceSecurityScanOptions,
 } from './commands/workspace-security-scan'
+import {
+  workspaceDoneRequirements,
+  workspaceDoneRequirementsUpdate,
+  type WorkspaceDoneRequirementsOptions,
+} from './commands/workspace-done-requirements'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -481,13 +487,41 @@ auth
     '--no-paste',
     'Fail instead of asking for a key when the server does not issue one (for scripts); never opens a browser'
   )
+  .option(
+    '--no-bind',
+    'Store the login without pointing the current repository at it (the first login still becomes the default)'
+  )
   .action(wrap((opts: unknown) => authLogin(opts as AuthLoginOptions)))
 
 auth
   .command('logout')
-  .codex(writesLocal('deletes ~/.lumo credentials'))
-  .description('Log out and remove local credentials')
-  .action(wrap(authLogout))
+  .codex(writesLocal('deletes a login from ~/.lumo credentials'))
+  .description(
+    'Remove one login: the server given by --url, else the one this directory uses'
+  )
+  .option('--url <url>', 'The server whose login to remove')
+  .action(wrap((opts: unknown) => authLogout(opts as AuthLogoutOptions)))
+
+auth
+  .command('use')
+  .codex(writesLocal('writes the repository binding to ~/.lumo credentials'))
+  .description(
+    'Point this repository (or, with --default, every unbound one) at a server you are logged in to'
+  )
+  .argument('[url]', 'A server from `lumo whoami`, e.g. http://localhost:3000')
+  .option(
+    '--default',
+    'Make it the default login instead of binding this repository'
+  )
+  .option(
+    '--unbind',
+    "Drop this repository's binding so it uses the default login"
+  )
+  .action(
+    wrap((url: unknown, opts: unknown) =>
+      authUse(url as string | undefined, opts as AuthUseOptions)
+    )
+  )
 
 program
   .command('whoami')
@@ -497,9 +531,9 @@ program
     )
   )
   .description(
-    'Show the logged-in identity from local credentials (one line; no network call)'
+    'Show every login and mark (*) the one this directory uses (no network call)'
   )
-  .option('--full', 'Also print workspace name, key name and API URL')
+  .option('--full', 'Also print workspace name, key name, API URL and binding')
   .option('--json', 'Emit the identity as JSON (never includes the token)')
   .action(
     wrap(options => whoami(options as { full?: boolean; json?: boolean }))
@@ -2270,6 +2304,46 @@ securityScanCmd
   .action(
     wrap(options =>
       workspaceSecurityScanUpdate(options as WorkspaceSecurityScanOptions)
+    )
+  )
+
+// LUM-1334: what DONE requires on each linked PR's latest commit.
+const doneRequirementsCmd = workspaceCmd
+  .command('done-requirements')
+  .description(
+    "What DONE requires on each linked PR's latest commit: a passing test case, a review"
+  )
+doneRequirementsCmd
+  .command('show')
+  .codex(SERVER_ONLY)
+  .description('Show the Done requirements. Any member may read.')
+  .option('--json', 'Emit { testCase, review, canEdit } as JSON')
+  .action(
+    wrap(options =>
+      workspaceDoneRequirements(options as WorkspaceDoneRequirementsOptions)
+    )
+  )
+doneRequirementsCmd
+  .command('update')
+  .codex(SERVER_ONLY)
+  .description(
+    'Turn the Done requirements on or off, workspace-wide. OWNER only; every change needs --confirm.'
+  )
+  .option(
+    '--test-case <on|off>',
+    "Require a passing test-case run on each linked PR's latest commit"
+  )
+  .option(
+    '--review <on|off>',
+    "Require a review on each linked PR's latest commit (Lumo AI review, an imported agent review, or a GitHub approval)"
+  )
+  .option('--confirm', 'The user approved the listed changes')
+  .option('--json', 'Emit { testCase, review, canEdit } as JSON')
+  .action(
+    wrap(options =>
+      workspaceDoneRequirementsUpdate(
+        options as WorkspaceDoneRequirementsOptions
+      )
     )
   )
 

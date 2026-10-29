@@ -225,3 +225,33 @@ describe('auditDoneTaskSessions — global memory pipeline switch (LUM-1314)', (
     expect(judgeMock).not.toHaveBeenCalled()
   })
 })
+
+describe('auditDoneTaskSessions — AI feature switches (LUM-1338)', () => {
+  const { aiFeaturesService } = jest.requireMock(
+    '@/lib/services/ai-features.service'
+  )
+
+  it('asks the query to leave out workspaces with memory consolidation off', async () => {
+    ;(lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks as jest.Mock) =
+      jest.fn().mockResolvedValue([])
+    await fragmentUsageAuditService.auditDoneTaskSessions(5)
+    expect(
+      lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks
+    ).toHaveBeenCalledWith(5, undefined, {
+      skipFeatureOff: 'memoryConsolidation',
+    })
+  })
+
+  it('does nothing without a model', async () => {
+    aiFeaturesService.isAiConfigured.mockReturnValueOnce(false)
+    ;(lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks as jest.Mock) =
+      jest.fn().mockResolvedValue(['s9'])
+    await expect(
+      fragmentUsageAuditService.auditDoneTaskSessions(5)
+    ).resolves.toEqual({ processed: 0, sessionIds: [] })
+    expect(
+      lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks
+    ).not.toHaveBeenCalled()
+    expect(judgeMock).not.toHaveBeenCalled()
+  })
+})

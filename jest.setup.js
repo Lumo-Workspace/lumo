@@ -63,6 +63,7 @@ jest.mock('@/lib/services/ai-features.service', () => {
     aiFeaturesService: {
       ...actual.aiFeaturesService,
       isEnabled: jest.fn(async () => true),
+      isAiConfigured: jest.fn(() => true),
       assertEnabled: jest.fn(async () => undefined),
     },
   }
@@ -136,6 +137,11 @@ jest.mock('@prisma/client', () => ({
       create: jest.fn(),
       findUnique: jest.fn(),
       delete: jest.fn(),
+    },
+    // LUM-1334: every DONE transition reads the workspace's requirement
+    // switches; no row reads as both off.
+    workspace: {
+      findUnique: jest.fn(),
     },
   })),
 }))

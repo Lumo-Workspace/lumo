@@ -42,6 +42,8 @@ export const CORE_WORKSPACE_COLUMNS: readonly string[] = [
   'crossingRawRetentionSince',
   'deadLetterRetentionDays',
   'aiDerivedContentEnabled',
+  'doneRequiresTestCase',
+  'doneRequiresReview',
   'aiFeatureSwitches',
   'deletionRequestedAt',
   'deletionExecuteAt',

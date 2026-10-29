@@ -144,6 +144,16 @@ export function assessReadiness(input: ReadinessInput): Readiness {
     blocked.push(
       `${plural(defects.length, 'test case')} with a proven defect nobody has ruled on — the user rules on each run`
     )
+  // LUM-1334: requirements the workspace switched on.
+  if (split.requirements.length > 0)
+    blocked.push(
+      `${plural(split.requirements.length, 'missing requirement')} — ${split.requirements
+        .map(
+          r =>
+            `PR #${r.prNumber} needs ${r.requirement === 'TEST_CASE' ? 'a passing test case' : 'a review'}`
+        )
+        .join(', ')} on its latest commit`
+    )
   // LUM-1186: the server's Done gate is the same verdict as the web Record
   // tab; if it says blocked, never report less — even when the rows above
   // found nothing (fail-closed).

@@ -61,6 +61,9 @@ const DEVIATIONS = {
     'project unarchive',
     // LUM-1292: reads only files inside the CLI package.
     'skill read',
+    // LUM-1334: the DONE requirement switches.
+    'workspace done-requirements show',
+    'workspace done-requirements update',
   ],
   // LUM-1240: `feedback create` reads the --evidence-file it uploads.
   // LUM-1321 / LUM-1333: `review import` reads the report it sends.
@@ -86,6 +89,9 @@ const DEVIATIONS = {
     uninstall: 'deletes hook and rules entries in this repo',
     doctor:
       "reads this repo's Lumo files and probes the Lumo API (inside Codex's sandbox the API shows as unreachable)",
+    // LUM-1337: logout removes one login of several; `auth use` binds a repo.
+    'auth logout': 'deletes a login from ~/.lumo credentials',
+    'auth use': 'writes the repository binding to ~/.lumo credentials',
   } as Record<string, string>,
   // LUM-1292: `skill status` / `skill update` were deleted.
   sandboxedRemoved: ['skill status', 'skill update'],

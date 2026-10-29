@@ -1,4 +1,6 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import { AI_FEATURES, type AiFeature } from '@/lib/ai-features/registry'
 
 /**
  * LUM-1338 — reads of the workspace's stored AI feature switches
@@ -52,4 +54,27 @@ export const aiFeatureSwitchRepository = {
     })
     return session?.workspace ? session.workspace.aiFeatureSwitches : null
   },
+}
+
+/**
+ * The workspaces whose stored switches turn `feature` off (its own switch,
+ * its group's or the master). For batch queries that must skip them in the
+ * query itself — skipping after the fetch would let the same rows fill every
+ * batch.
+ */
+export function aiFeatureOffWorkspaceWhere(
+  feature: AiFeature
+): Prisma.WorkspaceWhereInput {
+  return {
+    OR: [
+      { aiFeatureSwitches: { path: ['master'], equals: false } },
+      {
+        aiFeatureSwitches: {
+          path: ['groups', AI_FEATURES[feature]],
+          equals: false,
+        },
+      },
+      { aiFeatureSwitches: { path: ['features', feature], equals: false } },
+    ],
+  }
 }

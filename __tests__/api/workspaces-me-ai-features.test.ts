@@ -132,6 +132,19 @@ describe('PATCH /api/workspaces/me/ai-features', () => {
     expect(update).not.toHaveBeenCalled()
   })
 
+  it('answers a malformed body with 400, not 500', async () => {
+    asRole('OWNER')
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/workspaces/me/ai-features', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: '{not json',
+      })
+    )
+    expect(res.status).toBe(400)
+    expect(update).not.toHaveBeenCalled()
+  })
+
   it('rejects an unknown feature key', async () => {
     asRole('OWNER')
     const res = await patch({ level: 'feature', key: 'nope', enabled: false })
