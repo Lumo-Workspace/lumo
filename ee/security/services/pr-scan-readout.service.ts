@@ -76,6 +76,10 @@ import {
   reviewBudgetView,
   type ReviewBudgetView,
 } from '@/ee/security/security-scan/review-control'
+import {
+  localScanLogService,
+  type LocalHistoryView,
+} from '@/ee/security/services/local-scan-log.service'
 import { preMergeChecksView } from '@/ee/security/security-scan/pre-merge-checks-view'
 import type { PreMergeCheckView } from '@/shared/src/pre-merge-checks'
 
@@ -257,6 +261,13 @@ export interface PullRequestScanReadout {
    * earlier commits and no longer vouch for the PR. Additive.
    */
   scanningOff: boolean
+  /**
+   * LUM-1259 — what developers' CLIs logged locally for the PR's current
+   * head (by sha, or by patch-id across an amend / rebase); null when
+   * nothing matches. Client-reported (LOCAL): never blocks or clears DONE.
+   * Additive.
+   */
+  localHistory: LocalHistoryView | null
 }
 
 /**
@@ -619,6 +630,7 @@ type ReadoutPr = Awaited<
 
 /** The workspace-level facts every PR's read-out shares — loaded once. */
 interface ReadoutContext {
+  workspaceId: string
   policy: Awaited<ReturnType<typeof loadSecurityPolicy>>
   exitContexts: Awaited<ReturnType<typeof loadQueueExitContexts>>
   scanningOff: boolean
@@ -637,7 +649,13 @@ async function loadReadoutContext(
     loadSecurityLayers(workspaceId),
     securityColumnsRepository.findReviewAutoPauseAfter(workspaceId),
   ])
-  return { policy, exitContexts, scanningOff: !layers.scan, workspaceLimit }
+  return {
+    workspaceId,
+    policy,
+    exitContexts,
+    scanningOff: !layers.scan,
+    workspaceLimit,
+  }
 }
 
 /**
@@ -651,9 +669,10 @@ async function buildPullRequestReadout(
   ctx: ReadoutContext
 ): Promise<PullRequestScanReadout> {
   const { policy, exitContexts, workspaceLimit } = ctx
-  const [rows, control] = await Promise.all([
+  const [rows, control, localHistory] = await Promise.all([
     prSecurityScanRepository.listByPullRequest(pr.id, all ? null : 1),
     prReviewControlRepository.get(pr.id),
+    localScanLogService.historyForHead(ctx.workspaceId, pr.repo, pr.headSha),
   ])
   const tally = { redacted: 0 }
   const scans: ScanReadoutView[] = rows.map(scan => {
@@ -784,6 +803,7 @@ async function buildPullRequestReadout(
     all,
     redactedSecrets: tally.redacted,
     scanningOff: ctx.scanningOff,
+    localHistory,
   }
 }
 

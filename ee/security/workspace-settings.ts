@@ -38,6 +38,8 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
     securityLearningsScope: z.enum(LEARNINGS_SCOPES).optional(),
     // LUM-1137: pause automatic review after N reviewed commits (0 = never).
     securityReviewAutoPauseAfter: autoPauseAfterSchema.optional(),
+    // LUM-1259: log local scan results per commit (default off).
+    securityLocalScanLogEnabled: z.boolean().optional(),
   },
   // LUM-907: audited with the core settings (moved out of the core list in
   // LUM-1065; same actions as before).
@@ -52,6 +54,7 @@ export const securityWorkspaceSettings: WorkspaceSettingsContributor = {
       'securityAllowAuthorApproval',
       'securityLearningsScope',
       'securityReviewAutoPauseAfter',
+      'securityLocalScanLogEnabled',
     ],
     'workspace.retention_updated': ['scanEvidenceRetentionDays'],
   },

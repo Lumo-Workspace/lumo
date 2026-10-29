@@ -13,7 +13,7 @@ lumo skill read references/tasks.md     # one reference
 
 The Lumo SessionStart context tells the agent to run it before other `lumo` commands when a request involves Lumo.
 
-## `lumo init [--agent <token>] [--dry-run] [--scan-hooks]` — set up this repo
+## `lumo init [--agent <token>] [--dry-run] [--scan-hooks [--scan-log]]` — set up this repo
 
 Run inside the git repository (or, see below, a plain folder). Without `--agent` it sets up **Claude Code and Codex** at once:
 
@@ -25,6 +25,8 @@ Run inside the git repository (or, see below, a plain folder). Without `--agent`
 `--agent <token>` narrows to one agent (`claude-code` → `.claude/` only, `codex` → `.codex/` and `.agents/` only) and is baked into every hook command (`lumo hook <slug> --agent <token>`) so sessions and memories are attributed to that agent. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini`, `copilot` accepted); other agents use the Claude Code layout. An unknown token aborts before writing anything.
 
 `--scan-hooks` (opt-in) also adds `pre-commit` / `pre-push` hooks running `lumo security scan` ([security-scan.md](security-scan.md#git-hooks)): they block only on a finding that would block DONE; a failed scan, no network or no `lumo` on PATH never blocks; `git commit|push --no-verify` skips them. A re-run without the flag leaves installed scan hooks alone.
+
+`--scan-log` (with `--scan-hooks`) also records each commit's local scan on the Lumo server: a `post-commit` hook and the `pre-push` hook run `lumo security scan --log` in the background, never blocking or failing a commit or push, and `git config lumo.scanLog true` is set for the repo (the switch; `false` pauses it, `lumo uninstall` removes the hook and unsets it). The server keeps the results only once an OWNER opted the workspace in (`lumo workspace security-scan update --local-scan-log on`). Without `--scan-hooks` it exits 2. See [security-scan.md](scan-log.md).
 
 `--dry-run` writes nothing and prints, per file, `would install` / `would update` / `·` (up to date) / `⚠ skip` / `✗ cannot plan` (exit 1) with a diff. Settings and `hooks.json` diffs show **only** the `lumo hook …` entries (everything else folded to `"… N other …"`); a Codex change is flagged `⚠ Codex will ask to trust these hooks again — events: …`. It ends with `N of M would change` and the command to apply.
 
@@ -39,6 +41,7 @@ lumo init --agent codex         # Codex only (then trust the hooks in /hooks, re
 lumo init --agent claude-code   # Claude Code only
 lumo init --agent cursor        # bake agent=cursor into the hook commands
 lumo init --scan-hooks          # also pre-commit / pre-push security scans
+lumo init --scan-hooks --scan-log  # …and record each commit's scan on the server (opt-in)
 ```
 
 **When to suggest:** the user asks how to set up Lumo in a repo; a repo has no Lumo hooks yet; the user works in Codex; a `lumo` command in Codex fails with `fetch failed` (rules missing or from an older CLI — re-run `lumo init`, restart Codex, run `lumo` unpiped); before re-running on hand-edited hook files (`--dry-run` first, show the diff); the user wants secrets caught on every commit/push (`--scan-hooks`, never on your own).

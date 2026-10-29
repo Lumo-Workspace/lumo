@@ -9,6 +9,7 @@
 import { fmtTimestamp } from '../../cli/src/lib/format'
 import {
   findingsBreakdown,
+  formatLocalHistoryLines,
   formatPrScan,
   prReview,
   prShow,
@@ -984,6 +985,57 @@ describe('Findings count row adds up', () => {
       '1 other',
     ])
     expect(sum(parts)).toBe(findings.length)
+  })
+})
+
+describe('LUM-1259 the head’s local history in lumo pr show', () => {
+  const run = (over: object = {}) => ({
+    commitSha: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+    matchedBy: 'sha' as const,
+    trigger: 'POST_COMMIT',
+    scannedAt: '2026-10-19T12:00:00.000Z',
+    findingCount: 0,
+    ...over,
+  })
+
+  it('says “flagged locally at <sha> and pushed anyway”, labelled LOCAL', () => {
+    expect(
+      formatLocalHistoryLines({
+        source: 'LOCAL',
+        headSha: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+        runs: [
+          run({ findingCount: 2 }),
+          run({ commitSha: 'ffff000', matchedBy: 'patch-id' }),
+        ],
+        flaggedAt: ['a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'],
+      })
+    ).toEqual([
+      '⚠ Flagged locally at a1b2c3d and pushed anyway (2 local runs, including the same change before an amend / rebase; LOCAL — reported by the CLI, never blocks or clears DONE)',
+    ])
+  })
+
+  it('says it was scanned clean otherwise, and prints nothing without history', () => {
+    expect(
+      formatLocalHistoryLines({
+        source: 'LOCAL',
+        headSha: 'a1b2c3d',
+        runs: [run()],
+        flaggedAt: [],
+      })[0]
+    ).toMatch(/^✓ Scanned locally before the push: no findings \(1 local run;/)
+    expect(formatPrScan(payload())).not.toContain('locally')
+    expect(
+      formatPrScan(
+        payload({
+          localHistory: {
+            source: 'LOCAL',
+            headSha: 'a1b2c3d',
+            runs: [run({ findingCount: 1 })],
+            flaggedAt: ['a1b2c3d'],
+          },
+        })
+      )
+    ).toContain('⚠ Flagged locally at a1b2c3d and pushed anyway')
   })
 })
 

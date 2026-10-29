@@ -16,7 +16,11 @@ import {
   PREPARE_COMMIT_MSG_HOOK,
   type GitHookSpec,
 } from '../lib/git-hook-template'
-import { SCAN_HOOKS, scanHookFor } from '../lib/scan-hook-template'
+import {
+  SCAN_HOOKS,
+  SCAN_LOG_HOOKS,
+  scanHookFor,
+} from '../lib/scan-hook-template'
 import { resolveGitHooksDir } from '../lib/git-hooks-dir'
 import {
   CODEX_HOOK_EVENTS,
@@ -280,7 +284,9 @@ function gitHookRow(
     end === -1 ? null : text.slice(begin, end + LUMO_HOOK_END.length)
   const upToDate = block === spec.block
   const refresh =
-    kind === 'scan-hook' ? `${refreshCommand()} --scan-hooks` : refreshCommand()
+    kind === 'scan-hook'
+      ? `${refreshCommand()} ${spec.initFlags ?? '--scan-hooks'}`
+      : refreshCommand()
   const row: DoctorRow = {
     path: file,
     kind,
@@ -298,7 +304,10 @@ function gitHookRow(
   if (kind === 'scan-hook')
     row.detail = [
       row.detail,
-      'blocks only on a finding that would block DONE; skip once with --no-verify',
+      // LUM-1259: the post-commit log hook never blocks anything.
+      spec.hook === 'post-commit'
+        ? 'records each commit’s local scan on the Lumo server in the background (git config lumo.scanLog); never blocks a commit'
+        : 'blocks only on a finding that would block DONE; skip once with --no-verify',
     ]
       .filter(Boolean)
       .join('; ')
@@ -453,8 +462,9 @@ function repoRows(
         cliVersion
       )
     )
-    // LUM-1258 scan hooks (opt-in): a hook file without the Lumo block is not listed.
-    for (const spec of SCAN_HOOKS) {
+    // LUM-1258 scan hooks (opt-in), and LUM-1259's post-commit log hook: a
+    // hook file without the Lumo block is not listed.
+    for (const spec of [...SCAN_HOOKS, ...SCAN_LOG_HOOKS]) {
       const file = path.join(dir, spec.hook)
       if (scanHookFor(file))
         rows.push(

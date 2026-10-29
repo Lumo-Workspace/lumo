@@ -1,6 +1,6 @@
 # Local security scans — `lumo security scan` / `lumo review import`
 
-`lumo security scan` runs Lumo's security scanners **on this machine, on your uncommitted and unpushed changes**, so a problem is caught before it reaches a PR. It is read-only: nothing is uploaded, no task or finding changes (the only write is the server-context cache under `~/.lumo/cache/scan-context/`). The PR scan stays the only authority for DONE — a clean local scan never clears a gate, and a local finding never blocks one.
+`lumo security scan` runs Lumo's security scanners **on this machine, on your uncommitted and unpushed changes**, so a problem is caught before it reaches a PR. It is read-only unless you pass `--log`: nothing is uploaded, no task or finding changes (the only write is the server-context cache under `~/.lumo/cache/scan-context/`). With `--log` (opt-in, [scan-log.md](scan-log.md)) each scanned commit's result is recorded on the server. The PR scan stays the only authority for DONE — a clean local scan never clears a gate, and a local finding never blocks one.
 
 Scanners today: `SECRETS` (`--secrets`) and `DEPS` (`--deps`). With no scanner flag, every local scanner runs.
 
@@ -37,6 +37,8 @@ Known-vulnerable and **known-malicious** dependencies, with the managed PR scan'
 - `--timeout <seconds>` — Wait at most this long for the network (more than 0, at most 60): the Lumo server (default 8, then the cached context) and the whole api.osv.dev lookup (default 10 per request; past the budget `DEPS` is incomplete). Not with `--offline`.
 - `--pr` — When the branch has an open PR: merge in that PR's latest server scan — its findings you fixed locally since the last push vs those still reported, and the server-only layers (AI review, hunt).
 - `--repo <owner/repo>` — The repository to read server context for, instead of the one `origin` points at (a fork's origin, a non-GitHub remote).
+- `--commit <ref>` — Scan one commit against its first parent (a root commit: all of it). Merge commits are skipped. Not with `--staged`, `--since`, `--until` or `--pr`. Each finding names its `Commit`.
+- `--log` — Record each scanned commit on the Lumo server; needs `--commit` or `--until` ([scan-log.md](scan-log.md)).
 
 ```bash
 lumo security scan
@@ -48,6 +50,7 @@ lumo security scan --pr
 lumo security scan --staged --offline --fail-on high
 lumo security scan --staged --fail-on done --timeout 2     # what the pre-commit hook runs
 lumo security scan --since origin/feature --until HEAD     # the commits a push would send
+lumo security scan --commit HEAD                           # one commit against its parent
 ```
 
 Run it from anywhere inside the repository; paths are repo-relative. Untracked files that are binary, symlinks, unreadable or over 2 MiB are skipped and listed on a `Skipped …` line.
@@ -119,13 +122,15 @@ Local results are a preview: the PR scan stays the authority for DONE.
 
 Declared finding fields: `scanner`, `kind` (`SECRET` | `DEPENDENCY`), `ruleId`, `severity` (`LOW|MEDIUM|HIGH`), `title`, `filePath`, `line` (`null` for DEPENDENCY), `evidence` (redacted; `null` for DEPENDENCY), `fingerprint` (the server's), `detail`, `downgrade` (`PLACEHOLDER_VALUE` | `DOWNGRADED_PATH` | `null`), `server` (`null` without context, else `{ status: NEW|ON_MAIN|FALSE_POSITIVE|ACCEPTED_RISK|LEARNING, by, at, pullRequest, carriesOver, learningId, wouldBlockDone }`). A DEPENDENCY finding adds `dependency: { ecosystem, name, version, osvId, aliases, malicious, fixedVersion, score, url, ignoreExpired }`.
 
+Per-commit runs (`--commit` / `--log`) add `commitSha` to each finding; `--log` adds a `log` sibling ([scan-log.md](scan-log.md#--json)).
+
 Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, renamedFrom, fetchedAt, pullRequest, policy, pr }` (`renamedFrom`: the remote's old name when Lumo followed a rename, else `null`) (`pr` with `--pr`: `{ number, headSha, note, stillOpen[], fixedLocally[], serverOnly: { aiReview, hunt } }`, each finding as `{ fingerprint, ruleId, severity, title, filePath, line }`; the arrays are `null` when not compared) — and `wouldBlockDone` (a count; `null` without context).
 
 ## Exit codes
 
 - 0 — The scan ran (findings or not) and `--fail-on` was not given or not met
 - 1 — Failed: not a git repo, unknown `--since` / `--until` ref, no default branch found; osv-scanner missing for `--full`; or a scanner could not finish (`DEPS` with the OSV API unreachable or past `--timeout`, or `--offline` without osv-scanner or its database) — the report still prints, marked incomplete
-- 2 — Usage error: `--staged` with `--since` or `--until`, `--pr` or `--timeout` with `--offline`, `--full` without `DEPS`, an invalid `--fail-on`, `--timeout` or `--repo`
+- 2 — Usage error: `--staged` with `--since` or `--until`, `--pr` or `--timeout` with `--offline`, `--full` without `DEPS`, an invalid `--fail-on`, `--timeout` or `--repo`; `--commit` with a scope flag or `--pr`; `--log` without `--commit` / `--until`, or with `--staged` / `--pr`; `--full` with `--commit` / `--log`
 - 3 — `--fail-on` met — distinct from 1 and 2 so a hook can block on findings yet fail open
 
 4 and 5 stay the confirmation and DONE gates' codes ([confirmation.md](confirmation.md)).
@@ -143,6 +148,7 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, ren
 - **Time budget:** `--timeout 2` caps each network wait — the Lumo server (then the cache) and the whole api.osv.dev lookup; the rest is local (typically 0.3–0.8 s a hook on a small change).
 - **pre-push range:** a new branch, or a remote sha this clone has not fetched, starts at the merge-base with the default branch (`--until` alone). Branch deletions and tags are skipped. If an earlier part of the hook consumed stdin, it scans `@{upstream}` (else the merge-base) → `HEAD`.
 - `git commit --no-verify` / `git push --no-verify` skip them; `lumo doctor` lists them (kind `scan-hook`), `lumo uninstall` removes only their blocks.
+- **`--scan-log`** also logs each commit's scan on the server ([scan-log.md](scan-log.md#git-hooks---scan-log)).
 
 ## When to suggest
 
@@ -153,6 +159,7 @@ Server siblings: `serverContext` — `{ source: live|cache|none, note, repo, ren
 - After fixing findings on a PR's branch — `lumo security scan --pr` shows what the next push clears.
 - After `npm install` / a dependency bump, or before pushing a lockfile change — "did that upgrade pull in anything vulnerable?": `lumo security scan --deps`.
 - For the whole tree or a non-npm project: `lumo security scan --deps --full` (needs osv-scanner on PATH).
+- "Keep a record of what was flagged before each push" — the per-commit scan log ([scan-log.md](scan-log.md)).
 - Not for reading what the PR scan found — that is `lumo pr show <number>` ([pr-scan.md](pr-scan.md)).
 
 ## `lumo review import <file>` — attach a Claude Code / Codex review

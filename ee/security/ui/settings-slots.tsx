@@ -69,6 +69,11 @@ export function SecuritySettingsSection({
           securityReviewAutoPauseAfter: parseAutoPauseAfter(
             workspace.securityReviewAutoPauseAfter
           ),
+          // LUM-1259: off unless the workspace opted in (set from the CLI).
+          securityLocalScanLogEnabled: switchOf(
+            workspace.securityLocalScanLogEnabled,
+            false
+          ),
         }}
         huntAvailable={platform.hunt}
         rewardHackAvailable={platform.rewardHack}

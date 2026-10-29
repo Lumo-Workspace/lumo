@@ -47,6 +47,7 @@ const ALL_ON = {
   securityAllowAuthorApproval: true,
   securityLearningsScope: 'auto' as const,
   securityReviewAutoPauseAfter: 5,
+  securityLocalScanLogEnabled: false,
 }
 
 /** LUM-1329 — the level the fake server holds (what renderCard started with). */
@@ -93,6 +94,7 @@ beforeEach(() => {
                 securityAllowAuthorApproval: true,
                 securityLearningsScope: 'auto' as const,
                 securityReviewAutoPauseAfter: 5,
+                securityLocalScanLogEnabled: false,
               }
             : { ...ALL_ON, ...u },
       }
@@ -152,6 +154,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
         securityAllowAuthorApproval: true,
         securityLearningsScope: 'auto',
         securityReviewAutoPauseAfter: 5,
+        securityLocalScanLogEnabled: false,
       })
     )
   })

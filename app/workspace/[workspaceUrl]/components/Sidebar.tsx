@@ -22,12 +22,14 @@ import { useWorkspace } from '../hooks/useWorkspace'
 import { useWorkspaceTeams } from '../hooks/useWorkspaceTeams'
 import { useProjects } from '../hooks/useProjects'
 import { ProjectsSidebarGroup } from './sidebar/ProjectsSidebarGroup'
+import { FeedbackSidebarItem } from './sidebar/FeedbackSidebarItem'
 import { clearCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
 import { MemberAvatar } from '@/components/MemberAvatar'
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -337,6 +339,11 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      {/* Pinned to the bottom corner: SidebarContent takes the free height. */}
+      <SidebarFooter>
+        <FeedbackSidebarItem />
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>

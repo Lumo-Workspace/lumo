@@ -54,6 +54,13 @@ With review controls on the payload an `AI review` block follows the header:
 `Automatic:  enabled · 3/5 commits reviewed` (`12 commits reviewed · never pauses` when the limit is 0; an older server prints `1/2 rounds`), then the `--review incremental`,
 `--review full` and `--resume` commands each on its own line, and
 `⚠ Latest head has no scan yet; …` when the newest head is unscanned.
+When members' CLIs logged local scans of the PR head (LUM-1259, opt-in; also
+the same change before an amend / rebase, by patch-id) one line follows:
+`⚠ Flagged locally at <sha> and pushed anyway (…)` or `✓ Scanned locally
+before the push: no findings (…)` — client-reported (LOCAL), never a DONE
+gate. `--json` carries it as `localHistory` (`null` when none): `{ source:
+'LOCAL', headSha, runs: [{ commitSha, matchedBy: sha|patch-id, branch, actor,
+trigger, scanners, scannedAt, findingCount, findings[] }], flaggedAt: [sha…] }`.
 
 - **Header** — `PR #N  <title>`, then `Repo` / `State` / `Task` (`LUM-N` or `no linked task`) / `URL` rows.
 - **Scan heading + rows** — `Scan <short sha> · <status>`: the scan status (`PENDING` / `RUNNING` / `CLEAN` / `FINDINGS` / `FAILED`; a `CLEAN` scan with a layer turned off in the workspace settings prints `no findings in the checks that ran` instead; with scanning turned off for the workspace a `CLEAN` prints `no findings on the commit it scanned (scanning is off now)`, and a `⚠ Security scanning is turned off in this workspace's settings. …` line precedes the scans — an older scan never stands as the PR's answer); rows `Started`, `Finished` (local `YYYY-MM-DD HH:MM`; `not finished`), `Trigger`, and `Tokens` — the hunt's token spend (`not metered` when the row carries null — null is never printed as 0).

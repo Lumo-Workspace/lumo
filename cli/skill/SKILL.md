@@ -1,6 +1,6 @@
 # Lumo CLI guide
 
-Served by `lumo skill read`: the core workflow, the rules that matter most, and a map of the references. **Before composing a command whose flags or edge cases matter, read its reference** (`lumo skill read references/<file>.md`) — don't run from memory.
+Served by `lumo skill read`: the core workflow, the rules that matter most, and a map of the references. **Before composing a command whose flags or edge cases matter, read its reference** — don't run from memory.
 
 ## Prerequisites
 
@@ -74,7 +74,7 @@ Read with `lumo skill read references/<file>`:
 - [worktree.md](references/worktree.md) — `worktree add/rm/list/prune`
 - [pr-scan.md](references/pr-scan.md) — `pr show`, `pr review`, `task show --scans`, `finding disposition`
 - [pr-scan-output.md](references/pr-scan-output.md) — reading a scan: layers, findings, hunt, size caps
-- [security-scan.md](references/security-scan.md) — `security scan`, `review import`, git scan hooks
+- [security-scan.md](references/security-scan.md) · [scan-log.md](references/scan-log.md) — `security scan`, `review import`, git scan hooks
 - [workspace-settings.md](references/workspace-settings.md) — `workspace security-scan show/update`
 - [repo-review-settings.md](references/repo-review-settings.md) — per-repo filters, pre-merge checks, review style
 - [members.md](references/members.md) · [tags.md](references/tags.md) · [audit.md](references/audit.md) · [feedback.md](references/feedback.md) — `member list`, `tag list/create`, `audit list` (OWNER), `feedback create/list/show`

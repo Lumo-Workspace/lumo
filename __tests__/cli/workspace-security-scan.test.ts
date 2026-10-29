@@ -527,6 +527,72 @@ describe('LUM-1234 --reward-hack (Agent behavior)', () => {
   })
 })
 
+describe('LUM-1259 --local-scan-log', () => {
+  const LOG_ON: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityLocalScanLogEnabled: true },
+  }
+  const LOG_OFF: SecurityScanSettingsView = {
+    ...ALL_ON,
+    switches: { ...ALL_ON.switches, securityLocalScanLogEnabled: false },
+  }
+
+  it('parses on / off into the switch', () => {
+    expect(buildSecurityScanUpdate({ localScanLog: 'on' })).toEqual({
+      securityLocalScanLogEnabled: true,
+    })
+    expect(buildSecurityScanUpdate({ localScanLog: 'OFF' })).toEqual({
+      securityLocalScanLogEnabled: false,
+    })
+    expect(() => buildSecurityScanUpdate({ localScanLog: 'yes' })).toThrow(
+      '--local-scan-log takes on or off'
+    )
+    expect(() =>
+      buildSecurityScanUpdate({ localScanLog: 'on', enableAll: true })
+    ).toThrow('--local-scan-log')
+  })
+
+  it('turning it ON is confirmed (unpushed-commit metadata); turning it off is not', () => {
+    const on = describeGatedChanges(LOG_OFF.switches, {
+      securityLocalScanLogEnabled: true,
+    })
+    expect(on.join('\n')).toMatch(/Will turn ON: Local scan log/)
+    expect(on.join('\n')).toMatch(
+      /never code, secret values or commit messages/
+    )
+    expect(on.join('\n')).toMatch(/never block or clear Done/)
+    expect(
+      describeGatedChanges(LOG_ON.switches, {
+        securityLocalScanLogEnabled: false,
+      })
+    ).toEqual([])
+    // `all` never touches it.
+    expect(describeGatedChanges(LOG_OFF.switches, { all: true })).toEqual([])
+  })
+
+  it('on without --confirm exits 4 and sends no PATCH; with --confirm it PATCHes', async () => {
+    serve([{ body: LOG_OFF }])
+    expect(await workspaceSecurityScan({ localScanLog: 'on' })).toBe(4)
+    expect(calls).toHaveLength(1)
+    calls = []
+    serve([{ body: LOG_OFF }, { body: LOG_ON }])
+    expect(
+      await workspaceSecurityScan({ localScanLog: 'on', confirm: true })
+    ).toBeUndefined()
+    expect(JSON.parse(String(calls[1]!.init?.body))).toEqual({
+      securityLocalScanLogEnabled: true,
+    })
+    expect(out).toMatch(/Local scan log \(per commit\): on/)
+  })
+
+  it('an older server without the field prints no local scan log line', () => {
+    expect(formatSecurityScanSettings(ALL_ON)).not.toMatch(/Local scan log/)
+    expect(formatSecurityScanSettings(LOG_OFF)).toMatch(
+      /Local scan log \(per commit\): off/
+    )
+  })
+})
+
 describe('LUM-1329 --agent-review-blocks', () => {
   const withLevel = (
     agentReviewBlocking: NonNullable<
