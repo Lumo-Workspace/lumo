@@ -1,10 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   taskDocumentsClient,
   type TaskDocumentResource,
 } from '@/lib/api-client/task-documents'
+import { queryKeys } from '@/lib/query/keys'
 
 interface UseTaskDocumentsResult {
   documents: TaskDocumentResource[]
@@ -17,27 +19,26 @@ export function useTaskDocuments(
   taskId: string,
   enabled = true
 ): UseTaskDocumentsResult {
-  const [documents, setDocuments] = useState<TaskDocumentResource[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.taskDocuments(taskId)
+
+  const query = useQuery<TaskDocumentResource[], Error>({
+    queryKey,
+    queryFn: async () => {
+      const { documents } = await taskDocumentsClient.list(taskId)
+      return documents
+    },
+    enabled,
+  })
 
   const refresh = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const { documents } = await taskDocumentsClient.list(taskId)
-      setDocuments(documents)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'unknown_error')
-    } finally {
-      setLoading(false)
-    }
-  }, [taskId])
+    await queryClient.invalidateQueries({ queryKey })
+  }, [queryClient, queryKey])
 
-  useEffect(() => {
-    if (!enabled) return
-    void refresh()
-  }, [enabled, refresh])
-
-  return { documents, loading, error, refresh }
+  return {
+    documents: query.data ?? [],
+    loading: query.isLoading,
+    error: query.error?.message ?? null,
+    refresh,
+  }
 }

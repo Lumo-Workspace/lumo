@@ -10,7 +10,8 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import { renderWithQueryClient as render } from '../helpers/query-client'
 import { RichTextViewer } from '@/app/workspace/[workspaceUrl]/components/RichTextViewer'
 
 // Tiptap ReactNodeViewRenderer populates node view containers via

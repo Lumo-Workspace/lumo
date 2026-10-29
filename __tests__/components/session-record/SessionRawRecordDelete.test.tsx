@@ -6,7 +6,8 @@
  * events an undispositioned crossing keeps) and that summaries stay, batched
  * passes until done, and the kept count reported afterwards.
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
+import { renderWithQueryClient as render } from '../../helpers/query-client'
 import { SessionRawRecordDelete } from '@/components/session-record/SessionRawRecordDelete'
 import { sessionsClient } from '@/lib/api-client'
 import { toast } from 'sonner'

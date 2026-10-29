@@ -1,10 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   slackContextsClient,
   type SlackContextResource,
 } from '@/lib/api-client/slack-contexts'
+import { queryKeys } from '@/lib/query/keys'
 
 interface UseSlackContextsResult {
   contexts: SlackContextResource[]
@@ -20,51 +22,63 @@ export function useSlackContexts(
   taskId: string,
   enabled = true
 ): UseSlackContextsResult {
-  const [contexts, setContexts] = useState<SlackContextResource[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.taskSlackContexts(taskId)
+
+  const query = useQuery<SlackContextResource[], Error>({
+    queryKey,
+    queryFn: async () => {
+      const { contexts } = await slackContextsClient.list(taskId)
+      return contexts
+    },
+    enabled,
+  })
+
+  // Writes patch the cached list with the server's row instead of refetching.
+  const patch = useCallback(
+    (fn: (prev: SlackContextResource[]) => SlackContextResource[]) => {
+      queryClient.setQueryData<SlackContextResource[]>(queryKey, prev =>
+        fn(prev ?? [])
+      )
+    },
+    [queryClient, queryKey]
+  )
 
   const refresh = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const { contexts } = await slackContextsClient.list(taskId)
-      setContexts(contexts)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'unknown_error')
-    } finally {
-      setLoading(false)
-    }
-  }, [taskId])
-
-  useEffect(() => {
-    if (!enabled) return
-    void refresh()
-  }, [enabled, refresh])
+    await queryClient.invalidateQueries({ queryKey })
+  }, [queryClient, queryKey])
 
   const link = useCallback(
     async (permalink: string) => {
       const { context } = await slackContextsClient.link(taskId, permalink)
-      setContexts(prev => [context, ...prev])
+      patch(prev => [context, ...prev])
     },
-    [taskId]
+    [taskId, patch]
   )
 
   const refreshOne = useCallback(
     async (contextId: string) => {
       const { context } = await slackContextsClient.refresh(taskId, contextId)
-      setContexts(prev => prev.map(c => (c.id === contextId ? context : c)))
+      patch(prev => prev.map(c => (c.id === contextId ? context : c)))
     },
-    [taskId]
+    [taskId, patch]
   )
 
   const unlink = useCallback(
     async (contextId: string) => {
       await slackContextsClient.unlink(taskId, contextId)
-      setContexts(prev => prev.filter(c => c.id !== contextId))
+      patch(prev => prev.filter(c => c.id !== contextId))
     },
-    [taskId]
+    [taskId, patch]
   )
 
-  return { contexts, loading, error, refresh, link, refreshOne, unlink }
+  return {
+    contexts: query.data ?? [],
+    loading: query.isLoading,
+    error: query.error?.message ?? null,
+    refresh,
+    link,
+    refreshOne,
+    unlink,
+  }
 }

@@ -4,13 +4,8 @@
  * (in the danger zone since LUM-1327)
  * which needs the workspace name re-typed and runs batched passes until done.
  */
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  within,
-} from '@testing-library/react'
+import { screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { renderWithQueryClient as render } from '../../helpers/query-client'
 import { AiDerivedContentRow } from '@/app/workspace/[workspaceUrl]/components/settings/AiDerivedContentRow'
 import { AiDerivedContentDeleteRow } from '@/app/workspace/[workspaceUrl]/components/settings/AiDerivedContentDeleteRow'
 import { workspacesClient } from '@/lib/api-client'

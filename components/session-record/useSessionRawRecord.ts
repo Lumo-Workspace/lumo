@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { sessionsClient, type SessionRawRecordStatus } from '@/lib/api-client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { sessionsClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 
 /** Upper bound on passes per delete, so a runaway never loops forever. */
 const MAX_DELETE_PASSES = 50
@@ -19,19 +20,19 @@ export interface SessionRawRecordDeleteTotals {
  * cleared stays cleared).
  */
 export function useSessionRawRecord(sessionId: string) {
-  const [status, setStatus] = useState<SessionRawRecordStatus | null>(null)
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.sessionRawRecord(sessionId)
+  const query = useQuery({
+    queryKey,
+    queryFn: () => sessionsClient.getRawRecordStatus(sessionId),
+    retry: false,
+  })
+  // A failed read hides the control rather than showing stale numbers.
+  const status = query.isError ? null : (query.data ?? null)
 
-  const refresh = useCallback(async () => {
-    try {
-      setStatus(await sessionsClient.getRawRecordStatus(sessionId))
-    } catch {
-      setStatus(null)
-    }
-  }, [sessionId])
-
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
+  const refresh = async () => {
+    await queryClient.invalidateQueries({ queryKey })
+  }
 
   const remove = async (): Promise<SessionRawRecordDeleteTotals> => {
     const totals = { deleted: 0, keptForCrossings: 0 }

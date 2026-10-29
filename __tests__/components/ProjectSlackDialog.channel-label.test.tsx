@@ -21,7 +21,8 @@ jest.mock('@/lib/api-client', () => {
   }
 })
 
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, screen } from '@testing-library/react'
+import { renderWithQueryClient as render } from '../helpers/query-client'
 import { ProjectSlackDialog } from '@/app/workspace/[workspaceUrl]/components/ProjectSlackDialog'
 
 const saved = {
