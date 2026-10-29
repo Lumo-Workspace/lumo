@@ -5,6 +5,13 @@ const nextConfig = {
   // LUM-1030: the self-hosted workflow-queue cleanup loads graphile-worker at
   // runtime (it resolves config/plugins dynamically) — keep it unbundled.
   serverExternalPackages: ['graphile-worker'],
+  experimental: {
+    // LUM-1339: Vercel throws the build cache away every time (1.68 GB > the
+    // 1.5 GB limit), so Turbopack's build-time filesystem cache only costs
+    // memory — its write overlaps the TypeScript step and got the 8 GB build
+    // machine killed (exit 137).
+    turbopackFileSystemCacheForBuild: false,
+  },
 }
 
 // LUM-735 v4: Vercel Workflows compile `'use workflow'` / `'use step'` files
