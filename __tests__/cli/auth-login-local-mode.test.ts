@@ -89,6 +89,7 @@ describe('lumo auth login (LUM-1335)', () => {
       })
     )
     expect(printed()).toContain('issued an API key for this machine')
+    expect(printed()).toContain('  Server: local · http://localhost:3000')
   })
 
   it('any other server (404): the paste flow, unchanged', async () => {
@@ -104,6 +105,9 @@ describe('lumo auth login (LUM-1335)', () => {
       expect.objectContaining({ token: 'lum_pasted' })
     )
     expect(printed()).not.toContain('Local mode')
+    expect(printed()).toContain(
+      '  Server: self-hosted · https://lumo.example.com'
+    )
   })
 
   it('a local-mode refusal is shown, then the paste flow runs', async () => {

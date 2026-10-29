@@ -5,6 +5,7 @@ import {
   requestLocalCliKey,
   resolveApiUrl,
   trimTrailingSlash,
+  serverLabel,
   verifyToken,
 } from '../lib/api'
 import { writeCredentials } from '../lib/config'
@@ -124,6 +125,9 @@ export async function authLogin(
   console.log('')
   console.log(`✓ Logged in as ${sanitizeField(resp.user.email)}`)
   console.log(`  Workspace: ${sanitizeField(resp.workspace.name)}`)
+  // LUM-1335: a login to a self-hosted Lumo says so.
+  const server = serverLabel(apiUrl)
+  if (server) console.log(`  Server: ${sanitizeField(server)}`)
   console.log(
     `  Key: ${sanitizeField(resp.apiKey.name)} (${resp.apiKey.prefix})`
   )

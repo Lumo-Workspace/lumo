@@ -137,6 +137,27 @@ export async function requestLocalCliKey(
   return { status: 'unavailable' }
 }
 
+/**
+ * LUM-1335 — how to name a server that is not the hosted service, so a login
+ * to a self-hosted Lumo is never mistaken for the hosted one: `local · <url>`
+ * for this machine, `self-hosted · <url>` for any other host; null for the
+ * hosted service (and for a URL that does not parse).
+ */
+export function serverLabel(apiUrl: string): string | null {
+  let parsed: URL
+  try {
+    parsed = new URL(apiUrl)
+  } catch {
+    return null
+  }
+  const hosted = new URL(DEFAULT_API_URL).hostname
+  const host = parsed.hostname
+  if (host === hosted || `www.${host}` === hosted) return null
+  const url = trimTrailingSlash(apiUrl)
+  const local = LOCALHOST_HOSTNAMES.has(host) || host.endsWith('.localhost')
+  return `${local ? 'local' : 'self-hosted'} · ${url}`
+}
+
 export function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '')
 }
