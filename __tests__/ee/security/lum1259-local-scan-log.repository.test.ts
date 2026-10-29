@@ -11,7 +11,6 @@ jest.mock('@/lib/db/workspace-scope', () => ({
   scopedPrisma: {
     projectRepository: { findMany: jest.fn() },
     localScanRun: {
-      findUnique: jest.fn(),
       create: jest.fn(),
       findMany: jest.fn(),
       groupBy: jest.fn(),
@@ -79,21 +78,34 @@ describe('findLinkedRepo', () => {
   })
 })
 
-describe('create / findByResultKey', () => {
-  it('looks a rerun up by the workspace-pinned unique key', async () => {
-    m(scopedPrisma.localScanRun.findUnique).mockResolvedValue({ id: 'r1' })
-    await localScanLogRepository.findByResultKey('ws_1', 'A/b', HEAD, 'k')
-    expect(m(scopedPrisma.localScanRun.findUnique).mock.calls[0][0]).toEqual({
+describe('create / findExistingRuns', () => {
+  it('looks every run of an upload up in one workspace-pinned query', async () => {
+    m(scopedPrisma.localScanRun.findMany).mockResolvedValue([
+      { repo: 'A/b', commitSha: HEAD, resultKey: 'k' },
+    ])
+    expect(
+      await localScanLogRepository.findExistingRuns('ws_1', [
+        { repo: 'A/b', commitSha: HEAD, resultKey: 'k' },
+        { repo: 'A/b', commitSha: 'f'.repeat(40), resultKey: 'k' },
+      ])
+    ).toEqual([{ repo: 'A/b', commitSha: HEAD, resultKey: 'k' }])
+    expect(scopedPrisma.localScanRun.findMany).toHaveBeenCalledTimes(1)
+    expect(m(scopedPrisma.localScanRun.findMany).mock.calls[0][0]).toEqual({
       where: {
-        workspaceId_repo_commitSha_resultKey: {
-          workspaceId: 'ws_1',
-          repo: 'A/b',
-          commitSha: HEAD,
-          resultKey: 'k',
-        },
+        workspaceId: 'ws_1',
+        repo: { in: ['A/b'] },
+        commitSha: { in: [HEAD, 'f'.repeat(40)] },
+        resultKey: { in: ['k'] },
       },
-      select: { id: true },
+      select: { repo: true, commitSha: true, resultKey: true },
     })
+  })
+
+  it('asks nothing for an empty upload', async () => {
+    expect(await localScanLogRepository.findExistingRuns('ws_1', [])).toEqual(
+      []
+    )
+    expect(scopedPrisma.localScanRun.findMany).not.toHaveBeenCalled()
   })
 
   it('writes the run with its findings, and reads a unique-key race as null', async () => {

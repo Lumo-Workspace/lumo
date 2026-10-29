@@ -15,7 +15,7 @@ jest.mock('@/ee/security/repositories/security-columns.repository', () => ({
 jest.mock('@/ee/security/repositories/local-scan-log.repository', () => ({
   localScanLogRepository: {
     findLinkedRepo: jest.fn(),
-    findByResultKey: jest.fn(),
+    findExistingRuns: jest.fn(),
     create: jest.fn(),
   },
 }))
@@ -99,7 +99,7 @@ beforeEach(() => {
   })
   m(securityColumnsRepository.findLocalScanLogEnabled).mockResolvedValue(true)
   m(localScanLogRepository.findLinkedRepo).mockResolvedValue('Acme/App')
-  m(localScanLogRepository.findByResultKey).mockResolvedValue(null)
+  m(localScanLogRepository.findExistingRuns).mockResolvedValue([])
   m(localScanLogRepository.create).mockResolvedValue({ id: 'run_1' })
   m(sessionRepository.findForMemberWithBinding).mockResolvedValue(null)
 })
@@ -170,7 +170,14 @@ describe('POST /api/workspaces/me/security-scan/local-runs', () => {
   })
 
   it('answers an identical rerun as a duplicate without writing', async () => {
-    m(localScanLogRepository.findByResultKey).mockResolvedValue({ id: 'r0' })
+    await POST(req({ version: 1, runs: [run()] }))
+    const { resultKey } = m(localScanLogRepository.create).mock.calls[0][0]
+    jest.clearAllMocks()
+    m(localScanLogRepository.findExistingRuns).mockResolvedValue([
+      // Same commit and result under another repo: not this run.
+      { repo: 'Acme/Other', commitSha: SHA, resultKey },
+      { repo: 'Acme/App', commitSha: SHA, resultKey },
+    ])
     const res = await POST(
       req({ version: 1, runs: [run({ trigger: 'PRE_PUSH' })] })
     )
@@ -179,6 +186,31 @@ describe('POST /api/workspaces/me/security-scan/local-runs', () => {
       results: [{ commitSha: SHA, status: 'duplicate' }],
     })
     expect(localScanLogRepository.create).not.toHaveBeenCalled()
+  })
+
+  it('checks every run of an upload for an earlier copy in one read, and a run repeated within it is a duplicate', async () => {
+    const other = 'b'.repeat(40)
+    const res = await POST(
+      req({
+        version: 1,
+        runs: [run(), run({ commitSha: other }), run({ trigger: 'PRE_PUSH' })],
+      })
+    )
+    expect(localScanLogRepository.findExistingRuns).toHaveBeenCalledTimes(1)
+    const [workspaceId, asked] = m(localScanLogRepository.findExistingRuns).mock
+      .calls[0]
+    expect(workspaceId).toBe('ws_1')
+    expect(asked.map((r: { commitSha: string }) => r.commitSha)).toEqual([
+      SHA,
+      other,
+      SHA,
+    ])
+    expect((await res.json()).results).toEqual([
+      { commitSha: SHA, status: 'created' },
+      { commitSha: other, status: 'created' },
+      { commitSha: SHA, status: 'duplicate' },
+    ])
+    expect(localScanLogRepository.create).toHaveBeenCalledTimes(2)
   })
 
   it('a create that loses the race on the unique key is a duplicate too', async () => {

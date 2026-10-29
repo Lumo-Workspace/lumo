@@ -155,12 +155,14 @@ function readJsonObject(file: string): Record<string, unknown> {
 }
 
 /**
- * LUM-1259 — unset `lumo.scanLog` in the repository whose hooks dir holds
- * `hookFile`; returns the note to append ('' when it was not set).
+ * LUM-1259 — unset `lumo.scanLog` in the repository at `repo` (not in the
+ * hooks dir: `core.hooksPath` may point outside the repository); returns
+ * the note to append ('' when it was not set or there is no repository).
  */
-function disableScanLog(hookFile: string): string {
+function disableScanLog(repo: string | null): string {
+  if (!repo) return ''
   const r = spawnSync('git', ['config', '--unset', SCAN_LOG_CONFIG], {
-    cwd: path.dirname(hookFile),
+    cwd: repo,
     encoding: 'utf8',
   })
   return r.status === 0 ? `; local scan log off (${SCAN_LOG_CONFIG} unset)` : ''
@@ -172,7 +174,7 @@ interface Applied {
   changed: boolean
 }
 
-function applyAction(a: PlannedAction): Applied {
+function applyAction(a: PlannedAction, repo: string | null): Applied {
   const { row } = a
   switch (a.action) {
     case 'strip-settings': {
@@ -207,7 +209,7 @@ function applyAction(a: PlannedAction): Applied {
       const logOff =
         a.action === 'strip-scan-hook' &&
         scanHookFor(row.path)?.hook === 'post-commit'
-          ? disableScanLog(row.path)
+          ? disableScanLog(repo)
           : ''
       if (content === null) {
         fs.unlinkSync(row.path)
@@ -311,7 +313,7 @@ export async function uninstall(
   let failures = 0
   for (const a of plan.actions) {
     try {
-      const applied = applyAction(a)
+      const applied = applyAction(a, plan.repo)
       out.push(`${applied.changed ? '✓' : '-'} ${applied.line}`)
     } catch (err) {
       failures++

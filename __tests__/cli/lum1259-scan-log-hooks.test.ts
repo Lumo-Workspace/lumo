@@ -354,6 +354,50 @@ describe('lumo init --scan-log', () => {
     expect(stdout).toContain('--local-scan-log on')
   })
 
+  it('leaves lumo.scanLog off when the post-commit hook could not be installed (core.hooksPath)', async () => {
+    const repo = repoWithCommit()
+    git(repo, 'config', 'core.hooksPath', tmp())
+    await init(
+      { agent: 'claude-code', scanHooks: true, scanLog: true },
+      initDeps(repo)
+    )
+    expect(
+      spawnSync('git', ['config', '--bool', 'lumo.scanLog'], {
+        cwd: repo,
+        encoding: 'utf8',
+      }).stdout.trim()
+    ).toBe('')
+    expect(stdout).toContain('local scan log not turned on')
+    expect(stdout).toContain('git config lumo.scanLog true')
+    expect(stdout).not.toContain('local scan log on for this repo')
+  })
+
+  it('uninstall turns lumo.scanLog off in the repo even when the hooks dir is outside it', async () => {
+    const repo = repoWithCommit()
+    const deps = initDeps(repo)
+    await init({ agent: 'claude-code', scanHooks: true, scanLog: true }, deps)
+    const outside = tmp()
+    writeFileSync(
+      join(outside, 'post-commit'),
+      readFileSync(join(hooksDir(repo), 'post-commit'), 'utf8')
+    )
+    git(repo, 'config', 'core.hooksPath', outside)
+    const doctorDeps = {
+      homeDir: tmp(),
+      cwd: repo,
+      cliVersion: '2.0.0',
+      env: { PATH: '' },
+    }
+    expect(await uninstall({ agent: 'git', confirm: true }, doctorDeps)).toBe(0)
+    expect(existsSync(join(outside, 'post-commit'))).toBe(false)
+    expect(
+      spawnSync('git', ['config', '--bool', 'lumo.scanLog'], {
+        cwd: repo,
+        encoding: 'utf8',
+      }).stdout.trim()
+    ).toBe('')
+  })
+
   it('without --scan-hooks is a usage error (exit 2) and writes nothing', async () => {
     const repo = repoWithCommit()
     const code = await init(

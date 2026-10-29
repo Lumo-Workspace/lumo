@@ -108,23 +108,24 @@ export const localScanLogRepository = {
     return rows.find(r => r.fullName.toLowerCase() === want)?.fullName ?? null
   },
 
-  /** The run an identical earlier upload created, if any (dedupe). */
-  async findByResultKey(
+  /**
+   * The stored runs among `runs` (an identical earlier upload created them;
+   * dedupe), in one query for the whole upload. May also return rows that
+   * match on each field but not as a triple — the caller compares triples.
+   */
+  async findExistingRuns(
     workspaceId: string,
-    repo: string,
-    commitSha: string,
-    resultKey: string
-  ): Promise<{ id: string } | null> {
-    return scopedPrisma.localScanRun.findUnique({
+    runs: ReadonlyArray<{ repo: string; commitSha: string; resultKey: string }>
+  ): Promise<Array<{ repo: string; commitSha: string; resultKey: string }>> {
+    if (runs.length === 0) return []
+    return scopedPrisma.localScanRun.findMany({
       where: {
-        workspaceId_repo_commitSha_resultKey: {
-          workspaceId,
-          repo,
-          commitSha,
-          resultKey,
-        },
+        workspaceId,
+        repo: { in: [...new Set(runs.map(r => r.repo))] },
+        commitSha: { in: [...new Set(runs.map(r => r.commitSha))] },
+        resultKey: { in: [...new Set(runs.map(r => r.resultKey))] },
       },
-      select: { id: true },
+      select: { repo: true, commitSha: true, resultKey: true },
     })
   },
 

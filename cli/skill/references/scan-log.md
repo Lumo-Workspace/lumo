@@ -29,7 +29,7 @@ Each finding carries `commitSha`; the `log` sibling (`null` without `--log`): `{
 
 ## Git hooks (`--scan-log`)
 
-`lumo init --scan-hooks --scan-log` ([onboarding.md](onboarding.md)) turns on the local scan log for this repo: a `post-commit` block (`# >>> lumo post-commit >>>`) runs `lumo security scan --commit <sha> --log` with the real sha, and the `pre-push` block runs `--log` over each pushed range — both in the background (output discarded), so a commit or push never waits on it or fails because of it; `git commit --no-verify` does not skip post-commit. The switch is the repo-local git config `lumo.scanLog` (`git config lumo.scanLog false` pauses it; `lumo uninstall` unsets it with the post-commit block).
+`lumo init --scan-hooks --scan-log` ([onboarding.md](onboarding.md)) turns on the local scan log for this repo: a `post-commit` block (`# >>> lumo post-commit >>>`) runs `lumo security scan --commit <sha> --log` with the real sha, and the `pre-push` block runs `--log` over each pushed range — both in the background (output discarded), so a commit or push never waits on it or fails because of it; `git commit --no-verify` does not skip post-commit. The switch is the repo-local git config `lumo.scanLog` (`git config lumo.scanLog false` pauses it; `lumo uninstall` unsets it with the post-commit block). It is set only when the post-commit hook was written; under husky / `core.hooksPath` init prints the block instead and leaves the switch off — add the block, then `git config lumo.scanLog true`.
 
 ## When to suggest
 

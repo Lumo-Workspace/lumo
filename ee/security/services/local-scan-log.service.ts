@@ -207,6 +207,15 @@ export function toLocalHistory(
   return { source: 'LOCAL', headSha, runs, flaggedAt }
 }
 
+/** A run's unique key (repo, commit, result) as one string. */
+function runIdentity(r: {
+  repo: string
+  commitSha: string
+  resultKey: string
+}): string {
+  return `${r.repo}\0${r.commitSha}\0${r.resultKey}`
+}
+
 export const localScanLogService = {
   /**
    * Record the uploaded runs. 403 (`LOCAL_SCAN_LOG_OFF`) when the workspace
@@ -249,20 +258,37 @@ export const localScanLogService = {
       Awaited<ReturnType<typeof sessionBinding>>
     >()
     const results: LocalScanUploadResult['results'] = []
-    for (const run of upload.runs) {
-      const repo = repos.get(run.repo) as string
+    const prepared = upload.runs.map(run => {
       const findings = run.findings.map(cleanFinding)
-      const resultKey = resultKeyOf(run, findings)
-      const existing = await localScanLogRepository.findByResultKey(
-        caller.workspaceId,
+      return {
+        run,
+        findings,
+        repo: repos.get(run.repo) as string,
+        resultKey: resultKeyOf(run, findings),
+      }
+    })
+    // One dedupe read for the whole upload; a run repeated within it is a
+    // duplicate of its first copy.
+    const stored = await localScanLogRepository.findExistingRuns(
+      caller.workspaceId,
+      prepared.map(p => ({
+        repo: p.repo,
+        commitSha: p.run.commitSha,
+        resultKey: p.resultKey,
+      }))
+    )
+    const seen = new Set(stored.map(runIdentity))
+    for (const { run, findings, repo, resultKey } of prepared) {
+      const identity = runIdentity({
         repo,
-        run.commitSha,
-        resultKey
-      )
-      if (existing) {
+        commitSha: run.commitSha,
+        resultKey,
+      })
+      if (seen.has(identity)) {
         results.push({ commitSha: run.commitSha, status: 'duplicate' })
         continue
       }
+      seen.add(identity)
       const key = run.sessionId ?? ''
       if (!bindings.has(key))
         bindings.set(key, await sessionBinding(run.sessionId, caller.memberId))

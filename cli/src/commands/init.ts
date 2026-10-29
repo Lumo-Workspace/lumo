@@ -232,8 +232,17 @@ export async function init(
         '  Scan hooks block only on a finding that would block DONE; skip once with --no-verify.\n'
       )
     if (options.scanLog) {
-      for (const spec of SCAN_LOG_HOOKS) installGitHook(root, spec)
-      enableScanLog(root)
+      // The switch goes on only with its post-commit hook in place: a
+      // printed-out block (husky / core.hooksPath) or a failed write would
+      // leave the pre-push block logging on its own.
+      let logHooks = 0
+      for (const spec of SCAN_LOG_HOOKS)
+        if (installGitHook(root, spec)) logHooks++
+      if (logHooks === SCAN_LOG_HOOKS.length) enableScanLog(root)
+      else
+        process.stdout.write(
+          `ℹ local scan log not turned on: the post-commit hook is not installed. Once its block is in place, run: git config ${SCAN_LOG_CONFIG} true\n`
+        )
     }
   }
   await printSessionRecordNotice()
