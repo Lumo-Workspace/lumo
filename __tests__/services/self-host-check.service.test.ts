@@ -9,7 +9,9 @@
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
 const mockEval = jest.fn()
 jest.mock('@/lib/rate-limit/redis-client', () => ({
-  getSharedRedisClient: async () => ({ eval: (...a: unknown[]) => mockEval(...a) }),
+  getSharedRedisClient: async () => ({
+    eval: (...a: unknown[]) => mockEval(...a),
+  }),
 }))
 
 import {
@@ -32,7 +34,11 @@ function probes(over: Partial<SelfHostProbes> = {}): SelfHostProbes {
     verifyEmail: async () => ({ status: 'not_configured' }),
     pingRedis: async () => {},
     checkRealtime: async () => ({ status: 'not_configured' }),
-    fetchUrl: async () => ({ status: 200, body: `window.${PUBLIC_CONFIG_GLOBAL}={}` }),
+    fetchUrl: async () => ({
+      status: 200,
+      body: `window.${PUBLIC_CONFIG_GLOBAL}={}`,
+    }),
+    countAccounts: async () => 0,
     ...over,
   }
 }
@@ -91,19 +97,26 @@ describe('readStart', () => {
 
 describe('errorText', () => {
   it("adds the cause of a bare 'fetch failed'", () => {
-    const cause = Object.assign(new Error('getaddrinfo ENOTFOUND lumo.example.com'), {
-      code: 'ENOTFOUND',
-    })
-    expect(errorText(Object.assign(new TypeError('fetch failed'), { cause }))).toBe(
-      'fetch failed: ENOTFOUND getaddrinfo ENOTFOUND lumo.example.com'
+    const cause = Object.assign(
+      new Error('getaddrinfo ENOTFOUND lumo.example.com'),
+      {
+        code: 'ENOTFOUND',
+      }
     )
+    expect(
+      errorText(Object.assign(new TypeError('fetch failed'), { cause }))
+    ).toBe('fetch failed: ENOTFOUND getaddrinfo ENOTFOUND lumo.example.com')
     expect(errorText(new Error('plain'))).toBe('plain')
     expect(errorText('text')).toBe('text')
   })
 
   it('masks the userinfo of a URL a driver echoes', () => {
     // Assembled at runtime so no credential-shaped URL sits in the source.
-    const url = ['redis:', '', ['default', 'fixture'].join(':') + '@redis:6379'].join('/')
+    const url = [
+      'redis:',
+      '',
+      ['default', 'fixture'].join(':') + '@redis:6379',
+    ].join('/')
     expect(errorText(new Error(`connect failed: ${url}`))).toBe(
       'connect failed: redis://***@redis:6379'
     )
@@ -112,7 +125,11 @@ describe('errorText', () => {
 
 describe('runSelfHostChecks', () => {
   it('a minimal stack: core checks ok, optional components skipped, in a fixed order', async () => {
-    const results = await runSelfHostChecks(probes(), DISK_ENV, 'http://localhost:3000')
+    const results = await runSelfHostChecks(
+      probes(),
+      DISK_ENV,
+      'http://localhost:3000'
+    )
     expect(results.map(r => r.id)).toEqual([
       'database',
       'storage',
@@ -120,6 +137,7 @@ describe('runSelfHostChecks', () => {
       'redis',
       'realtime',
       'public_url',
+      'sign_in',
     ])
     expect(results.map(r => r.status)).toEqual([
       'ok',
@@ -128,6 +146,7 @@ describe('runSelfHostChecks', () => {
       'skipped',
       'skipped',
       'skipped',
+      'ok',
     ])
     expect(byId(results).storage?.detail).toContain('disk')
     expect(byId(results).email?.hint).toContain('SMTP_URL')
@@ -145,12 +164,20 @@ describe('runSelfHostChecks', () => {
           },
           verifyEmail: async () => ({
             status: 'failed',
-            error: { name: 'Error', message: 'Invalid login', code: 'EAUTH', statusCode: 535 },
+            error: {
+              name: 'Error',
+              message: 'Invalid login',
+              code: 'EAUTH',
+              statusCode: 535,
+            },
           }),
           pingRedis: async () => {
             throw new Error('The client is closed')
           },
-          checkRealtime: async () => ({ status: 'failed', message: 'HTTP 401' }),
+          checkRealtime: async () => ({
+            status: 'failed',
+            message: 'HTTP 401',
+          }),
           fetchUrl: async () => {
             throw new Error('getaddrinfo ENOTFOUND lumo.example.com')
           },
@@ -159,7 +186,14 @@ describe('runSelfHostChecks', () => {
         'https://lumo.example.com'
       )
     )
-    for (const id of ['database', 'storage', 'email', 'redis', 'realtime', 'public_url']) {
+    for (const id of [
+      'database',
+      'storage',
+      'email',
+      'redis',
+      'realtime',
+      'public_url',
+    ]) {
       expect(results[id]?.status).toBe('failed')
       expect(results[id]?.hint).toBeTruthy()
     }
@@ -178,7 +212,11 @@ describe('runSelfHostChecks', () => {
           pingRedis,
           checkRealtime: async () => ({ status: 'ok' }),
         }),
-        { BLOB_STORAGE: 's3', S3_BUCKET: 'lumo', REDIS_URL: ' redis://redis:6379 ' },
+        {
+          BLOB_STORAGE: 's3',
+          S3_BUCKET: 'lumo',
+          REDIS_URL: ' redis://redis:6379 ',
+        },
         'https://lumo.example.com'
       )
     )
@@ -191,7 +229,9 @@ describe('runSelfHostChecks', () => {
   it('a public URL that answers but is not Lumo fails', async () => {
     const results = byId(
       await runSelfHostChecks(
-        probes({ fetchUrl: async () => ({ status: 502, body: 'Bad Gateway' }) }),
+        probes({
+          fetchUrl: async () => ({ status: 502, body: 'Bad Gateway' }),
+        }),
         DISK_ENV,
         'http://192.168.1.20:3000'
       )
@@ -201,18 +241,33 @@ describe('runSelfHostChecks', () => {
   })
 
   it('loopback forms count as local and are skipped', async () => {
-    for (const url of ['http://lumo.localhost:3000', 'http://127.0.0.2:3000', 'http://[::1]:3000']) {
-      expect(byId(await runSelfHostChecks(probes(), DISK_ENV, url)).public_url?.status).toBe('skipped')
+    for (const url of [
+      'http://lumo.localhost:3000',
+      'http://127.0.0.2:3000',
+      'http://[::1]:3000',
+    ]) {
+      expect(
+        byId(await runSelfHostChecks(probes(), DISK_ENV, url)).public_url
+          ?.status
+      ).toBe('skipped')
     }
     // A real domain that merely starts with 127. is checked.
     expect(
-      byId(await runSelfHostChecks(probes(), DISK_ENV, 'https://127.example.com')).public_url?.status
+      byId(
+        await runSelfHostChecks(probes(), DISK_ENV, 'https://127.example.com')
+      ).public_url?.status
     ).toBe('ok')
   })
 
   it('a missing or invalid public URL fails', async () => {
-    expect(byId(await runSelfHostChecks(probes(), DISK_ENV, undefined)).public_url?.status).toBe('failed')
-    expect(byId(await runSelfHostChecks(probes(), DISK_ENV, 'not a url')).public_url?.status).toBe('failed')
+    expect(
+      byId(await runSelfHostChecks(probes(), DISK_ENV, undefined)).public_url
+        ?.status
+    ).toBe('failed')
+    expect(
+      byId(await runSelfHostChecks(probes(), DISK_ENV, 'not a url')).public_url
+        ?.status
+    ).toBe('failed')
   })
 
   it('a check that hangs fails after the timeout instead of holding up the report', async () => {
@@ -231,5 +286,53 @@ describe('runSelfHostChecks', () => {
     } finally {
       jest.useRealTimers()
     }
+  })
+})
+
+describe('runSelfHostChecks — sign-in (LUM-1335)', () => {
+  const signIn = async (
+    env: Record<string, string>,
+    url: string | undefined,
+    over: Partial<SelfHostProbes> = {}
+  ) =>
+    byId(await runSelfHostChecks(probes(over), { ...DISK_ENV, ...env }, url))
+      .sign_in
+
+  it('normal sign-in without LUMO_MODE', async () => {
+    const r = await signIn({}, 'https://lumo.example.com')
+    expect(r).toEqual({
+      id: 'sign_in',
+      status: 'ok',
+      detail: 'accounts (sign-in required)',
+    })
+  })
+
+  it('local mode on localhost is ok', async () => {
+    const r = await signIn({ LUMO_MODE: 'local' }, 'http://localhost:3000')
+    expect(r?.status).toBe('ok')
+    expect(r?.detail).toContain('local mode')
+  })
+
+  it('local mode on a public URL is a warning, not a failure', async () => {
+    const r = await signIn({ LUMO_MODE: 'local' }, 'https://lumo.example.com')
+    expect(r?.status).toBe('warning')
+    expect(r?.detail).toContain('lumo.example.com')
+    expect(r?.hint).toContain('LUMO_MODE')
+  })
+
+  it('local mode with several accounts fails', async () => {
+    const countAccounts = jest.fn(async () => 2)
+    const r = await signIn({ LUMO_MODE: 'local' }, 'http://localhost:3000', {
+      countAccounts,
+    })
+    expect(r?.status).toBe('failed')
+    expect(r?.hint).toContain('remove LUMO_MODE')
+    expect(countAccounts).toHaveBeenCalledWith(2)
+  })
+
+  it('an unknown LUMO_MODE fails naming the variable', async () => {
+    const r = await signIn({ LUMO_MODE: 'demo' }, 'http://localhost:3000')
+    expect(r?.status).toBe('failed')
+    expect(r?.detail).toContain('LUMO_MODE')
   })
 })

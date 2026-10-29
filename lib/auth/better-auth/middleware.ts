@@ -13,6 +13,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import type { AuthMiddlewareHandler, MiddlewareAuth } from '../types'
 import { REDIRECT_PARAM_NAME } from './sign-in-helpers'
+import { isLocalMode, LOCAL_SIGN_IN_PATH } from '../local-mode'
 
 export const SIGN_IN_PATH = '/signin'
 
@@ -38,6 +39,43 @@ export function signInRedirectUrl(request: NextRequest): URL {
   const back = request.nextUrl.pathname + request.nextUrl.search
   if (back !== '/') url.searchParams.set(REDIRECT_PARAM_NAME, back)
   return url
+}
+
+/** The pages an anonymous visitor reaches before signing in. */
+function isSignInEntry(pathname: string): boolean {
+  return (
+    pathname === '/' ||
+    pathname.startsWith(SIGN_IN_PATH) ||
+    pathname.startsWith('/signup')
+  )
+}
+
+/**
+ * LUM-1335 — pure: the local-mode sign-in URL that returns to the current
+ * page afterwards. From a sign-in entry page (/, /signin, /signup) it returns
+ * to that page's own `redirect_url`, or the default landing.
+ */
+export function localSignInRedirectUrl(request: NextRequest): URL {
+  const url = new URL(LOCAL_SIGN_IN_PATH, request.url)
+  const { pathname, search, searchParams } = request.nextUrl
+  const back = isSignInEntry(pathname)
+    ? searchParams.get(REDIRECT_PARAM_NAME)
+    : pathname + search
+  if (back) url.searchParams.set(REDIRECT_PARAM_NAME, back)
+  return url
+}
+
+/**
+ * LUM-1335 — in local mode, an anonymous visit to a sign-in entry page goes
+ * straight to the local sign-in; anything else (and every other mode) → null.
+ */
+export function localModeEntryRedirect(
+  request: NextRequest,
+  userId: string | null
+): Response | null {
+  if (userId || !isPageRequest(request) || !isLocalMode()) return null
+  if (!isSignInEntry(request.nextUrl.pathname)) return null
+  return NextResponse.redirect(localSignInRedirectUrl(request))
 }
 
 async function lookupSession(request: NextRequest): ReturnType<SessionLookup> {
@@ -70,7 +108,11 @@ export function createBetterAuthMiddleware(
         if ((await resolve()).userId) return
         throw new ProtectSignal(
           isPageRequest(request)
-            ? NextResponse.redirect(signInRedirectUrl(request))
+            ? NextResponse.redirect(
+                isLocalMode()
+                  ? localSignInRedirectUrl(request)
+                  : signInRedirectUrl(request)
+              )
             : NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         )
       },

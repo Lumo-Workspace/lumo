@@ -1,8 +1,9 @@
 #!/bin/sh
-# LUM-1325, LUM-1332 — prepare .env for `docker compose up -d` (self-hosting).
+# LUM-1325, LUM-1332, LUM-1335 — prepare .env for `docker compose up -d` (self-hosting).
 #
 #   scripts/self-host/setup.sh [--url https://lumo.example.com] [--realtime | --no-realtime]
-#                              [--caddy | --no-caddy] [--no-start | --check]
+#                              [--caddy | --no-caddy] [--local | --no-local]
+#                              [--no-start | --check]
 #
 # - Copies .env.example to .env when .env does not exist yet.
 # - Fills every secret the stack needs with `openssl rand -hex 32`. A secret
@@ -16,6 +17,8 @@
 #   --no-realtime removes it. Other COMPOSE_FILE entries are left alone.
 # - --caddy adds the caddy profile (HTTPS on LUMO_DOMAIN) to COMPOSE_PROFILES;
 #   --no-caddy removes it. Other profiles are left alone.
+# - --local sets LUMO_MODE=local (opens without a sign-in, one account);
+#   --no-local removes it.
 # - Then runs `docker compose up -d`, waits until the stack is healthy and
 #   checks every configured component against the real service
 #   (scripts/self-host/check-config.mjs, inside the app container).
@@ -32,7 +35,7 @@ BASE_FILE=docker-compose.yml
 REALTIME_FILE=deploy/self-host/compose.realtime.yml
 
 usage() {
-  echo "usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime] [--caddy | --no-caddy] [--no-start | --check]" >&2
+  echo "usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime] [--caddy | --no-caddy] [--local | --no-local] [--no-start | --check]" >&2
   echo "Run with --help for details." >&2
   exit 2
 }
@@ -40,7 +43,8 @@ usage() {
 help() {
   cat <<'EOF'
 usage: scripts/self-host/setup.sh [--url <public URL>] [--realtime | --no-realtime]
-                                  [--caddy | --no-caddy] [--no-start | --check]
+                                  [--caddy | --no-caddy] [--local | --no-local]
+                                  [--no-start | --check]
 
 Sets up and starts a self-hosted Lumo:
   1. Writes .env: copies .env.example the first time and generates every
@@ -49,8 +53,8 @@ Sets up and starts a self-hosted Lumo:
      realtime). A secret that has a value is never replaced.
   2. Runs `docker compose up -d` and waits until the stack is healthy.
   3. Checks that what you configured works, from inside the app: database,
-     file storage, email (signs in, sends nothing), Redis, realtime and the
-     public URL. Exits non-zero when a check fails.
+     file storage, email (signs in, sends nothing), Redis, realtime, the
+     public URL and sign-in. Exits non-zero when a check fails.
 Safe to re-run: to add email, Redis or S3 later, set it in .env and run
 setup.sh again.
 
@@ -69,14 +73,20 @@ Options:
                   certificate (adds the caddy profile to COMPOSE_PROFILES).
                   Needs DNS pointing here and ports 80/443 open.
   --no-caddy      Stop serving HTTPS through caddy (e.g. your own proxy).
+  --local         Open Lumo without a sign-in (LUMO_MODE=local): the first
+                  visit signs you in as this instance's one account. For
+                  trying Lumo on your own machine — anyone who can reach the
+                  URL is signed in. Without --url it does not ask for one.
+  --no-local      Back to normal sign-in; the account keeps its workspaces.
   --no-start      Only write .env; start it yourself with docker compose.
   --check         Only re-run the configuration check on the running stack.
   -h, --help      Show this help.
 
-Without --realtime / --no-realtime or --caddy / --no-caddy the earlier
-choice is kept (both off on a fresh .env).
+Without --realtime / --no-realtime, --caddy / --no-caddy or --local /
+--no-local the earlier choice is kept (all off on a fresh .env).
 
 Examples:
+  scripts/self-host/setup.sh --local      # try it: no questions, no sign-in
   scripts/self-host/setup.sh
   scripts/self-host/setup.sh --url https://lumo.example.com --caddy --realtime
   scripts/self-host/setup.sh --check
@@ -93,6 +103,7 @@ EOF
 URL=
 REALTIME=
 CADDY=
+LOCAL=
 START=on
 CHECK_ONLY=
 while [ $# -gt 0 ]; do
@@ -103,6 +114,8 @@ while [ $# -gt 0 ]; do
     --no-realtime) REALTIME=off; shift ;;
     --caddy) CADDY=on; shift ;;
     --no-caddy) CADDY=off; shift ;;
+    --local) LOCAL=on; shift ;;
+    --no-local) LOCAL=off; shift ;;
     --no-start) START=off; shift ;;
     --check) CHECK_ONLY=1; shift ;;
     -h|--help) help ;;
@@ -118,7 +131,7 @@ check_url() {
 }
 # A bad argument fails before .env is touched at all.
 [ -z "$URL" ] || check_url "$URL"
-if [ -n "$CHECK_ONLY" ] && { [ -n "$URL$REALTIME$CADDY" ] || [ "$START" = off ]; }; then
+if [ -n "$CHECK_ONLY" ] && { [ -n "$URL$REALTIME$CADDY$LOCAL" ] || [ "$START" = off ]; }; then
   echo "setup.sh: --check takes no other options" >&2
   usage
 fi
@@ -218,10 +231,19 @@ elif [ "$CADDY" = off ] && [ -n "$caddy_on" ]; then
 fi
 echo "HTTPS via caddy: $([ -n "$caddy_on" ] && echo on || echo off)"
 
+# LUMO_MODE: only local is ever written; --no-local blanks it.
+if [ "$LOCAL" = on ]; then
+  set_var LUMO_MODE local
+elif [ "$LOCAL" = off ] && [ -n "$(get_var LUMO_MODE)" ]; then
+  set_var LUMO_MODE ""
+fi
+case "$(get_var LUMO_MODE)" in local) local_on=1 ;; *) local_on= ;; esac
+echo "Local mode (no sign-in): $([ -n "$local_on" ] && echo on || echo off)"
+
 [ -z "$realtime_on" ] || SECRETS="$SECRETS SOKETI_APP_SECRET"
 for name in $SECRETS; do ensure_secret "$name"; done
 
-if [ -z "$URL" ] && [ -t 0 ]; then
+if [ -z "$URL" ] && [ -t 0 ] && [ -z "$local_on" ]; then
   current=$(get_var NEXT_PUBLIC_APP_URL)
   printf 'Public URL of this Lumo [%s]: ' "${current:-http://localhost:3000}"
   read -r URL || URL=
@@ -313,7 +335,9 @@ echo "Starting Lumo (the first start pulls the images and applies the migrations
 
 if run_check; then
   echo
-  echo "Lumo is running at $(get_var NEXT_PUBLIC_APP_URL)"
+  app_url=$(get_var NEXT_PUBLIC_APP_URL)
+  echo "Lumo is running at ${app_url:-http://localhost:3000}"
+  [ -z "$local_on" ] || echo "Local mode: open it in a browser, no sign-in needed."
 else
   exit $?
 fi

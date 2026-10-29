@@ -18,6 +18,7 @@ jest.mock('@/lib/auth/middleware', () => {
   ) => Promise<Response>
   return {
     createRouteMatcher: actual.createRouteMatcher,
+    localModeEntryRedirect: () => null,
     createAuthMiddleware: (handler: Handler) => (req: NextRequest) =>
       handler({ userId: async () => null, protect }, req),
   }

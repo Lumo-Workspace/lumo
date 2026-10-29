@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1325, LUM-1332 — scripts/self-host/setup.sh, run for real with /bin/sh
+ * LUM-1325, LUM-1332, LUM-1335 — scripts/self-host/setup.sh, run for real with /bin/sh
  * against a copy of the repo's .env.example in a temp directory. `run` adds
  * --no-start (only .env); `runWithDocker` puts a fake `docker` on PATH that
  * logs its arguments.
@@ -350,6 +350,26 @@ describe('scripts/self-host/setup.sh', () => {
     run('--caddy')
     expect(env().get('COMPOSE_PROFILES')).toBe('mail,caddy')
     expect(countLines('COMPOSE_PROFILES')).toBe(1)
+  })
+
+  it('LUM-1335: --local / --no-local toggle LUMO_MODE; a later run keeps it', () => {
+    expect(run()).toContain('Local mode (no sign-in): off')
+    expect(env().get('LUMO_MODE')).toBeUndefined()
+    expect(run('--local')).toContain('Local mode (no sign-in): on')
+    expect(env().get('LUMO_MODE')).toBe('local')
+    expect(run()).toContain('Local mode (no sign-in): on')
+    run('--no-local')
+    expect(env().get('LUMO_MODE')).toBe('')
+    run('--local')
+    expect(countLines('LUMO_MODE')).toBe(1)
+  })
+
+  it('LUM-1335: --local starts the stack and says no sign-in is needed', () => {
+    const { status, out } = runWithDocker(['--local'])
+    expect(status).toBe(0)
+    expect(out).toContain('Lumo is running at http://localhost:3000')
+    expect(out).toContain('no sign-in needed')
+    expect(runWithDocker(['--check', '--local']).status).toBe(2)
   })
 
   it('warns when caddy is on without a domain', () => {

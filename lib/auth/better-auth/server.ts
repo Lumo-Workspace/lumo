@@ -51,6 +51,8 @@ import {
   emailOtpOptions,
   lumoEmailOtpGuardPlugin,
 } from './email-otp'
+import { isLocalMode, isLocalModeOnPublicUrl } from '../local-mode'
+import { lumoLocalModePlugin } from './local-mode'
 
 /** Session cookie cache: page loads skip the DB for this many seconds. */
 export const SESSION_COOKIE_CACHE_SECONDS = 5 * 60
@@ -86,7 +88,15 @@ export const PASSWORD_DISABLED_PATHS = [
 function warnAboutSignInConfig(opts: {
   passwordEnabled: boolean
   emailCodeEnabled: boolean
+  baseUrl: string | undefined
 }): void {
+  // LUM-1335: the operator's choice, but never a quiet one.
+  if (isLocalModeOnPublicUrl(opts.baseUrl)) {
+    logger.warn(
+      `[auth] LUMO_MODE=local on ${opts.baseUrl}: anyone who can open this URL is signed in ` +
+        'without a password. Remove LUMO_MODE from .env unless only you can reach it.'
+    )
+  }
   if (googleSignInSharesDriveClient()) {
     logger.warn(
       '[auth] AUTH_GOOGLE_CLIENT_ID is the Google Drive import client (GOOGLE_CLIENT_ID): ' +
@@ -110,10 +120,13 @@ function createBetterAuth() {
   // SaaS turns it off); the email code needs a way to deliver it.
   const passwordEnabled = isPasswordSignInEnabled()
   const emailCodeEnabled = isEmailCodeSignInEnabled()
-  warnAboutSignInConfig({ passwordEnabled, emailCodeEnabled })
+  const baseUrl = resolveBetterAuthBaseUrl()
+  // LUM-1335: also rejects an unknown LUMO_MODE before anyone signs in.
+  const localMode = isLocalMode()
+  warnAboutSignInConfig({ passwordEnabled, emailCodeEnabled, baseUrl })
   return betterAuth({
     secret: resolveBetterAuthSecret(),
-    baseURL: resolveBetterAuthBaseUrl(),
+    baseURL: baseUrl,
     basePath: BETTER_AUTH_BASE_PATH,
     database: prismaAdapter(prisma, { provider: 'postgresql' }),
     telemetry: { enabled: false },
@@ -219,6 +232,8 @@ function createBetterAuth() {
       lumoPublicConfigPlugin,
       // LUM-1071: ban fields + the sign-in ban check (./admin-plugin).
       lumoAdminPlugin(),
+      // LUM-1335: sign-in-free try-outs (./local-mode).
+      ...(localMode ? [lumoLocalModePlugin()] : []),
       // LUM-1082: email one-time-code sign-in (./email-otp).
       ...(emailCodeEnabled
         ? [
