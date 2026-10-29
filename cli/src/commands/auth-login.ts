@@ -143,6 +143,10 @@ export async function authLogin(
     )
   } else if (saved.boundRepo) {
     console.log(`  Used by: ${sanitizeField(saved.boundRepo)}`)
+  } else if (saved.bindError) {
+    console.log(
+      `  Not bound to this repository: ${sanitizeField(saved.bindError)} — once git works here: lumo auth use ${saved.key}`
+    )
   } else {
     console.log(
       `  Not used yet — in a repository: lumo auth use ${saved.key}; everywhere: lumo auth use ${saved.key} --default`

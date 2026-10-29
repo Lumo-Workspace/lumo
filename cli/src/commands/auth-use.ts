@@ -2,6 +2,7 @@ import {
   loginKey,
   readLoginStore,
   repoKey,
+  withLoginStoreLock,
   writeLoginStore,
 } from '../lib/config'
 import { sanitizeField } from '../lib/sanitize'
@@ -23,8 +24,16 @@ export async function authUse(
   url: string | undefined,
   opts: AuthUseOptions = {}
 ): Promise<number | void> {
-  const store = readLoginStore()
   const repo = repoKey(process.cwd())
+  return withLoginStoreLock(() => applyAuthUse(url, opts, repo))
+}
+
+function applyAuthUse(
+  url: string | undefined,
+  opts: AuthUseOptions,
+  repo: string | null
+): number | void {
+  const store = readLoginStore()
 
   if (opts.unbind) {
     if (url !== undefined || opts.default) {

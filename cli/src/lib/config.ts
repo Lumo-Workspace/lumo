@@ -50,10 +50,16 @@ export function credentialsPath(): string {
   return path.join(configDir(), 'credentials.json')
 }
 
-/** `scheme://host[:port]` — the key a login is stored under; null if unparsable. */
+/**
+ * `scheme://host[:port]` — the key a login is stored under. Null when the URL
+ * is unparsable or not http(s): those have an opaque origin (`"null"`), which
+ * would put every such login under one key.
+ */
 export function loginKey(url: string): string | null {
   try {
-    return new URL(url.trim()).origin
+    const parsed = new URL(url.trim())
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+    return parsed.origin
   } catch {
     return null
   }
@@ -101,7 +107,7 @@ export function readLoginStore(): LoginStore {
   return { version: 2, default: def, logins, repos }
 }
 
-export function writeLoginStore(store: LoginStore): void {
+function ensureConfigDir(): void {
   const dir = configDir()
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { mode: 0o700, recursive: true })
@@ -112,6 +118,62 @@ export function writeLoginStore(store: LoginStore): void {
       // Best-effort perms tightening; continue if filesystem doesn't support chmod
     }
   }
+}
+
+/** How long a writer waits for another `lumo` process's lock. */
+export const LOGIN_STORE_LOCK_TIMEOUT_MS = 3_000
+/** A lock older than this is left over from a crashed process. */
+const LOGIN_STORE_LOCK_STALE_MS = 10_000
+
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/**
+ * Run a read-modify-write of the logins file under an exclusive lock file
+ * (`credentials.json.lock`), so two `lumo` processes logging in at once do
+ * not overwrite each other's change. Readers take no lock: the store is
+ * replaced by rename, so they always see a whole file.
+ */
+export function withLoginStoreLock<T>(fn: () => T): T {
+  ensureConfigDir()
+  const lock = `${credentialsPath()}.lock`
+  const deadline = Date.now() + LOGIN_STORE_LOCK_TIMEOUT_MS
+  let fd: number | null = null
+  while (fd === null) {
+    try {
+      fd = fs.openSync(lock, 'wx', 0o600)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+      try {
+        if (
+          Date.now() - fs.statSync(lock).mtimeMs >
+          LOGIN_STORE_LOCK_STALE_MS
+        ) {
+          fs.rmSync(lock, { force: true })
+          continue
+        }
+      } catch {
+        continue // the holder just released it
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(
+          `the Lumo credentials file is locked by another lumo process; try again (if none is running, delete ${lock})`
+        )
+      }
+      sleepSync(25)
+    }
+  }
+  try {
+    return fn()
+  } finally {
+    fs.closeSync(fd)
+    fs.rmSync(lock, { force: true })
+  }
+}
+
+export function writeLoginStore(store: LoginStore): void {
+  ensureConfigDir()
   // Write a temp file and rename it over the store, so a concurrent reader
   // (a hook, another command) sees the old or the new file — never a torn one.
   const p = credentialsPath()
@@ -241,6 +303,8 @@ export interface SaveLoginResult {
   isDefault: boolean
   /** The repository now bound to this server, if the save bound one. */
   boundRepo: string | null
+  /** Why `bindCwd` could not be bound (git failed there), if it could not. */
+  bindError?: string
 }
 
 /**
@@ -255,21 +319,29 @@ export function saveLogin(
 ): SaveLoginResult {
   const key = loginKey(creds.apiUrl)
   if (!key) throw new Error(`Invalid API URL "${creds.apiUrl}"`)
-  const store = readLoginStore()
-  store.logins[key] = creds
-  if (!store.default || !store.logins[store.default]) store.default = key
-  const isDefault = store.default === key
-  let boundRepo: string | null = null
-  const repo = opts.bindCwd ? repoKey(opts.bindCwd) : null
-  if (repo) {
-    if (isDefault) delete store.repos[repo]
-    else {
-      store.repos[repo] = key
-      boundRepo = repo
+  const lookup: RepoLookup = opts.bindCwd
+    ? lookupRepoKey(opts.bindCwd)
+    : { key: null }
+  return withLoginStoreLock(() => {
+    const store = readLoginStore()
+    store.logins[key] = creds
+    if (!store.default || !store.logins[store.default]) store.default = key
+    const isDefault = store.default === key
+    let boundRepo: string | null = null
+    const repo = lookup.key
+    if (repo) {
+      if (isDefault) delete store.repos[repo]
+      else {
+        store.repos[repo] = key
+        boundRepo = repo
+      }
     }
-  }
-  writeLoginStore(store)
-  return { key, isDefault, boundRepo }
+    writeLoginStore(store)
+    // A git failure only matters when the login would have bound the repo.
+    return lookup.error && !isDefault
+      ? { key, isDefault, boundRepo, bindError: lookup.error }
+      : { key, isDefault, boundRepo }
+  })
 }
 
 export interface RemovedLogin {
@@ -285,6 +357,10 @@ export interface RemovedLogin {
  * in. Returns null if there was no such login.
  */
 export function removeLogin(key: string): RemovedLogin | null {
+  return withLoginStoreLock(() => removeLoginLocked(key))
+}
+
+function removeLoginLocked(key: string): RemovedLogin | null {
   const store = readLoginStore()
   const removed = store.logins[key]
   if (!removed) return null
@@ -298,7 +374,7 @@ export function removeLogin(key: string): RemovedLogin | null {
     store.default = newDefault
   }
   if (Object.keys(store.logins).length === 0) {
-    fs.unlinkSync(credentialsPath())
+    fs.rmSync(credentialsPath(), { force: true })
   } else {
     writeLoginStore(store)
   }
