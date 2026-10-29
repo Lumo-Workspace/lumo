@@ -171,7 +171,7 @@ export function NewTaskModal({
   const effectiveProjectId = projectId || defaultProjectId || ''
   const { clientMatches } = useDuplicateCheck(title, tasks, effectiveProjectId)
   // LUM-1338: AI entry points follow the workspace's AI feature switches.
-  const { isOn: isAiOn } = useAiFeatures()
+  const { status: aiStatus, isOn: isAiOn } = useAiFeatures()
 
   const {
     suggestion: prioritySuggestion,
@@ -337,7 +337,8 @@ export function NewTaskModal({
     }
 
     // Phase 2: AI semantic matching on submit (LUM-1338: when switched on)
-    if (!isAiOn('duplicateCheck')) {
+    // Not loaded yet → still ask: the server answers [] when switched off.
+    if (aiStatus !== null && !isAiOn('duplicateCheck')) {
       doCreate()
       return
     }
