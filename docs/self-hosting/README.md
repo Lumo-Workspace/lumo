@@ -100,7 +100,9 @@ run `setup.sh --no-local`. The local account's data stays in the database,
 but the account has no password and cannot be signed in to yet: claiming it
 (giving it your email and a password) is not built yet, so for now leave
 local mode only for an instance you are done trying. Any other `LUMO_MODE`
-value stops the app with an error naming the variable.
+value is refused rather than guessed at: every request answers HTTP 500,
+`docker compose logs app` names the variable, and `setup.sh` reports the app
+as unhealthy.
 
 Optional components (email, your own Redis or S3, OAuth, AI keys) are
 configured after the first start: set them in `.env` and run `setup.sh`
