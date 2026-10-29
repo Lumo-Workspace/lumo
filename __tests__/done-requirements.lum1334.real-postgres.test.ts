@@ -4,9 +4,10 @@
  * LUM-1334 — the DONE requirements against a REAL Postgres replayed from
  * every migration (so the new migration applies): both switches default off
  * and are audited when an OWNER turns them on (a MEMBER gets 403); a GitHub
- * review id keeps one row with its latest state; the security plugin's
- * review coverage reads Lumo's AI review and imported agent reviews on the
- * exact head; and the DONE gate refuses, then allows, as the evidence lands.
+ * review id keeps one row with its latest state (a dismissal is final); and
+ * the DONE gate refuses, then allows, as the evidence lands. The security
+ * plugin's review coverage (Lumo's AI review, imported agent reviews) is
+ * covered under __tests__/ee/security/.
  */
 import { createPgliteHarness } from '../scripts/test-support/pglite-harness'
 
@@ -30,7 +31,6 @@ jest.mock('@/lib/logger', () => ({
 
 import { doneRequirementsSettingsService } from '@/lib/services/done-requirements-settings.service'
 import { pullRequestReviewRepository } from '@/lib/repositories/pull-request-review.repository'
-import { prSecurityScanRepository } from '@/ee/security/repositories/pr-security-scan.repository'
 import { readDoneVerdict } from '@/lib/services/done-verdict.service'
 import { memberAuditContext } from '@/lib/api/audit-context'
 import { taskStatusService } from '@/lib/services/task-status.service'
@@ -41,7 +41,6 @@ const WS = 'ws_req'
 const OWNER = 'm_req_owner'
 const MEMBER = 'm_req_member'
 const HEAD = 'a'.repeat(40)
-const OLD = 'c'.repeat(40)
 const caller = (memberId: string) => ({
   workspaceId: WS,
   memberId,
@@ -196,44 +195,15 @@ it('a GitHub review id keeps one row holding its latest state; a dismissal is fi
   })
 })
 
-it("Lumo's AI review or an imported agent review on the exact head covers it", async () => {
-  await harness.insert('pr_security_scans', {
-    id: 'scan-old',
+it("a person's approval on the head covers the review requirement", async () => {
+  await pullRequestReviewRepository.upsert({
     pullRequestId: 'pr',
-    workspaceId: WS,
-    headSha: OLD,
-    trigger: 'PR_EVENT',
-    judgeStatus: 'RAN',
-    detectorVersion: 'v',
+    githubReviewId: '988',
+    reviewerLogin: 'bob',
+    state: 'APPROVED',
+    commitSha: HEAD,
+    submittedAt: new Date('2026-10-28T11:00:00Z'),
   })
-  await harness.insert('pr_security_scans', {
-    id: 'scan-head',
-    pullRequestId: 'pr',
-    workspaceId: WS,
-    headSha: HEAD,
-    trigger: 'PR_EVENT',
-    judgeStatus: 'SKIPPED',
-    detectorVersion: 'v',
-  })
-  const heads = [{ pullRequestId: 'pr', headSha: HEAD }]
-  // AI review ran only on an older head; the head's own scan skipped it.
-  expect(await prSecurityScanRepository.findReviewedHeads(heads)).toEqual([])
-
-  await harness.prisma!.prSecurityScan.update({
-    where: { id: 'scan-head' },
-    data: { agentReviewTools: ['claude-code'] },
-  })
-  expect(await prSecurityScanRepository.findReviewedHeads(heads)).toEqual([
-    'pr',
-  ])
-  await harness.prisma!.prSecurityScan.update({
-    where: { id: 'scan-head' },
-    data: { agentReviewTools: [], judgeStatus: 'RAN' },
-  })
-  expect(await prSecurityScanRepository.findReviewedHeads(heads)).toEqual([
-    'pr',
-  ])
-
   expect((await readDoneVerdict('task', WS)).blockers).toEqual([
     expect.objectContaining({
       plane: 'DONE_REQUIREMENT',
