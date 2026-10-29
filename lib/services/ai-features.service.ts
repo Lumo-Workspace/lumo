@@ -88,6 +88,14 @@ export const aiFeaturesService = {
     }
   },
 
+  /**
+   * For batch jobs: the workspaces that switched `feature` off, to leave
+   * out in the batch query itself.
+   */
+  workspaceIdsWithFeatureOff(feature: AiFeature): Promise<string[]> {
+    return aiFeatureSwitchRepository.findWorkspaceIdsWithFeatureOff(feature)
+  },
+
   /** Whether the deployment has a model configured at all. */
   isAiConfigured(): boolean {
     return isAiConfigured()

@@ -150,7 +150,12 @@ export const fragmentUsageAuditService = {
       await lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks(
         limit,
         undefined,
-        { skipFeatureOff: 'memoryConsolidation' }
+        {
+          excludeWorkspaceIds:
+            await aiFeaturesService.workspaceIdsWithFeatureOff(
+              'memoryConsolidation'
+            ),
+        }
       )
     for (const id of sessionIds) {
       try {

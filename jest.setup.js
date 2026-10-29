@@ -64,6 +64,7 @@ jest.mock('@/lib/services/ai-features.service', () => {
       ...actual.aiFeaturesService,
       isEnabled: jest.fn(async () => true),
       isAiConfigured: jest.fn(() => true),
+      workspaceIdsWithFeatureOff: jest.fn(async () => []),
       assertEnabled: jest.fn(async () => undefined),
     },
   }

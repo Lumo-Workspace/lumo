@@ -3,6 +3,7 @@ import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 const mockFindSprint = jest.fn()
 const mockComputeStatsData = jest.fn()
 const mockSave = jest.fn()
+const mockFindBySprintId = jest.fn()
 const mockLLM = jest.fn()
 const mockFindPendingSprintJob = jest.fn()
 const mockMarkCompleted = jest.fn()
@@ -23,6 +24,7 @@ jest.mock('@/lib/repositories/sprint.repository', () => ({
 jest.mock('@/lib/repositories/sprint-summary.repository', () => ({
   sprintSummaryRepository: {
     save: (...a: any[]) => mockSave(...a),
+    findBySprintId: (...a: any[]) => mockFindBySprintId(...a),
     computeStatsData: (...a: any[]) => mockComputeStatsData(...a),
   },
 }))
@@ -159,6 +161,29 @@ describe('sprintSummaryService.generate', () => {
       report: '',
     })
     expect(mockMarkFailed).not.toHaveBeenCalled()
+  })
+
+  it('LUM-1338: retro write-ups off — a write-up generated earlier is kept, not blanked', async () => {
+    const { aiFeaturesService } = jest.requireMock(
+      '@/lib/services/ai-features.service'
+    )
+    aiFeaturesService.isEnabled.mockResolvedValueOnce(false)
+    mockFindSprint.mockResolvedValueOnce(CLOSED_SPRINT)
+    mockComputeStatsData.mockResolvedValueOnce(STATS_DATA)
+    mockFindBySprintId.mockResolvedValueOnce({
+      tldr: 'old tldr',
+      report: 'old report',
+    })
+    mockSave.mockResolvedValueOnce({ id: 'summary-1' })
+
+    await sprintSummaryService.generate('sprint-1')
+
+    expect(mockLLM).not.toHaveBeenCalled()
+    expect(mockSave).toHaveBeenCalledWith('sprint-1', {
+      stats: STATS_DATA.stats,
+      tldr: 'old tldr',
+      report: 'old report',
+    })
   })
 
   it('marks pending GenerationJob as completed with summaryId on success', async () => {

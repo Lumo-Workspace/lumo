@@ -232,14 +232,18 @@ describe('auditDoneTaskSessions — AI feature switches (LUM-1338)', () => {
   )
 
   it('asks the query to leave out workspaces with memory consolidation off', async () => {
+    aiFeaturesService.workspaceIdsWithFeatureOff.mockResolvedValueOnce([
+      'w_off',
+    ])
     ;(lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks as jest.Mock) =
       jest.fn().mockResolvedValue([])
     await fragmentUsageAuditService.auditDoneTaskSessions(5)
+    expect(aiFeaturesService.workspaceIdsWithFeatureOff).toHaveBeenCalledWith(
+      'memoryConsolidation'
+    )
     expect(
       lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks
-    ).toHaveBeenCalledWith(5, undefined, {
-      skipFeatureOff: 'memoryConsolidation',
-    })
+    ).toHaveBeenCalledWith(5, undefined, { excludeWorkspaceIds: ['w_off'] })
   })
 
   it('does nothing without a model', async () => {

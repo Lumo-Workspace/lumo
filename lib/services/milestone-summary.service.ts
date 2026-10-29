@@ -36,7 +36,8 @@ export const milestoneSummaryService = {
       )
 
       // LUM-1338: retro summaries switched off (or no model) — the stats
-      // still save; with no write-up there is nothing to distil below.
+      // still save, a write-up generated earlier is kept, and nothing new is
+      // distilled below.
       const retroOn = await aiFeaturesService.isEnabled(
         { projectId: milestone.projectId },
         'retroSummary'
@@ -52,7 +53,9 @@ export const milestoneSummaryService = {
             tasks,
             struggle,
           })
-        : { tldr: '', report: '' }
+        : ((await milestoneSummaryRepository.findByMilestoneId(
+            milestoneId
+          )) ?? { tldr: '', report: '' })
 
       const savedSummary = await milestoneSummaryRepository.save(milestoneId, {
         stats,

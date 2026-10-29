@@ -54,17 +54,22 @@ export const aiFeatureSwitchRepository = {
     })
     return session?.workspace ? session.workspace.aiFeatureSwitches : null
   },
+
+  /** The workspaces whose stored switches turn `feature` off. */
+  async findWorkspaceIdsWithFeatureOff(feature: AiFeature): Promise<string[]> {
+    const rows = await prisma.workspace.findMany({
+      where: featureOffWhere(feature),
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
 }
 
 /**
- * The workspaces whose stored switches turn `feature` off (its own switch,
- * its group's or the master). For batch queries that must skip them in the
- * query itself — skipping after the fetch would let the same rows fill every
- * batch.
+ * Positive filter only: a JSON path that is absent compares as NULL, so
+ * wrapping this in NOT would drop every workspace still on the defaults.
  */
-export function aiFeatureOffWorkspaceWhere(
-  feature: AiFeature
-): Prisma.WorkspaceWhereInput {
+function featureOffWhere(feature: AiFeature): Prisma.WorkspaceWhereInput {
   return {
     OR: [
       { aiFeatureSwitches: { path: ['master'], equals: false } },

@@ -6,8 +6,6 @@ import type {
   LineageOutcome,
 } from '@prisma/client'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
-import { aiFeatureOffWorkspaceWhere } from '@/lib/repositories/ai-feature-switch.repository'
-import type { AiFeature } from '@/lib/ai-features/registry'
 
 /**
  * One lineage edge to persist: a context fragment that was injected into a
@@ -492,10 +490,11 @@ export const lineageEdgeRepository = {
   async listUnvotedSessionIdsForDoneTasks(
     limit: number,
     tx?: Prisma.TransactionClient,
-    /** LUM-1338: leave out tasks in workspaces that switched this off. */
-    opts: { skipFeatureOff?: AiFeature } = {}
+    /** LUM-1338: leave out tasks of these workspaces. */
+    opts: { excludeWorkspaceIds?: string[] } = {}
   ): Promise<string[]> {
     const client = tx ?? prisma
+    const exclude = opts.excludeWorkspaceIds ?? []
     const rows = await client.lineageEdge.groupBy({
       by: ['sessionId'],
       where: {
@@ -503,12 +502,8 @@ export const lineageEdgeRepository = {
         usedAt: null,
         task: {
           status: 'DONE',
-          ...(opts.skipFeatureOff && {
-            project: {
-              workspace: {
-                NOT: aiFeatureOffWorkspaceWhere(opts.skipFeatureOff),
-              },
-            },
+          ...(exclude.length > 0 && {
+            project: { workspaceId: { notIn: exclude } },
           }),
         },
       },

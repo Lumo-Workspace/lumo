@@ -55,7 +55,8 @@ export const sprintSummaryService = {
       )
 
       // LUM-1338: retro summaries switched off (or no model) — the stats
-      // still save, so the retro shows its figures without the write-up.
+      // still save, so the retro shows its figures; a write-up generated
+      // earlier is kept, never blanked.
       const { tldr, report } = (await aiFeaturesService.isEnabled(
         { workspaceId: sprint.team.workspaceId },
         'retroSummary'
@@ -67,7 +68,10 @@ export const sprintSummaryService = {
             tasks,
             struggle,
           })
-        : { tldr: '', report: '' }
+        : ((await sprintSummaryRepository.findBySprintId(sprintId)) ?? {
+            tldr: '',
+            report: '',
+          })
 
       const savedSummary = await sprintSummaryRepository.save(sprintId, {
         stats,
