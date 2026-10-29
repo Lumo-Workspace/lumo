@@ -106,6 +106,7 @@ export async function workspaceDoneRequirements(
   if (!current.ok || !current.data) return 1
 
   let result = current.data
+  let saved = false
   if (update) {
     if (!current.data.canEdit) {
       console.error(
@@ -128,6 +129,7 @@ export async function workspaceDoneRequirements(
       )
       if (!r.ok || !r.data) return 1
       result = r.data
+      saved = true
     }
   }
 
@@ -135,7 +137,7 @@ export async function workspaceDoneRequirements(
     emitJson(withVersion(result))
     return
   }
-  if (update) process.stdout.write('Done requirements saved.\n\n')
+  if (saved) process.stdout.write('Done requirements saved.\n\n')
   process.stdout.write(formatDoneRequirements(result) + '\n')
 }
 

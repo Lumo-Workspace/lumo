@@ -2143,11 +2143,6 @@ export const prSecurityScanRepository = {
   },
 
   /**
-   * LUM-1186 — does any linked PR of the task have a scan at all? The Done
-   * gate's "not scanned" vs "clear" (same set as the web's `latest !== null`).
-   * One indexed id read, no findings hydrated.
-   */
-  /**
    * LUM-1334 — the scans that reviewed one of these exact PR heads: Lumo's AI
    * review ran (`judgeStatus` RAN) or an agent review was imported into it.
    * Returns the covered PR ids.
@@ -2176,6 +2171,11 @@ export const prSecurityScanRepository = {
     return [...new Set(rows.map(r => r.pullRequestId))]
   },
 
+  /**
+   * LUM-1186 — does any linked PR of the task have a scan at all? The Done
+   * gate's "not scanned" vs "clear" (same set as the web's `latest !== null`).
+   * One indexed id read, no findings hydrated.
+   */
   async anyScanForTask(taskId: string): Promise<boolean> {
     const row = await prisma.prSecurityScan.findFirst({
       where: { pullRequest: { taskId } },

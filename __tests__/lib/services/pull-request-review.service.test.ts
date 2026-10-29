@@ -29,6 +29,7 @@ function payload(review: Record<string, unknown> = {}) {
       commit_id: 'a'.repeat(40),
       submitted_at: '2026-10-28T10:00:00Z',
       user: { login: 'alice', type: 'User' },
+      author_association: 'MEMBER',
       ...review,
     },
     pull_request: { number: 12 },
@@ -58,6 +59,26 @@ describe('parseReviewPayload', () => {
     expect(parseReviewPayload(payload({ state: 'DISMISSED' }))?.state).toBe(
       'DISMISSED'
     )
+  })
+
+  it('counts an approval only from the repo owner, a collaborator or an org member', () => {
+    for (const a of ['OWNER', 'collaborator', 'MEMBER'])
+      expect(
+        parseReviewPayload(payload({ author_association: a }))?.state
+      ).toBe('APPROVED')
+    for (const a of [
+      'CONTRIBUTOR',
+      'FIRST_TIME_CONTRIBUTOR',
+      'NONE',
+      undefined,
+    ])
+      expect(parseReviewPayload(payload({ author_association: a }))).toBeNull()
+    // A change request from outside still withdraws nothing it could grant.
+    expect(
+      parseReviewPayload(
+        payload({ state: 'changes_requested', author_association: 'NONE' })
+      )?.state
+    ).toBe('CHANGES_REQUESTED')
   })
 
   it('skips comments, bots and malformed payloads', () => {

@@ -2,13 +2,18 @@
  * LUM-1334 — records the GitHub reviews the DONE gate's review requirement
  * reads. Only human APPROVED / CHANGES_REQUESTED / DISMISSED reviews are kept:
  * a COMMENTED review neither grants nor withdraws an approval, and a bot's
- * approval is not a review by a person.
+ * approval is not a review by a person. An approval counts only from someone
+ * tied to the repository (its owner, an invited collaborator, or a member of
+ * the owning org) — anyone can approve a PR they can see, so a drive-by
+ * account on a public repository must not satisfy the requirement.
  */
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import {
   pullRequestReviewRepository,
   type PullRequestReviewWrite,
 } from '@/lib/repositories/pull-request-review.repository'
+
+const APPROVER_ASSOCIATIONS = new Set(['OWNER', 'COLLABORATOR', 'MEMBER'])
 
 const STORED_STATES: Record<string, PullRequestReviewWrite['state']> = {
   approved: 'APPROVED',
@@ -22,7 +27,8 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 /**
  * The review write a `pull_request_review` payload carries, or null when it
- * is not one we store (commented, a bot, a malformed payload).
+ * is not one we store (commented, a bot, an approval from outside the
+ * repository, a malformed payload).
  */
 export function parseReviewPayload(payload: Record<string, unknown>):
   | (Omit<PullRequestReviewWrite, 'pullRequestId'> & {
@@ -45,6 +51,14 @@ export function parseReviewPayload(payload: Record<string, unknown>):
   if (!state) return null
   const user = isRecord(review.user) ? review.user : null
   if (!user || typeof user.login !== 'string' || user.type === 'Bot')
+    return null
+  if (
+    state === 'APPROVED' &&
+    !(
+      typeof review.author_association === 'string' &&
+      APPROVER_ASSOCIATIONS.has(review.author_association.toUpperCase())
+    )
+  )
     return null
   const id = review.id
   if (typeof id !== 'number' && typeof id !== 'string') return null

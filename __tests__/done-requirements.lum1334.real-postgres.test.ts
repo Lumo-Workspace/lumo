@@ -172,7 +172,7 @@ it('task status serves the same requirements: the gate row and one blocking row 
   ])
 })
 
-it('a GitHub review id keeps one row holding its latest state', async () => {
+it('a GitHub review id keeps one row holding its latest state; a dismissal is final', async () => {
   const base = {
     pullRequestId: 'pr',
     githubReviewId: '987',
@@ -185,6 +185,11 @@ it('a GitHub review id keeps one row holding its latest state', async () => {
   const rows = await pullRequestReviewRepository.listByPullRequestIds(['pr'])
   expect(rows).toHaveLength(1)
   expect(rows[0]!.state).toBe('DISMISSED')
+  // A late-delivered approval never brings a dismissed review back.
+  await pullRequestReviewRepository.upsert({ ...base, state: 'APPROVED' })
+  expect(
+    (await pullRequestReviewRepository.listByPullRequestIds(['pr']))[0]!.state
+  ).toBe('DISMISSED')
   // A dismissed approval does not count.
   expect((await readDoneVerdict('task', WS)).blockers[0]).toMatchObject({
     missing: expect.arrayContaining([{ requirement: 'REVIEW', prNumber: 12 }]),

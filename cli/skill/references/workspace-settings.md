@@ -61,7 +61,7 @@ Flags:
 Two OWNER switches, **both off by default**, the same as Settings → Workspace → **Done requirements**. While one is on, every task with a linked PR (closed-unmerged PRs don't count) is refused DONE (409 / exit 5 `DONE_REQUIREMENT`, [confirmation.md](confirmation.md)) until **each** such PR has, on its latest commit:
 
 - **`--test-case on`** — a test case whose **latest** run is PASS (not capped UNPROVEN), on a clean tree, at the PR's head or merge commit, recorded against that PR or no PR ([test-case-runs.md](test-case-runs.md)).
-- **`--review on`** — a review of the head: Lumo's AI review ran on it, an agent review was imported into it (`lumo review import`), or a GitHub approval (a person's, not a bot's) on that commit that was not later dismissed or followed by that reviewer's change request.
+- **`--review on`** — a review of the head: Lumo's AI review ran on it, an agent review was imported into it (`lumo review import`), or a GitHub approval on that commit from a person (not a bot) who is the repo owner, a collaborator or a member of the owning org, that was not later dismissed or followed by that reviewer's change request.
 
 A push moves the head, so both must be met again. `update` with no flag exits 2; **every change is exit-4 gated** (workspace-wide); a value already stored is a no-op. A non-owner gets `Error: only workspace owners can change the Done requirements` (exit 1). Audited as `workspace.security_settings_updated`. `--json` prints `{ testCase, review, canEdit }`.
 

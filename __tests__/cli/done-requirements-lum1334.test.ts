@@ -170,6 +170,7 @@ describe('lumo workspace done-requirements', () => {
       await workspaceDoneRequirementsUpdate({ review: 'off' })
     ).toBeUndefined()
     expect(calls).toHaveLength(1)
+    expect(out).not.toMatch(/saved/)
   })
 
   it('refuses a non-owner before asking for confirmation, and an empty update', async () => {

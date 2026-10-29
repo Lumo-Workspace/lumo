@@ -11,17 +11,34 @@ export interface PullRequestReviewWrite {
 }
 
 export const pullRequestReviewRepository = {
-  /** One row per GitHub review id; a later event (e.g. dismissed) replaces its state. */
+  /**
+   * One row per GitHub review id. GitHub only ever moves a review to
+   * dismissed, so a dismissal is final: a late-delivered earlier event (the
+   * approval arriving after its dismissal) never brings the approval back.
+   */
   async upsert(review: PullRequestReviewWrite) {
     const { pullRequestId, githubReviewId, ...fields } = review
-    return prisma.pullRequestReview.upsert({
-      where: {
-        pullRequestId_githubReviewId: { pullRequestId, githubReviewId },
-      },
+    const where = {
+      pullRequestId_githubReviewId: { pullRequestId, githubReviewId },
+    }
+    if (review.state === 'DISMISSED')
+      return prisma.pullRequestReview.upsert({
+        where,
+        create: review,
+        update: fields,
+        select: { id: true },
+      })
+    const row = await prisma.pullRequestReview.upsert({
+      where,
       create: review,
-      update: fields,
+      update: {},
       select: { id: true },
     })
+    await prisma.pullRequestReview.updateMany({
+      where: { pullRequestId, githubReviewId, state: { not: 'DISMISSED' } },
+      data: fields,
+    })
+    return row
   },
 
   /** The stored reviews of these PRs, oldest first. */
