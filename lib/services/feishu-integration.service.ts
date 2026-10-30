@@ -586,20 +586,23 @@ export async function getUserClientForMember(
       }
     },
   })
-  return {
-    async get(path) {
-      try {
-        return await raw.get(path)
-      } catch (error) {
-        if (error instanceof FeishuNeedsReauthError) {
-          await feishuIntegrationRepository.markAccountNeedsReauth(
-            workspaceId,
-            row.id,
-            storedRefreshToken
-          )
-        }
-        throw error
+  const accountId = row.id
+  async function markOnReauth<T>(call: () => Promise<T>): Promise<T> {
+    try {
+      return await call()
+    } catch (error) {
+      if (error instanceof FeishuNeedsReauthError) {
+        await feishuIntegrationRepository.markAccountNeedsReauth(
+          workspaceId,
+          accountId,
+          storedRefreshToken
+        )
       }
-    },
+      throw error
+    }
+  }
+  return {
+    get: path => markOnReauth(() => raw.get(path)),
+    getBinary: path => markOnReauth(() => raw.getBinary(path)),
   }
 }

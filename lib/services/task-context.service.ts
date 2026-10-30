@@ -386,6 +386,8 @@ interface ContextDocument {
   summary: string | null
   summaryGeneratedAt: Date | null
   content: string | null
+  /** LUM-1343: set when the body is mirrored from Feishu (external). */
+  feishuDocToken?: string | null
 }
 
 /**
@@ -1318,6 +1320,7 @@ export const taskContextService = {
         slug: d.slug ?? null,
         title: d.title,
         summary: d.summary,
+        ...(d.feishuDocToken ? { external: 'feishu' as const } : {}),
       }))
     )
     // Serve the cached summaries now; refresh stale ones in the background.

@@ -1,7 +1,7 @@
 'use client'
 
 import { MemberAvatar } from '@/components/MemberAvatar'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { Card } from '@/components/ui/card'
 import { Plus, MoreHorizontal, Trash2, Link } from 'lucide-react'
@@ -54,6 +54,8 @@ interface DocumentsPageProps {
   onNewDocument: () => void
   onSelectDocument: (doc: ApiDocument) => void
   onDeleteDocument: (id: string) => void
+  /** Extra header actions (e.g. LUM-1343's Feishu import), before "New". */
+  extraActions?: ReactNode
 }
 
 const FILTERS: { key: DocVisibility | 'ALL'; msgId: string }[] = [
@@ -86,6 +88,7 @@ export function DocumentsPage({
   onNewDocument,
   onSelectDocument,
   onDeleteDocument,
+  extraActions,
 }: DocumentsPageProps) {
   const intl = useIntl()
   const [search, setSearch] = useState('')
@@ -300,6 +303,7 @@ export function DocumentsPage({
               className='w-48'
             />
             <ViewToggle value={viewMode} onChange={handleSetViewMode} />
+            {extraActions}
             <Button size='sm' onClick={onNewDocument} className='gap-1.5'>
               <Plus size={14} />
               {intl.formatMessage({ id: 'documents.newDocument' })}

@@ -25,6 +25,11 @@ export interface CreateDocumentData {
   googleDocId?: string | null
   googleDocImporterId?: string | null
   googleDocSyncedAt?: Date | null
+  // Feishu / Lark import source (LUM-1343). Null for native docs.
+  feishuDocToken?: string | null
+  feishuSourceUrl?: string | null
+  feishuImporterId?: string | null
+  feishuSyncedAt?: Date | null
 }
 
 export interface DocumentUpdateData {
@@ -46,6 +51,9 @@ export interface DocumentUpdateData {
   // Google Docs one-way sync bookkeeping (LUM-127).
   googleDocSyncedAt?: Date | null
   googleDocSyncError?: string | null
+  // Feishu one-way sync bookkeeping (LUM-1343).
+  feishuSyncedAt?: Date | null
+  feishuSyncError?: string | null
 }
 
 export interface DocumentFilters {
@@ -299,6 +307,10 @@ export const documentRepository = {
           googleDocId: data.googleDocId ?? null,
           googleDocImporterId: data.googleDocImporterId ?? null,
           googleDocSyncedAt: data.googleDocSyncedAt ?? null,
+          feishuDocToken: data.feishuDocToken ?? null,
+          feishuSourceUrl: data.feishuSourceUrl ?? null,
+          feishuImporterId: data.feishuImporterId ?? null,
+          feishuSyncedAt: data.feishuSyncedAt ?? null,
           ...(data.content !== undefined ? { content: data.content } : {}),
           ...(data.sourceMarkdown !== undefined
             ? { sourceMarkdown: data.sourceMarkdown }
@@ -329,6 +341,19 @@ export const documentRepository = {
         googleDocId: true,
         googleDocImporterId: true,
         googleDocSyncedAt: true,
+      },
+    })
+  },
+
+  /** Read just the Feishu import source metadata for a doc (LUM-1343). */
+  findFeishuSourceMeta(id: string, workspaceId: string) {
+    return prisma.document.findFirst({
+      where: { workspaceId, OR: [{ id }, { slug: id }] },
+      select: {
+        id: true,
+        feishuDocToken: true,
+        feishuSourceUrl: true,
+        feishuImporterId: true,
       },
     })
   },

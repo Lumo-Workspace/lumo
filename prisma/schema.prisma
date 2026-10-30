@@ -2653,6 +2653,15 @@ model Document {
   googleDocSyncedAt   DateTime? // last successful Google → Lumo sync
   googleDocSyncError  String?   @db.Text // last sync failure reason, cleared on success
 
+  // Feishu / Lark import source (LUM-1343). Null for native docs. Additive,
+  // Feishu-specific columns next to the Google ones (no generic source shape
+  // yet — generalising would be a destructive two-release migration).
+  feishuDocToken   String? // docx document_id this doc mirrors (a wiki node resolved to its docx)
+  feishuSourceUrl  String? // the URL the member imported (wiki or docx), for the "open in Feishu" link
+  feishuImporterId String? // WorkspaceMember whose Feishu token re-syncs run as
+  feishuSyncedAt   DateTime? // last successful Feishu → Lumo sync
+  feishuSyncError  String?   @db.Text // last sync failure (stable code), cleared on success
+
   // Per-workspace incrementing identifier. Combined with slugified title to
   // form the user-facing slug below.
   number Int
@@ -2699,6 +2708,7 @@ model Document {
   @@index([projectId])
   @@index([createdById])
   @@index([workspaceId, googleDocId])
+  @@index([workspaceId, feishuDocToken])
   @@index([deletedAt])
   @@index([trashRootId])
 }

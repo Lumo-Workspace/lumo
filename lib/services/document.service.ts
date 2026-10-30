@@ -56,6 +56,10 @@ export interface CreateDocumentInput {
   googleDocId?: string | null
   googleDocImporterId?: string | null
   googleDocSyncedAt?: Date | null
+  feishuDocToken?: string | null
+  feishuSourceUrl?: string | null
+  feishuImporterId?: string | null
+  feishuSyncedAt?: Date | null
 }
 
 export interface UpdateDocumentInput {
@@ -74,6 +78,8 @@ export interface UpdateDocumentInput {
   childOrder?: string[]
   googleDocSyncedAt?: Date | null
   googleDocSyncError?: string | null
+  feishuSyncedAt?: Date | null
+  feishuSyncError?: string | null
   /**
    * Optimistic-concurrency precondition (LUM-409): the contentRevision the
    * caller's edit base was read at. Mismatch → 409, nothing persisted.
@@ -483,6 +489,10 @@ export const documentService = {
       googleDocId: data.googleDocId ?? null,
       googleDocImporterId: data.googleDocImporterId ?? null,
       googleDocSyncedAt: data.googleDocSyncedAt ?? null,
+      feishuDocToken: data.feishuDocToken ?? null,
+      feishuSourceUrl: data.feishuSourceUrl ?? null,
+      feishuImporterId: data.feishuImporterId ?? null,
+      feishuSyncedAt: data.feishuSyncedAt ?? null,
       ...(content !== undefined ? { content } : {}),
       ...(sourceMarkdown !== undefined ? { sourceMarkdown } : {}),
     })
@@ -651,6 +661,10 @@ export const documentService = {
       updateData.googleDocSyncedAt = data.googleDocSyncedAt
     if (data.googleDocSyncError !== undefined)
       updateData.googleDocSyncError = data.googleDocSyncError
+    if (data.feishuSyncedAt !== undefined)
+      updateData.feishuSyncedAt = data.feishuSyncedAt
+    if (data.feishuSyncError !== undefined)
+      updateData.feishuSyncError = data.feishuSyncError
     if (data.tags !== undefined) updateData.tags = data.tags
 
     // Downstream calls must use the resolved cuid (`doc.id`), not the raw

@@ -71,6 +71,39 @@ export const privateFileService = {
   },
 
   /**
+   * LUM-1343: store an image copied from an imported document under the
+   * same workspace image prefix the editor uses. `fileId` is chosen by the
+   * caller from the source's own image id, so a re-sync finds the copy it
+   * made last time and skips it instead of piling up duplicates. Returns the
+   * file-route URL to embed.
+   */
+  async storeImportedImage(
+    workspaceId: string,
+    fileId: string,
+    load: () => Promise<{ body: Buffer; contentType: string }>,
+    origin: string
+  ): Promise<string> {
+    const pathname = imagePathname(workspaceId, fileId)
+    const url = fileRouteUrl(origin, pathname)
+    const { putPrivateFile, openPrivateFile } = await blob()
+    const existing = await openPrivateFile(pathname)
+    if (existing) {
+      await existing.stream.cancel().catch(() => undefined)
+      return url
+    }
+    const { body, contentType } = await load()
+    try {
+      await putPrivateFile(pathname, body, contentType)
+    } catch (error) {
+      // A concurrent import of the same doc may have written it first.
+      const raced = await openPrivateFile(pathname)
+      if (!raced) throw error
+      await raced.stream.cancel().catch(() => undefined)
+    }
+    return url
+  },
+
+  /**
    * LUM-1240: store one feedback evidence file under the submitting
    * workspace's folder (`fileId` is server-chosen). `body` may be the
    * redacted bytes of a text file. Returns the pathname and file-route URL.

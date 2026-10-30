@@ -19,6 +19,7 @@ import { withTitleRoot } from '@/lib/editor/toc-display'
 import { useAutoHideScrollbar } from '../../hooks/useAutoHideScrollbar'
 import { useMentionSources } from '../../hooks/useMentionSources'
 import { DocumentStatsFooter } from '../document/DocumentStatsFooter'
+import { FeishuSourceBar } from '../document/FeishuSourceBar'
 import type { EditorStats } from '@/lib/editor/reading-stats'
 import { cn } from '@/lib/utils'
 import { MemberAvatar } from '@/components/MemberAvatar'
@@ -668,6 +669,21 @@ export function DocumentEditorPage({
                     </>
                   )}
                 </div>
+
+                {/* LUM-1343: imported from Feishu — sync state + Resync */}
+                {doc.feishuDocToken && (
+                  <FeishuSourceBar
+                    documentId={doc.id}
+                    sourceUrl={doc.feishuSourceUrl ?? null}
+                    syncedAt={doc.feishuSyncedAt ?? null}
+                    syncError={doc.feishuSyncError ?? null}
+                    onBeforeResync={flushAsync}
+                    onAfterResync={async succeeded => {
+                      await reloadDocument()
+                      if (succeeded) setEditorReloadKey(k => k + 1)
+                    }}
+                  />
+                )}
 
                 {/* Editor */}
                 <DescriptionEditor

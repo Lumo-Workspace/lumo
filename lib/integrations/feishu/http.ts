@@ -76,3 +76,37 @@ export async function feishuRequest(
   }
   return body
 }
+
+/** A downloaded file body (LUM-1343: doc images). */
+export interface FeishuBinary {
+  body: ArrayBuffer
+  contentType: string
+}
+
+/**
+ * GET a file stream (e.g. `drive/v1/medias/:token/download`). Success is a
+ * 2xx whose body is not a JSON envelope; a JSON body or a non-2xx is read as
+ * the usual `{ code, msg }` error and thrown as FeishuApiError.
+ */
+export async function feishuRequestBinary(
+  url: string,
+  init: { token: string },
+  endpoint: string
+): Promise<FeishuBinary> {
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${init.token}` },
+  })
+  const contentType = res.headers.get('content-type') ?? ''
+  if (res.ok && !/application\/json/i.test(contentType)) {
+    return { body: await res.arrayBuffer(), contentType }
+  }
+  const body = await readJson(res)
+  const code = typeof body.code === 'number' ? body.code : null
+  throw new FeishuApiError(
+    endpoint,
+    res.status,
+    code ?? (res.ok ? -1 : null),
+    errorDetail(body)
+  )
+}

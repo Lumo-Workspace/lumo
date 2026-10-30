@@ -1,0 +1,485 @@
+{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "has_more": false,
+    "items": [
+      {
+        "block_id": "doxcnPAGE",
+        "block_type": 1,
+        "page": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Spec title"
+              }
+            }
+          ]
+        },
+        "children": [
+          "h1",
+          "h2",
+          "h9",
+          "p1",
+          "b1",
+          "b2",
+          "o1",
+          "o2",
+          "c1",
+          "q1",
+          "td1",
+          "td2",
+          "co1",
+          "dv1",
+          "img1",
+          "tb1",
+          "qc1",
+          "sh1",
+          "bd1"
+        ]
+      },
+      {
+        "block_id": "h1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 3,
+        "heading1": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Spec title"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "h2",
+        "parent_id": "doxcnPAGE",
+        "block_type": 4,
+        "heading2": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Goals"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "h9",
+        "parent_id": "doxcnPAGE",
+        "block_type": 11,
+        "heading9": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Deep heading"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "p1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 2,
+        "text": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Plain "
+              }
+            },
+            {
+              "text_run": {
+                "content": "bold",
+                "text_element_style": {
+                  "bold": true
+                }
+              }
+            },
+            {
+              "text_run": {
+                "content": " and "
+              }
+            },
+            {
+              "text_run": {
+                "content": "italic",
+                "text_element_style": {
+                  "italic": true
+                }
+              }
+            },
+            {
+              "text_run": {
+                "content": " and "
+              }
+            },
+            {
+              "text_run": {
+                "content": "struck",
+                "text_element_style": {
+                  "strikethrough": true
+                }
+              }
+            },
+            {
+              "text_run": {
+                "content": " and "
+              }
+            },
+            {
+              "text_run": {
+                "content": "code()",
+                "text_element_style": {
+                  "inline_code": true
+                }
+              }
+            },
+            {
+              "text_run": {
+                "content": " and "
+              }
+            },
+            {
+              "text_run": {
+                "content": "a link",
+                "text_element_style": {
+                  "link": {
+                    "url": "https%3A%2F%2Fexample.com%2Fspec"
+                  }
+                }
+              }
+            },
+            {
+              "text_run": {
+                "content": "."
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "b1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 12,
+        "bullet": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "First bullet"
+              }
+            }
+          ]
+        },
+        "children": ["b1c"]
+      },
+      {
+        "block_id": "b1c",
+        "parent_id": "b1",
+        "block_type": 12,
+        "bullet": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Nested bullet"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "b2",
+        "parent_id": "doxcnPAGE",
+        "block_type": 12,
+        "bullet": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Second bullet"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "o1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 13,
+        "ordered": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Step one"
+              }
+            }
+          ],
+          "style": {
+            "sequence": "1"
+          }
+        }
+      },
+      {
+        "block_id": "o2",
+        "parent_id": "doxcnPAGE",
+        "block_type": 13,
+        "ordered": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Step two"
+              }
+            }
+          ],
+          "style": {
+            "sequence": "auto"
+          }
+        }
+      },
+      {
+        "block_id": "c1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 14,
+        "code": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "const x = 1\nconsole.log(x)"
+              }
+            }
+          ],
+          "style": {
+            "language": 63
+          }
+        }
+      },
+      {
+        "block_id": "q1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 15,
+        "quote": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "A quoted line"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "td1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 17,
+        "todo": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Done item"
+              }
+            }
+          ],
+          "style": {
+            "done": true
+          }
+        }
+      },
+      {
+        "block_id": "td2",
+        "parent_id": "doxcnPAGE",
+        "block_type": 17,
+        "todo": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Open item"
+              }
+            }
+          ],
+          "style": {
+            "done": false
+          }
+        }
+      },
+      {
+        "block_id": "co1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 19,
+        "callout": {
+          "emoji_id": "bulb"
+        },
+        "children": ["co1t"]
+      },
+      {
+        "block_id": "co1t",
+        "parent_id": "co1",
+        "block_type": 2,
+        "text": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Callout body"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "dv1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 22,
+        "divider": {}
+      },
+      {
+        "block_id": "img1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 27,
+        "image": {
+          "token": "boxcnIMAGE1",
+          "width": 640,
+          "height": 480,
+          "caption": {
+            "content": "Architecture"
+          }
+        }
+      },
+      {
+        "block_id": "tb1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 31,
+        "table": {
+          "cells": ["tc11", "tc12", "tc21", "tc22"],
+          "property": {
+            "row_size": 2,
+            "column_size": 2,
+            "header_row": true
+          }
+        },
+        "children": ["tc11", "tc12", "tc21", "tc22"]
+      },
+      {
+        "block_id": "tc11",
+        "parent_id": "tb1",
+        "block_type": 32,
+        "table_cell": {},
+        "children": ["tc11t"]
+      },
+      {
+        "block_id": "tc11t",
+        "parent_id": "tc11",
+        "block_type": 2,
+        "text": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Name"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "tc12",
+        "parent_id": "tb1",
+        "block_type": 32,
+        "table_cell": {},
+        "children": ["tc12t"]
+      },
+      {
+        "block_id": "tc12t",
+        "parent_id": "tc12",
+        "block_type": 2,
+        "text": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Value"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "tc21",
+        "parent_id": "tb1",
+        "block_type": 32,
+        "table_cell": {},
+        "children": ["tc21t"]
+      },
+      {
+        "block_id": "tc21t",
+        "parent_id": "tc21",
+        "block_type": 2,
+        "text": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "limit | cap"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "tc22",
+        "parent_id": "tb1",
+        "block_type": 32,
+        "table_cell": {},
+        "children": ["tc22t"]
+      },
+      {
+        "block_id": "tc22t",
+        "parent_id": "tc22",
+        "block_type": 2,
+        "text": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "42"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "qc1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 34,
+        "quote_container": {},
+        "children": ["qc1t"]
+      },
+      {
+        "block_id": "qc1t",
+        "parent_id": "qc1",
+        "block_type": 2,
+        "text": {
+          "elements": [
+            {
+              "text_run": {
+                "content": "Quote container body"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "block_id": "sh1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 30,
+        "sheet": {
+          "token": "shtcnX_1"
+        }
+      },
+      {
+        "block_id": "bd1",
+        "parent_id": "doxcnPAGE",
+        "block_type": 43,
+        "board": {
+          "token": "boardX"
+        }
+      }
+    ]
+  }
+}

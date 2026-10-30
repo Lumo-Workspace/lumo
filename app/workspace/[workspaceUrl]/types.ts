@@ -439,6 +439,12 @@ export interface ApiDocumentDetail extends ApiDocument {
   children: ApiDocument[]
   shares: ApiDocumentShare[]
   ancestors?: ApiDocumentAncestor[]
+  /** LUM-1343: set when the doc was imported from Feishu / Lark. */
+  feishuDocToken?: string | null
+  feishuSourceUrl?: string | null
+  feishuSyncedAt?: string | null
+  /** Stable error code of the last failed re-sync; null after a success. */
+  feishuSyncError?: string | null
 }
 
 export interface ApiDocumentShare {

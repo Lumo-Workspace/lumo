@@ -381,6 +381,15 @@ describe('renderDocumentSection', () => {
     expect(out).toContain('lumo doc show doc_1')
   })
 
+  it('labels a doc mirrored from Feishu as external (LUM-1343)', () => {
+    const out = renderDocumentSection([
+      { id: 'doc_2', title: 'Spec', summary: null, external: 'feishu' },
+      { id: 'doc_3', title: 'Native', summary: null },
+    ])
+    expect(out).toContain('### [external:feishu] Spec')
+    expect(out).toContain('### Native')
+  })
+
   it('returns empty string for empty set', () => {
     expect(renderDocumentSection([] as any)).toBe('')
   })

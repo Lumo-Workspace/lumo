@@ -118,6 +118,8 @@ export const API = {
       `/api/documents/${id}/shares/${shareId}`,
     move: (id: string) => `/api/documents/${id}/move`,
     tree: '/api/documents/tree',
+    importFeishu: '/api/documents/import-feishu',
+    syncFeishu: (id: string) => `/api/documents/${id}/sync-feishu`,
     comments: (docId: string) => `/api/documents/${docId}/comments`,
     comment: (docId: string, commentId: string) =>
       `/api/documents/${docId}/comments/${commentId}`,

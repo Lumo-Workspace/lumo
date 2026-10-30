@@ -4,6 +4,11 @@ export interface DocumentCard {
   slug?: string | null
   title: string
   summary: string | null
+  /**
+   * LUM-1343: the body is mirrored from an outside system, so the card is
+   * labeled with its origin like other externally-fetched entries.
+   */
+  external?: 'feishu'
 }
 
 /**
@@ -17,7 +22,8 @@ export function renderDocumentSection(docs: DocumentCard[]): string {
   const lines: string[] = ['## Documents', '']
 
   for (const d of docs) {
-    lines.push(`### ${d.title}`)
+    const origin = d.external ? `[external:${d.external}] ` : ''
+    lines.push(`### ${origin}${d.title}`)
     const summary = d.summary?.trim()
     if (summary) lines.push(summary)
     lines.push(`  ↳ full text: lumo doc show ${d.slug || d.id}`)

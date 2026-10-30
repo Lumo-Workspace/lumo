@@ -21,7 +21,12 @@
  */
 import type { FeishuAppCredentials } from './config'
 import { feishuHosts } from './config'
-import { FeishuApiError, feishuRequest } from './http'
+import {
+  FeishuApiError,
+  feishuRequest,
+  feishuRequestBinary,
+  type FeishuBinary,
+} from './http'
 import { refreshUserToken } from './oauth'
 
 export class FeishuNeedsReauthError extends Error {
@@ -41,6 +46,8 @@ export interface FeishuClientTokens {
 export interface FeishuUserClient {
   /** GET an `/open-apis/...` path; returns the response body on success. */
   get(path: string): Promise<Record<string, unknown>>
+  /** GET a file stream (LUM-1343: doc images), same token handling as get. */
+  getBinary(path: string): Promise<FeishuBinary>
 }
 
 /** Refresh this long before the access token's own expiry. */
@@ -185,26 +192,39 @@ export function createFeishuUserClient(opts: {
       path.split('?')[0]!
     )
 
-  return {
-    async get(path) {
-      if (inFlight) await inFlight
-      if (tokens.expiresAt.getTime() - now() <= USER_TOKEN_REFRESH_MARGIN_MS) {
-        await refresh()
-      }
-      const usedToken = tokens.accessToken
+  const sendBinary = (path: string, accessToken: string) =>
+    feishuRequestBinary(
+      `${feishuHosts(opts.app.domain).openBase}${path}`,
+      { token: accessToken },
+      path.split('?')[0]!
+    )
+
+  /** Refresh near expiry, send, and retry once on a rejected token. */
+  async function withToken<T>(
+    sendWith: (accessToken: string) => Promise<T>
+  ): Promise<T> {
+    if (inFlight) await inFlight
+    if (tokens.expiresAt.getTime() - now() <= USER_TOKEN_REFRESH_MARGIN_MS) {
+      await refresh()
+    }
+    const usedToken = tokens.accessToken
+    try {
+      return await sendWith(usedToken)
+    } catch (error) {
+      if (!isRejectedToken(error)) throw error
+      // Another call may already have replaced the token we sent.
+      if (tokens.accessToken === usedToken) await refresh()
       try {
-        return await send(path, usedToken)
-      } catch (error) {
-        if (!isRejectedToken(error)) throw error
-        // Another call may already have replaced the token we sent.
-        if (tokens.accessToken === usedToken) await refresh()
-        try {
-          return await send(path, tokens.accessToken)
-        } catch (retryError) {
-          if (isRejectedToken(retryError)) throw new FeishuNeedsReauthError()
-          throw retryError
-        }
+        return await sendWith(tokens.accessToken)
+      } catch (retryError) {
+        if (isRejectedToken(retryError)) throw new FeishuNeedsReauthError()
+        throw retryError
       }
-    },
+    }
+  }
+
+  return {
+    get: path => withToken(token => send(path, token)),
+    getBinary: path => withToken(token => sendBinary(path, token)),
   }
 }

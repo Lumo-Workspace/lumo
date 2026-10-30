@@ -267,6 +267,7 @@ export const miscRepository = {
             summary: true,
             summaryGeneratedAt: true,
             content: true,
+            feishuDocToken: true,
           },
         },
       },

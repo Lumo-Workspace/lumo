@@ -22,6 +22,7 @@ import { MyTasksPage } from './pages/MyTasksPage'
 import { InboxPage } from './pages/InboxPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { DocumentEditorPage } from './pages/DocumentEditorPage'
+import { FeishuImportAction } from './document/FeishuImportAction'
 import { DraftsPage } from './DraftsPage'
 import { SprintsLandingClient } from '../sprints/components/SprintsLandingClient'
 import { SprintDetailClient } from '../sprints/[sprintId]/SprintDetailClient'
@@ -322,6 +323,14 @@ export function WorkspacePageRouter(props: Props) {
               documentHandlers.navigateToDocument(doc.slug)
             }
             onDeleteDocument={documentHandlers.handleDeleteDocument}
+            extraActions={
+              <FeishuImportAction
+                onImported={slug => {
+                  void fetchDocuments()
+                  documentHandlers.navigateToDocument(slug)
+                }}
+              />
+            }
           />
           {templatePicker}
         </div>
