@@ -394,6 +394,8 @@ model Workspace {
   prCommentSyncJobs       PrCommentSyncJob[]
   figmaIntegrations       FigmaIntegration[]
   googleDriveIntegrations GoogleDriveIntegration[]
+  feishuIntegration       FeishuIntegration?
+  feishuAccounts          FeishuAccountIntegration[]
   taskFigmaLinks          TaskFigmaLink[]
   taskArtifacts           TaskArtifact[]
   documentTemplates       DocumentTemplate[]
@@ -821,6 +823,8 @@ model WorkspaceMember {
   createdMemories         Memory[]                 @relation("MemoryCreator")
   figmaIntegrations       FigmaIntegration[]
   googleDriveIntegrations GoogleDriveIntegration[]
+  feishuInstalled         FeishuIntegration[]      @relation("FeishuInstaller")
+  feishuAccounts          FeishuAccountIntegration[]
   taskFigmaLinks          TaskFigmaLink[]          @relation("TaskFigmaLinkCreator")
   documentRevisions       DocumentRevision[]
   submittedFeedback       Feedback[]               @relation("FeedbackSubmitter")
@@ -3884,6 +3888,58 @@ model GoogleDriveIntegration {
   @@unique([workspaceId, memberId])
   @@index([workspaceId])
   @@map("google_drive_integrations")
+}
+
+/// LUM-1341 — the workspace's Feishu / Lark connection (TEAM). A self-built
+/// app: its app id + secret are deployment env; this row binds one Lumo
+/// workspace to the Feishu tenant the installing owner proved membership of,
+/// and caches the app's tenant_access_token (AES-256-GCM via lib/crypto.ts).
+model FeishuIntegration {
+  id                   String           @id @default(cuid())
+  workspaceId          String           @unique
+  installedBy          String?
+  installer            WorkspaceMember? @relation("FeishuInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
+  /// 'feishu' (open.feishu.cn) or 'lark' (open.larksuite.com)
+  domain               String
+  appId                String
+  tenantKey            String
+  tenantName           String
+  tenantAccessToken    String? // AES-256-GCM encrypted via lib/crypto.ts
+  tenantTokenExpiresAt DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantKey])
+  @@map("feishu_integrations")
+}
+
+/// LUM-1341 — a member's Feishu / Lark account link (PERSONAL): a
+/// user_access_token for reading the docs that member can see.
+model FeishuAccountIntegration {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  memberId         String
+  domain           String
+  tenantKey        String
+  openId           String
+  name             String?
+  accessToken      String // AES-256-GCM encrypted via lib/crypto.ts
+  refreshToken     String // same encryption; single-use, rotated on refresh
+  expiresAt        DateTime
+  refreshExpiresAt DateTime?
+  scopes           String[]
+  needsReauth      Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, memberId])
+  @@index([workspaceId])
+  @@map("feishu_account_integrations")
 }
 
 model TaskFigmaLink {

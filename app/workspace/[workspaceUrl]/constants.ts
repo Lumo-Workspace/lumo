@@ -189,6 +189,16 @@ export const API = {
     status: '/api/google-drive/status',
     disconnect: '/api/google-drive',
   },
+  feishu: {
+    install: (workspaceUrl: string) =>
+      `/api/feishu/install?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    integration: (workspaceUrl: string) =>
+      `/api/feishu/integration?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    accountConnect: (workspaceUrl: string) =>
+      `/api/feishu/account/connect?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    account: (workspaceUrl: string) =>
+      `/api/feishu/account?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+  },
   sprints: {
     listByTeam: (teamId: string) => `/api/teams/${teamId}/sprints`,
     byId: (sprintId: string) => `/api/sprints/${sprintId}`,

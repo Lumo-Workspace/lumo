@@ -13,6 +13,8 @@ const mockDeleteGithub = jest.fn()
 const mockDisconnectFigma = jest.fn()
 const mockDisconnectDrive = jest.fn()
 const mockDeleteRepoWebhook = jest.fn()
+const mockHasFeishu = jest.fn()
+const mockDisconnectFeishu = jest.fn()
 
 jest.mock('@/lib/repositories/github.repository', () => ({
   githubRepository: {
@@ -40,6 +42,10 @@ jest.mock('@/lib/services/figma-integration.service', () => ({
 jest.mock('@/lib/services/google-drive-integration.service', () => ({
   disconnectIntegration: (...a: unknown[]) => mockDisconnectDrive(...a),
 }))
+jest.mock('@/lib/services/feishu-integration.service', () => ({
+  hasAccountLink: (...a: unknown[]) => mockHasFeishu(...a),
+  disconnectAccount: (...a: unknown[]) => mockDisconnectFeishu(...a),
+}))
 jest.mock('@/lib/integrations/github/webhooks', () => ({
   deleteRepoWebhook: (...a: unknown[]) => mockDeleteRepoWebhook(...a),
 }))
@@ -62,6 +68,7 @@ beforeEach(() => {
   mockFindGithub.mockResolvedValue(null)
   mockFindFigma.mockResolvedValue(null)
   mockFindDrive.mockResolvedValue(null)
+  mockHasFeishu.mockResolvedValue(false)
 })
 
 describe('LUM-906 member integration cleanup', () => {
@@ -105,6 +112,18 @@ describe('LUM-906 member integration cleanup', () => {
     expect(mockDisconnectDrive).toHaveBeenCalledWith('ws-1', 'm-1', WEBHOOK_CTX)
   })
 
+  it('LUM-1341: removes the member’s Feishu account link too', async () => {
+    mockHasFeishu.mockResolvedValue(true)
+    const removed = await removeMemberIntegrations('ws-1', 'm-1', WEBHOOK_CTX)
+    expect(removed).toEqual(['feishu_account'])
+    expect(mockHasFeishu).toHaveBeenCalledWith('ws-1', 'm-1')
+    expect(mockDisconnectFeishu).toHaveBeenCalledWith(
+      'ws-1',
+      'm-1',
+      WEBHOOK_CTX
+    )
+  })
+
   it('member integrations: nothing connected means nothing disconnected or audited', async () => {
     const removed = await removeMemberIntegrations('ws-1', 'm-1', WEBHOOK_CTX)
 
@@ -112,6 +131,7 @@ describe('LUM-906 member integration cleanup', () => {
     expect(mockDeleteGithub).not.toHaveBeenCalled()
     expect(mockDisconnectFigma).not.toHaveBeenCalled()
     expect(mockDisconnectDrive).not.toHaveBeenCalled()
+    expect(mockDisconnectFeishu).not.toHaveBeenCalled()
   })
 
   it('member integrations: a malformed repo name is skipped, not sent to GitHub', async () => {

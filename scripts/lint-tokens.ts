@@ -105,7 +105,7 @@ export const ALLOWLIST: ReadonlyArray<RegExp> = [
   /\/AgentBadge\.tsx$/,
   // Vendor brand logo SVGs — the fixed brand hex IS the icon's payload, same
   // rationale as components/ui/icons.tsx.
-  /\/(Slack|Figma|GoogleDrive)Icon\.tsx$/,
+  /\/(Slack|Figma|GoogleDrive|Feishu)Icon\.tsx$/,
   // HTML email templates — email clients can't use CSS vars, so inline hex is
   // required; these are not theme-aware app surfaces.
   /^lib\/integrations\/email\/templates\//,

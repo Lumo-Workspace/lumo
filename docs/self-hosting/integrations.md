@@ -1,6 +1,6 @@
 # Integrations when self-hosting
 
-GitHub, Slack, Figma, Google Drive and Sentry are optional. On a self-hosted
+GitHub, Slack, Figma, Google Drive, Feishu / Lark and Sentry are optional. On a self-hosted
 Lumo **you** register the app on each provider and give Lumo its credentials
 through environment variables. An integration whose variables are incomplete
 is hidden on **workspace → Settings → Integrations**, and its routes answer
@@ -19,6 +19,7 @@ real client id, secret or private key into a ticket, a commit or a chat.
 | [Slack](#slack)                                      | per workspace                     | `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`                                                                              |
 | [Figma](#figma)                                      | per member                        | `FIGMA_OAUTH_CLIENT_ID`, `FIGMA_OAUTH_CLIENT_SECRET`, `FIGMA_OAUTH_REDIRECT_URI`                                                              |
 | [Google Drive](#google-drive)                        | per member                        | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_DRIVE_OAUTH_REDIRECT_URI`                                                                 |
+| [Feishu / Lark](#feishu--lark)                       | per workspace + per member        | `FEISHU_APP_ID`, `FEISHU_APP_SECRET` (optional `FEISHU_DOMAIN`)                                                                               |
 | [Sentry](#sentry)                                    | per workspace (entered in the UI) | none besides `ENCRYPTION_KEY`                                                                                                                 |
 
 Below, `https://lumo.example.com` stands for your public URL — the value of
@@ -391,6 +392,52 @@ screen list Drive access too. Lumo logs a warning at start-up when
 
 **Verify:** the member's Google Drive row → **Connect** → choose the account
 → the row shows the email; then import a Google Doc into a project.
+
+## Feishu / Lark
+
+Two lines from one **self-built app** (自建应用) in your own Feishu or Lark
+organization: the workspace install (owner, TEAM) binds a Lumo workspace to
+that organization and caches the app's `tenant_access_token`; each member can
+then link their own account (PERSONAL, a `user_access_token`). Still behind
+the `feishu-integration` rollout flag (dogfood): add the workspace id to
+`LUMO_DOGFOOD_WORKSPACE_IDS` to see the cards. App Store (ISV) apps are not
+supported yet.
+
+1. <https://open.feishu.cn/app> (Lark: <https://open.larksuite.com/app>) →
+   **Create custom app**. Copy the **App ID** and **App Secret**.
+2. **Security settings → Redirect URLs**: add both
+   `https://lumo.example.com/api/feishu/install/callback` and
+   `https://lumo.example.com/api/feishu/account/callback`.
+3. **Permissions & Scopes**: enable the scopes below, then publish a version
+   so they take effect.
+
+App (tenant) scope, used by the install
+(`lib/integrations/feishu/tenant.ts`):
+
+- `tenant:tenant:readonly` — `GET /open-apis/tenant/v2/tenant/query`, to read
+  the organization the app belongs to and refuse an owner from another one
+
+User scopes requested by the account link (`FEISHU_ACCOUNT_SCOPES` in
+`lib/integrations/feishu/oauth.ts`); the install leg requests none:
+
+- `offline_access` — without it Feishu issues no refresh token and the link
+  would expire within about two hours, so Lumo refuses it
+- `docx:document:readonly`, `wiki:wiki:readonly` — read the docs and wiki
+  pages the member can already see (document import)
+
+No webhook yet.
+
+```dotenv
+FEISHU_APP_ID=cli_xxxxxxxx
+FEISHU_APP_SECRET=<app secret>
+# feishu (open.feishu.cn, the default) or lark (open.larksuite.com)
+FEISHU_DOMAIN=feishu
+```
+
+**Verify:** as an owner, Workspace → Integrations → Feishu / Lark →
+**Connect** → sign in → the card names your organization. Then as any member,
+Connected accounts → Feishu / Lark account → **Connect** → the card shows your
+name.
 
 ## Sentry
 

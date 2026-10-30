@@ -13,6 +13,8 @@ describe('integration registry', () => {
     'codeup',
     'figma',
     'googleDrive',
+    'feishu',
+    'feishuAccount',
   ]
 
   it('has a descriptor for every integration id', () => {
@@ -31,6 +33,9 @@ describe('integration registry', () => {
     expect(getIntegrationKind('codeup')).toBe('TEAM')
     expect(getIntegrationKind('figma')).toBe('PERSONAL')
     expect(getIntegrationKind('googleDrive')).toBe('PERSONAL')
+    // LUM-1341: the workspace install is TEAM, a member's link PERSONAL.
+    expect(getIntegrationKind('feishu')).toBe('TEAM')
+    expect(getIntegrationKind('feishuAccount')).toBe('PERSONAL')
   })
 
   it('only uses valid kind values', () => {

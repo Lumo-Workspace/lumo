@@ -18,6 +18,8 @@ export const FEATURES = {
   'reward-hack-scan': { stage: 'dogfood' },
   /** LUM-1315 — Codeup as a second Git provider (connection, webhook, MR links). */
   'codeup-integration': { stage: 'dogfood' },
+  /** LUM-1341 — Feishu / Lark connection (self-built app, our own tenant). */
+  'feishu-integration': { stage: 'dogfood' },
 } as const satisfies Record<string, { stage: FeatureStage }>
 
 export type FeatureKey = keyof typeof FEATURES

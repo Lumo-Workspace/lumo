@@ -56,6 +56,9 @@ export const AUDIT_ACTIONS = [
   'codeup.connected',
   'codeup.disconnected',
   'codeup.repositories_updated',
+  // LUM-1341 — Feishu / Lark workspace install
+  'feishu.connected',
+  'feishu.disconnected',
   // LUM-907 PR3 — integrations: Sentry project mappings, the GitHub App
   // removed / suspended on GitHub (webhook or the daily access recheck)
   'sentry.mapping_created',
@@ -68,6 +71,8 @@ export const AUDIT_ACTIONS = [
   'figma.disconnected',
   'google_drive.connected',
   'google_drive.disconnected',
+  'feishu_account.connected',
+  'feishu_account.disconnected',
   'github_oauth.connected',
   'github_oauth.disconnected',
   // Workspace branding

@@ -24,12 +24,14 @@ export async function loadIntegrationsProps(workspaceUrl: string): Promise<{
     workspaceId = ws?.workspaceId ?? null
   }
   // LUM-1315: a card behind a rollout flag is decided here, on the server.
-  const unreleased: IntegrationId[] = isFeatureEnabled(
-    'codeup-integration',
-    workspaceId
-  )
-    ? []
-    : ['codeup']
+  const unreleased: IntegrationId[] = []
+  if (!isFeatureEnabled('codeup-integration', workspaceId)) {
+    unreleased.push('codeup')
+  }
+  // LUM-1341: Feishu / Lark (dogfood) — both the install and the account link.
+  if (!isFeatureEnabled('feishu-integration', workspaceId)) {
+    unreleased.push('feishu', 'feishuAccount')
+  }
   // LUM-1025: which integrations this deployment has credentials for — read
   // here, on the server, so no env reaches the client bundle.
   return { isOwner, configured: configuredRegistryIntegrations(), unreleased }

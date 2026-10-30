@@ -58,6 +58,8 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   CodeupConnection: INTEGRATION,
   FigmaIntegration: INTEGRATION,
   GoogleDriveIntegration: INTEGRATION,
+  FeishuIntegration: INTEGRATION,
+  FeishuAccountIntegration: INTEGRATION,
   PullRequest: MIRROR,
   PrSecurityScan: 'scan output derived from repository code',
   PrFindingThread: 'GitHub review-thread bookkeeping for scan findings',

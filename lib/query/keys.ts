@@ -182,5 +182,9 @@ export const queryKeys = {
       ['integrations', 'figma', workspaceUrl] as const,
     googleDrive: (workspaceUrl: string) =>
       ['integrations', 'google-drive', workspaceUrl] as const,
+    feishu: (workspaceUrl: string) =>
+      ['integrations', 'feishu', workspaceUrl] as const,
+    feishuAccount: (workspaceUrl: string) =>
+      ['integrations', 'feishu-account', workspaceUrl] as const,
   },
 }

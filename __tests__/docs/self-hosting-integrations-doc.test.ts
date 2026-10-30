@@ -12,6 +12,7 @@ import { join } from 'path'
 import { integrationConfigStatus } from '@/lib/integrations/configured'
 import { FIGMA_OAUTH_SCOPES } from '@/lib/integrations/figma/oauth'
 import { GOOGLE_DRIVE_OAUTH_SCOPES } from '@/lib/integrations/google-drive/oauth'
+import { FEISHU_ACCOUNT_SCOPES } from '@/lib/integrations/feishu/oauth'
 
 const ROOT = join(__dirname, '../..')
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8')
@@ -26,6 +27,8 @@ describe('self-hosting integrations guide', () => {
       'figma',
       'googleDrive',
       'sentry',
+      'feishu',
+      'feishuAccount',
     ] as const
     for (const id of ids) {
       for (const name of integrationConfigStatus(id, {}).missing) {
@@ -54,6 +57,17 @@ describe('self-hosting integrations guide', () => {
   it('lists the Figma and Google Drive scopes', () => {
     for (const s of [...FIGMA_OAUTH_SCOPES, ...GOOGLE_DRIVE_OAUTH_SCOPES])
       expect(doc).toContain(`\`${s}\``)
+  })
+
+  it('LUM-1341: lists every Feishu scope and both redirect URLs', () => {
+    const feishu = doc.slice(
+      doc.indexOf('## Feishu / Lark'),
+      doc.indexOf('## Sentry')
+    )
+    for (const s of [...FEISHU_ACCOUNT_SCOPES, 'tenant:tenant:readonly'])
+      expect(feishu).toContain(`\`${s}\``)
+    expect(feishu).toContain('/api/feishu/install/callback')
+    expect(feishu).toContain('/api/feishu/account/callback')
   })
 
   it('lists every GitHub webhook event the route handles', () => {

@@ -49,6 +49,8 @@ export const WORKSPACE_SCOPED_MODELS = [
   'Draft',
   'DroppedFragment',
   'Feedback',
+  'FeishuAccountIntegration',
+  'FeishuIntegration',
   'FigmaIntegration',
   'GitHubAppInstallation',
   'GitHubIntegration',
