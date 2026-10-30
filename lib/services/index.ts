@@ -18,6 +18,13 @@ export { documentRevisionService } from './documentRevision.service'
 export { documentTemplateService } from './document-template.service'
 export { taskTemplateService } from './task-template.service'
 export { workspaceService } from './workspace.service'
+export { platformAdminAudit } from './platform-admin-audit.service'
+export type {
+  PlatformAdminAction,
+  PlatformAdminAuditInput,
+  PlatformAdminAuditQuery,
+  PlatformAdminAuditRow,
+} from './platform-admin-audit.service'
 export {
   workspaceCreationGate,
   isWorkspaceApprovalRequired,

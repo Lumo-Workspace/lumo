@@ -6,6 +6,7 @@ export { projectRepository } from './project.repository'
 export { documentRepository } from './document.repository'
 export type { CreateDocumentData, DocumentFilters } from './document.repository'
 export { workspaceRepository } from './workspace.repository'
+export { platformAdminAuditRepository } from './platform-admin-audit.repository'
 export type { CreateWorkspaceData } from './workspace.repository'
 export { githubRepository } from './github.repository'
 export type {
