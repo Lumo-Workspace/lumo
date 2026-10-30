@@ -3316,5 +3316,7 @@
   "settings.export": "Eksport",
   "integrations.team.noneConnected": "Belum ada integrasi pasukan yang disambungkan. Pemilik ruang kerja memasangnya di sini.",
   "onboarding.waitlistPending.body": "Penciptaan ruang kerja terhad kepada ahli senarai menunggu yang telah diluluskan. Kami akan menghantar e-mel sebaik sahaja akses anda diluluskan, kemudian anda boleh log masuk dan mencipta ruang kerja anda.",
-  "onboarding.waitlistPending.title": "Anda berada dalam senarai menunggu"
+  "onboarding.waitlistPending.title": "Anda berada dalam senarai menunggu",
+  "onboarding.emailUnverified.body": "Penciptaan ruang kerja memerlukan alamat e-mel yang telah disahkan. Sahkan e-mel pada akaun anda, kemudian log masuk semula untuk mencipta ruang kerja anda.",
+  "onboarding.emailUnverified.title": "Sahkan e-mel anda untuk meneruskan"
 }

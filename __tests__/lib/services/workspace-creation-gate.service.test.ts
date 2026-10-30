@@ -133,18 +133,34 @@ describe('workspaceCreationGate', () => {
     })
   })
 
-  it('refuses without writing a waitlist row when no email is verified', async () => {
+  it('refuses with 403 WORKSPACE_EMAIL_UNVERIFIED and writes no waitlist row when no email is verified', async () => {
     await expect(
       workspaceCreationGate.assertMayCreate({
         ...input,
         verifiedEmails: [],
-        primaryEmail: null,
+        primaryEmail: 'b@x.com',
       })
     ).rejects.toMatchObject({
       status: 403,
-      code: 'WORKSPACE_APPROVAL_REQUIRED',
+      code: 'WORKSPACE_EMAIL_UNVERIFIED',
     })
     expect(upsertBlocked).not.toHaveBeenCalled()
+    expect(findApproved).not.toHaveBeenCalled()
+    expect(findInvites).not.toHaveBeenCalled()
+  })
+
+  it('still passes an existing member who has no verified email', async () => {
+    findMember.mockResolvedValue({ id: 'm1' })
+    await expect(
+      workspaceCreationGate.assertMayCreate({ ...input, verifiedEmails: [] })
+    ).resolves.toBeUndefined()
+  })
+
+  it('does not raise WORKSPACE_EMAIL_UNVERIFIED when the flag is off', async () => {
+    delete process.env.WORKSPACE_CREATION_REQUIRES_APPROVAL
+    await expect(
+      workspaceCreationGate.assertMayCreate({ ...input, verifiedEmails: [] })
+    ).resolves.toBeUndefined()
   })
 })
 

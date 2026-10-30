@@ -3316,5 +3316,7 @@
   "settings.export": "Export",
   "integrations.team.noneConnected": "No team integration is connected yet. The workspace owner installs them here.",
   "onboarding.waitlistPending.body": "Workspace creation is limited to approved waitlist members. We will email you as soon as your access is approved, then you can sign in and create your workspace.",
-  "onboarding.waitlistPending.title": "You are on the waitlist"
+  "onboarding.waitlistPending.title": "You are on the waitlist",
+  "onboarding.emailUnverified.body": "Workspace creation needs a verified email address. Verify the email on your account, then sign in again to create your workspace.",
+  "onboarding.emailUnverified.title": "Verify your email to continue"
 }

@@ -54,7 +54,9 @@ function WorkspaceStep({
   const [slugEdited, setSlugEdited] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [waitlistPending, setWaitlistPending] = useState(false)
+  const [blockedNotice, setBlockedNotice] = useState<
+    'waitlistPending' | 'emailUnverified' | null
+  >(null)
 
   const handleNameChange = (value: string) => {
     setName(value)
@@ -84,7 +86,11 @@ function WorkspaceStep({
       const data = await res.json()
       if (!res.ok) {
         if (data.code === 'WORKSPACE_APPROVAL_REQUIRED') {
-          setWaitlistPending(true)
+          setBlockedNotice('waitlistPending')
+          return
+        }
+        if (data.code === 'WORKSPACE_EMAIL_UNVERIFIED') {
+          setBlockedNotice('emailUnverified')
           return
         }
         setError(
@@ -103,7 +109,7 @@ function WorkspaceStep({
 
   const isValid = name.trim().length >= 2 && slug.length >= 2
 
-  if (waitlistPending) {
+  if (blockedNotice) {
     return (
       <Card className='w-full max-w-md shadow-elevation-3'>
         <CardHeader className='text-center space-y-6'>
@@ -118,12 +124,16 @@ function WorkspaceStep({
             />
           </div>
           <CardTitle className='text-body font-normal text-foreground'>
-            {intl.formatMessage({ id: 'onboarding.waitlistPending.title' })}
+            {blockedNotice === 'emailUnverified'
+              ? intl.formatMessage({ id: 'onboarding.emailUnverified.title' })
+              : intl.formatMessage({ id: 'onboarding.waitlistPending.title' })}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className='text-caption text-muted-foreground text-center'>
-            {intl.formatMessage({ id: 'onboarding.waitlistPending.body' })}
+            {blockedNotice === 'emailUnverified'
+              ? intl.formatMessage({ id: 'onboarding.emailUnverified.body' })
+              : intl.formatMessage({ id: 'onboarding.waitlistPending.body' })}
           </p>
         </CardContent>
       </Card>

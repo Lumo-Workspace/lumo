@@ -3316,5 +3316,7 @@
   "settings.export": "Ekspor",
   "integrations.team.noneConnected": "Belum ada integrasi tim yang terhubung. Pemilik workspace memasangnya di sini.",
   "onboarding.waitlistPending.body": "Pembuatan workspace dibatasi untuk anggota daftar tunggu yang telah disetujui. Kami akan mengirim email begitu akses Anda disetujui, lalu Anda dapat masuk dan membuat workspace Anda.",
-  "onboarding.waitlistPending.title": "Anda ada di daftar tunggu"
+  "onboarding.waitlistPending.title": "Anda ada di daftar tunggu",
+  "onboarding.emailUnverified.body": "Pembuatan workspace memerlukan alamat email yang terverifikasi. Verifikasi email di akun Anda, lalu masuk kembali untuk membuat workspace Anda.",
+  "onboarding.emailUnverified.title": "Verifikasi email Anda untuk melanjutkan"
 }

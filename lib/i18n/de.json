@@ -3316,5 +3316,7 @@
   "settings.export": "Export",
   "integrations.team.noneConnected": "Für das Team ist noch keine Integration verbunden. Der Workspace-Owner installiert sie hier.",
   "onboarding.waitlistPending.body": "Das Erstellen von Workspaces ist freigegebenen Wartelisten-Mitgliedern vorbehalten. Wir benachrichtigen Sie per E-Mail, sobald Ihr Zugang freigegeben wurde. Danach können Sie sich anmelden und Ihren Workspace erstellen.",
-  "onboarding.waitlistPending.title": "Sie stehen auf der Warteliste"
+  "onboarding.waitlistPending.title": "Sie stehen auf der Warteliste",
+  "onboarding.emailUnverified.body": "Zum Erstellen eines Workspace ist eine bestätigte E-Mail-Adresse erforderlich. Bestätigen Sie die E-Mail-Adresse Ihres Kontos und melden Sie sich dann erneut an, um Ihren Workspace zu erstellen.",
+  "onboarding.emailUnverified.title": "Bestätigen Sie Ihre E-Mail-Adresse, um fortzufahren"
 }

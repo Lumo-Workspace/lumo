@@ -1303,6 +1303,8 @@
   "onboarding.invite.skip": "Skip for now",
   "onboarding.invite.subtitle": "Get your team up and running faster",
   "onboarding.invite.title": "Invite your team",
+  "onboarding.emailUnverified.body": "Workspace creation needs a verified email address. Verify the email on your account, then sign in again to create your workspace.",
+  "onboarding.emailUnverified.title": "Verify your email to continue",
   "onboarding.waitlistPending.body": "Workspace creation is limited to approved waitlist members. We will email you as soon as your access is approved, then you can sign in and create your workspace.",
   "onboarding.waitlistPending.title": "You are on the waitlist",
   "onboarding.workspace.continue": "Continue",
