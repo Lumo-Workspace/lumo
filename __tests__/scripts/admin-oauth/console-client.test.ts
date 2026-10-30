@@ -61,21 +61,19 @@ describe('buildConsoleClientSpec', () => {
     }
   })
 
-  it('allows http on localhost and 127.0.0.1 for local development', () => {
-    const spec = buildConsoleClientSpec({
-      name: 'x',
-      redirectUris: [
-        'http://localhost:3001/api/auth/callback',
-        'http://127.0.0.1:3001/api/auth/callback',
-      ],
-    })
-    expect(spec.redirectUris).toHaveLength(2)
-    expect(() =>
-      buildConsoleClientSpec({
-        name: 'x',
-        redirectUris: ['http://localhost/cb'],
-      })
-    ).toThrow()
+  it('rejects loopback hosts (even https) with a hint about tunnels', () => {
+    for (const bad of [
+      'http://localhost:3001/cb',
+      'http://127.0.0.1:3001/cb',
+      'https://localhost:3001/cb',
+      'https://127.0.0.1/cb',
+      'https://[::1]:3001/cb',
+      'https://admin.localhost/cb',
+    ]) {
+      expect(() =>
+        buildConsoleClientSpec({ name: 'x', redirectUris: [bad] })
+      ).toThrow(/tunnel/)
+    }
   })
 })
 
@@ -111,6 +109,7 @@ describe('registerConsoleClient', () => {
     const out = await registerConsoleClient(spec, {
       createClient,
       linkAdminResourceOnly,
+      deleteClient: jest.fn(),
     })
     expect(out).toEqual({ clientId: 'cid', clientSecret: 'sec' })
     expect(createClient).toHaveBeenCalledWith(spec)
@@ -123,19 +122,40 @@ describe('registerConsoleClient', () => {
       registerConsoleClient(spec, {
         createClient: async () => ({ client_id: 'cid' }),
         linkAdminResourceOnly: async () => undefined,
+        deleteClient: async () => undefined,
       })
     ).rejects.toThrow(/secret/i)
+    const deleteClient = jest.fn(async () => undefined)
     const err = await registerConsoleClient(spec, {
       createClient: async () => ({
         client_id: 'cid',
         client_secret: 'TOPSECRET',
       }),
       linkAdminResourceOnly: async () => {
-        throw new Error('boom')
+        throw new Error('linked to the admin resource AND still linked to MCP')
       },
+      deleteClient,
     }).catch((e: Error) => e)
     expect((err as Error).message).toContain('cid')
+    expect((err as Error).message).toContain('AND still linked to MCP')
+    expect((err as Error).message).toContain('was deleted')
     expect((err as Error).message).not.toContain('TOPSECRET')
+    expect(deleteClient).toHaveBeenCalledWith('cid')
+  })
+
+  it('reports a failed cleanup with the client id', async () => {
+    const spec = buildConsoleClientSpec({ name: 'x', redirectUris: [CB] })
+    const err = await registerConsoleClient(spec, {
+      createClient: async () => ({ client_id: 'cid', client_secret: 'S' }),
+      linkAdminResourceOnly: async () => {
+        throw new Error('link boom')
+      },
+      deleteClient: async () => {
+        throw new Error('delete boom')
+      },
+    }).catch((e: Error) => e)
+    expect((err as Error).message).toMatch(/cleanup FAILED.*delete boom/)
+    expect((err as Error).message).toContain('delete client cid manually')
   })
 })
 
@@ -148,13 +168,13 @@ describe('parseConsoleClientArgs', () => {
         '--redirect-uri',
         CB,
         '--redirect-uri',
-        'http://localhost:3001/cb',
+        'https://tunnel.example.dev/cb',
         '--operator-email',
         'Ops@Example.com',
       ])
     ).toEqual({
       name: 'Lumo Admin',
-      redirectUris: [CB, 'http://localhost:3001/cb'],
+      redirectUris: [CB, 'https://tunnel.example.dev/cb'],
       operatorEmail: 'ops@example.com',
       confirm: false,
     })
@@ -222,8 +242,10 @@ describe('runRegisterConsoleClient', () => {
             client_secret: 'S3CRET',
           }),
           linkAdminResourceOnly: async () => undefined,
+          deleteClient: async () => undefined,
         },
         close,
+        leftBehind: 'LEFT',
       }),
       io,
     })
@@ -232,6 +254,57 @@ describe('runRegisterConsoleClient', () => {
     const lines = out.join('\n').split('\n')
     expect(lines.filter(l => l.includes('S3CRET'))).toHaveLength(1)
     expect(out.join('\n')).toMatch(/cannot be shown again/i)
+    expect(err.join('')).not.toContain('S3CRET')
+  })
+
+  const failingHandle = (close: () => Promise<void>) => ({
+    deps: {
+      createClient: async () => ({ client_id: 'cid', client_secret: 'S3CRET' }),
+      linkAdminResourceOnly: async () => {
+        throw new Error('link boom')
+      },
+      deleteClient: async () => undefined,
+    },
+    close,
+    leftBehind: 'LEFT',
+  })
+
+  it('closes the operator session even when registration rejects, exit 1', async () => {
+    const { out, err, io } = makeIo()
+    const close = jest.fn(async () => undefined)
+    const code = await runRegisterConsoleClient([...argv, '--confirm'], {
+      openProvider: async () => failingHandle(close),
+      io,
+    })
+    expect(code).toBe(1)
+    expect(close).toHaveBeenCalled()
+    expect(err.join('')).toContain('link boom')
+    expect(out.join('')).not.toContain('S3CRET')
+    expect(err.join('')).not.toContain('S3CRET')
+  })
+
+  it('a close() failure after success is reported separately and still exits 0', async () => {
+    const { out, err, io } = makeIo()
+    const code = await runRegisterConsoleClient([...argv, '--confirm'], {
+      openProvider: async () => ({
+        deps: {
+          createClient: async () => ({
+            client_id: 'cid',
+            client_secret: 'S3CRET',
+          }),
+          linkAdminResourceOnly: async () => undefined,
+          deleteClient: async () => undefined,
+        },
+        close: async () => {
+          throw new Error('close boom')
+        },
+        leftBehind: 'LEFT',
+      }),
+      io,
+    })
+    expect(code).toBe(0)
+    expect(out.join('\n')).toContain('S3CRET')
+    expect(err.join('')).toMatch(/close boom.*LEFT/)
     expect(err.join('')).not.toContain('S3CRET')
   })
 

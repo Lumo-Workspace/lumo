@@ -130,4 +130,57 @@ describe('openAdminProvider (in-memory provider)', () => {
       ).rejects.toThrow(/admin/)
     }
   })
+
+  it('mints a session that lasts about 5 minutes', async () => {
+    await seedUser('ttl@example.com', 'admin')
+    const before = db.authSession!.length
+    const handle = await openAdminProvider(
+      asAdminAuth,
+      { adminResource: urls.adminResource, mcpResource: urls.resource },
+      'ttl@example.com'
+    )
+    const row = db.authSession![before] as { expiresAt: Date }
+    const ms = row.expiresAt.getTime() - Date.now()
+    expect(ms).toBeGreaterThan(4 * 60_000)
+    expect(ms).toBeLessThanOrEqual(5 * 60_000)
+    await handle.close()
+  })
+
+  it('deletes the half-made client when the MCP unlink fails and says so', async () => {
+    await seedUser('ops2@example.com', 'admin')
+    const handle = await openAdminProvider(
+      asAdminAuth,
+      {
+        adminResource: urls.adminResource,
+        // not a linked resource id -> force the unlink to be the failing step
+        mcpResource: urls.resource,
+      },
+      'ops2@example.com'
+    )
+    const api = auth.api as unknown as {
+      adminUnlinkClientResource: (...a: unknown[]) => Promise<unknown>
+    }
+    const real = api.adminUnlinkClientResource
+    api.adminUnlinkClientResource = async () => {
+      throw new Error('unlink boom')
+    }
+    try {
+      const before = db.authOauthClient!.length
+      const err = await registerConsoleClient(
+        buildConsoleClientSpec({
+          name: 'Half',
+          redirectUris: ['https://half.example.com/cb'],
+        }),
+        handle.deps
+      ).catch((e: Error) => e)
+      expect((err as Error).message).toContain(
+        'linked to the admin resource AND still linked to MCP'
+      )
+      expect((err as Error).message).toContain('was deleted')
+      expect(db.authOauthClient!.length).toBe(before)
+    } finally {
+      api.adminUnlinkClientResource = real
+      await handle.close()
+    }
+  })
 })

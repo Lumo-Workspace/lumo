@@ -23,7 +23,16 @@ export interface ConsoleClientSpec {
   resource: 'admin'
 }
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1'])
+function isLoopbackHost(hostname: string): boolean {
+  const h = hostname.replace(/^\[|\]$/g, '').toLowerCase()
+  return (
+    h === 'localhost' ||
+    h.endsWith('.localhost') ||
+    h === '::1' ||
+    h === '0.0.0.0' ||
+    /^127\.\d+\.\d+\.\d+$/.test(h)
+  )
+}
 
 function validateRedirectUri(raw: string): string {
   let url: URL
@@ -35,11 +44,11 @@ function validateRedirectUri(raw: string): string {
   if (raw.includes('#') || url.hash) {
     throw new Error(`redirect URI must not contain a fragment: ${raw}`)
   }
-  const localHttp =
-    url.protocol === 'http:' && LOCAL_HOSTS.has(url.hostname) && url.port !== ''
-  if (url.protocol !== 'https:' && !localHttp) {
+  // The provider refuses anything else for a web client, so refuse it here
+  // too: a dry run must not approve what --confirm would reject.
+  if (url.protocol !== 'https:' || isLoopbackHost(url.hostname)) {
     throw new Error(
-      `redirect URI must be https (http only for localhost:<port> / 127.0.0.1:<port>): ${raw}`
+      `redirect URI must be https on a non-loopback host (local console development needs an https tunnel or host): ${raw}`
     )
   }
   return raw
@@ -84,6 +93,8 @@ export interface RegisterDeps {
   createClient(
     spec: ConsoleClientSpec
   ): Promise<{ client_id: string; client_secret?: string }>
+  /** Best-effort removal of a half-made client. */
+  deleteClient(clientId: string): Promise<void>
   /**
    * Links the client to the admin resource and nothing else (the provider
    * also links new clients to the default MCP resource; that link goes).
@@ -96,9 +107,17 @@ export async function registerConsoleClient(
   deps: RegisterDeps
 ): Promise<{ clientId: string; clientSecret: string }> {
   const created = await deps.createClient(spec)
+  const cleanup = async (): Promise<string> => {
+    try {
+      await deps.deleteClient(created.client_id)
+      return `the half-made client ${created.client_id} was deleted`
+    } catch (e) {
+      return `cleanup FAILED (${(e as Error).message}); delete client ${created.client_id} manually`
+    }
+  }
   if (!created.client_secret) {
     throw new Error(
-      `provider returned no client secret for client ${created.client_id}; delete that client and retry`
+      `provider returned no client secret for client ${created.client_id}; ${await cleanup()}`
     )
   }
   try {
@@ -106,7 +125,7 @@ export async function registerConsoleClient(
   } catch (err) {
     // Never include the secret: it is the one thing that must stay unlogged.
     throw new Error(
-      `client ${created.client_id} was created but linking it to the admin resource failed (${(err as Error).message}); delete that client and retry`
+      `registering client ${created.client_id} failed: ${(err as Error).message}; ${await cleanup()}`
     )
   }
   return { clientId: created.client_id, clientSecret: created.client_secret }
@@ -166,7 +185,9 @@ export function parseConsoleClientArgs(argv: string[]): ConsoleClientArgs {
 
 export interface ProviderHandle {
   deps: RegisterDeps
+  /** Ends the operator session. `leftBehind` names what to clean up if it throws. */
   close(): Promise<void>
+  leftBehind: string
 }
 
 export interface RunIo {
@@ -203,16 +224,20 @@ export async function runRegisterConsoleClient(
     }
     const handle = await deps.openProvider(args.operatorEmail)
     try {
-      const { clientId, clientSecret } = await registerConsoleClient(
-        spec,
-        handle.deps
-      )
-      deps.io.stdout(`client id: ${clientId}`)
+      const registered = await registerConsoleClient(spec, handle.deps)
+      deps.io.stdout(`client id: ${registered.clientId}`)
       deps.io.stdout(
-        `client secret: ${clientSecret}  (not stored in plain text; it cannot be shown again, keep it now)`
+        `client secret: ${registered.clientSecret}  (not stored in plain text; it cannot be shown again, keep it now)`
       )
     } finally {
-      await handle.close()
+      try {
+        await handle.close()
+      } catch (closeErr) {
+        const note = `warning: could not end the operator session (${(closeErr as Error).message}); ${handle.leftBehind}\n`
+        // Reported, never thrown: if the client exists, failing the run would
+        // invite a second registration.
+        deps.io.stderr(note)
+      }
     }
     return 0
   } catch (err) {

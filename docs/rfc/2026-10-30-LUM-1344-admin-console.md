@@ -166,7 +166,9 @@ npx tsx scripts/admin-oauth/register-console-client.ts --name "Lumo Admin" \
   --operator-email <已是 admin 的运营人员邮箱> --confirm
 ```
 
-成功时只打印一次 client id 和 client secret（库里只存哈希，之后无法再看到）；把它们配进后台的环境变量。`--operator-email` 必须是已有 `role = 'admin'` 且未被封禁的用户：provider 的创建接口要求登录态，脚本为其临时建一个会话，用完即删。
+成功时只打印一次 client id 和 client secret（库里只存哈希，之后无法再看到）；把它们配进后台的环境变量。`--operator-email` 必须是已有 `role = 'admin'` 且未被封禁的用户：provider 的创建接口要求登录态，脚本为其临时建一个 5 分钟有效的会话，用完即删。
+
+注意：客户端记在该运营用户名下（`AuthOauthClient.user` 为 `onDelete: Cascade`），删除这个账号会连带删除后台的 OAuth 客户端——建议用一个专用的运营账号来执行注册，不要用个人账号。redirect URI 必须是 https 且不能是 localhost/回环地址（provider 对 web 客户端的硬性要求），本地调试后台请用 https 隧道或域名。
 
 ## 10. 留给实现者
 
