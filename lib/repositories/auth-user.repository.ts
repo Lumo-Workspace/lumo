@@ -28,6 +28,14 @@ export interface AuthUserRecord {
   lastName: string | null
 }
 
+/** LUM-1344 — what the platform admin guard needs to authorize a user. */
+export interface AuthUserPlatformAccess {
+  id: string
+  email: string
+  role: string | null
+  banned: boolean
+}
+
 export interface AuthUserListFilter {
   ids?: string[] | undefined
   emails?: string[] | undefined
@@ -47,6 +55,18 @@ export const authUserRepository = {
       where: { id },
       select: AUTH_USER_SELECT,
     })
+  },
+
+  /** LUM-1344 — id, email, role and ban flag only (platform admin guard). */
+  async findPlatformAccessById(
+    id: string
+  ): Promise<AuthUserPlatformAccess | null> {
+    const row = await prisma.authUser.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true, banned: true },
+    })
+    if (!row) return null
+    return { ...row, banned: row.banned === true }
   },
 
   /**

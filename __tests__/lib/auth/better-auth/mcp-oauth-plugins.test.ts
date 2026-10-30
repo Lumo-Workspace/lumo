@@ -420,3 +420,236 @@ describe('MCP OAuth plugins — app-scheme redirect URIs (cursor://)', () => {
     ).toMatchObject({ clientId: cursorClientId })
   })
 })
+
+// LUM-1344 — a second protected resource, <origin>/api/admin (scope
+// `platform-admin`), for the platform admin console. MCP clients must be
+// unaffected; tokens of one resource must never pass the other's verifier.
+describe('MCP OAuth plugins — platform admin resource (/api/admin)', () => {
+  const CONSOLE_CB = 'https://console.example.test/callback'
+  type VerifyApi = (i: { body: { token: string } }) => Promise<{
+    payload: Record<string, unknown> | null
+    clientName?: string | null
+  }>
+  const api = () =>
+    auth.api as unknown as {
+      lumoVerifyMcpAccessToken: VerifyApi
+      lumoVerifyAdminAccessToken: VerifyApi
+      getOAuthServerConfig: () => Promise<Record<string, unknown>>
+    }
+  const now = () => Math.floor(Date.now() / 1000)
+  let consoleClientId = ''
+
+  /** Full authorize → consent → token flow; returns the token response. */
+  async function issue(opts: {
+    clientId: string
+    redirectUri: string
+    scope: string
+    resource: string
+  }) {
+    const q = new URLSearchParams({
+      response_type: 'code',
+      client_id: opts.clientId,
+      redirect_uri: opts.redirectUri,
+      scope: opts.scope,
+      state: 'adm',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      resource: opts.resource,
+    })
+    const authz = await call(`/oauth2/authorize?${q}`, { headers: { cookie } })
+    const location = authz.headers.get('location') ?? ''
+    const consentUrl = new URL(location, BASE)
+    let url: string
+    if (consentUrl.pathname === '/oauth/consent') {
+      const consent = await call('/oauth2/consent', {
+        method: 'POST',
+        headers: { cookie, accept: 'application/json' },
+        body: JSON.stringify({
+          accept: true,
+          oauth_query: consentUrl.search.slice(1),
+        }),
+      })
+      ;({ url } = (await consent.json()) as { url: string })
+    } else if (location.startsWith(`${opts.redirectUri}?`)) {
+      // Consent already given earlier for this client and scope.
+      url = location
+    } else {
+      return {
+        status: 0,
+        location,
+        body: null as Record<string, unknown> | null,
+      }
+    }
+    const code = new URL(url).searchParams.get('code') ?? ''
+    if (!code) {
+      return {
+        status: 0,
+        location: url,
+        body: null as Record<string, unknown> | null,
+      }
+    }
+    const tokenRes = await call('/oauth2/token', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: opts.redirectUri,
+        client_id: opts.clientId,
+        code_verifier: verifier,
+        resource: opts.resource,
+      }).toString(),
+    })
+    return {
+      status: tokenRes.status,
+      location,
+      body: (await tokenRes.json()) as Record<string, unknown>,
+    }
+  }
+
+  it('keeps MCP discovery and DCR capabilities unchanged (platform-admin not advertised)', async () => {
+    const meta = await api().getOAuthServerConfig()
+    expect(meta.scopes_supported).toEqual(['mcp', 'offline_access'])
+    const reg = await call('/oauth2/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        redirect_uris: ['http://127.0.0.1:7778/callback'],
+        token_endpoint_auth_method: 'none',
+      }),
+    })
+    expect(reg.status).toBe(201)
+    const body = (await reg.json()) as Record<string, unknown>
+    expect(body.scope).toBe('mcp offline_access')
+  })
+
+  it('refuses a dynamically registered client that asks for platform-admin', async () => {
+    const reg = await call('/oauth2/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        redirect_uris: ['http://127.0.0.1:7779/callback'],
+        token_endpoint_auth_method: 'none',
+        scope: 'mcp platform-admin',
+      }),
+    })
+    expect(reg.status).toBe(400)
+  })
+
+  it('a DCR (MCP) client cannot obtain an admin-audience token', async () => {
+    // Scope platform-admin is outside the DCR client's capability set …
+    const scoped = await issue({
+      clientId,
+      redirectUri: REDIRECT_URI,
+      scope: 'platform-admin',
+      resource: urls.adminResource,
+    })
+    expect(scoped.body).toBeNull()
+    expect(scoped.location).toContain('invalid_scope')
+    // … and even with its own scope it is not linked to the admin resource.
+    const linked = await issue({
+      clientId,
+      redirectUri: REDIRECT_URI,
+      scope: 'mcp',
+      resource: urls.adminResource,
+    })
+    expect(linked.body?.access_token).toBeUndefined()
+    expect(JSON.stringify(linked)).toContain('invalid_target')
+  })
+
+  it('issues an admin-audience platform-admin token to a provisioned console client', async () => {
+    const created = await (
+      auth.api as unknown as {
+        adminCreateOAuthClient: (i: {
+          headers: Headers
+          body: Record<string, unknown>
+        }) => Promise<{ client_id: string }>
+      }
+    ).adminCreateOAuthClient({
+      headers: new Headers({ cookie }),
+      body: {
+        client_name: 'Lumo Admin Console',
+        redirect_uris: [CONSOLE_CB],
+        token_endpoint_auth_method: 'none',
+        scope: 'platform-admin',
+        grant_types: ['authorization_code'],
+      },
+    })
+    consoleClientId = created.client_id
+    const ctx = await auth.$context
+    await ctx.adapter.create({
+      model: 'authOauthClientResource',
+      data: { clientId: consoleClientId, resourceId: urls.adminResource },
+    })
+
+    const issued = await issue({
+      clientId: consoleClientId,
+      redirectUri: CONSOLE_CB,
+      scope: 'platform-admin',
+      resource: urls.adminResource,
+    })
+    expect(issued.status).toBe(200)
+    const token = issued.body?.access_token as string
+
+    const admin = await api().lumoVerifyAdminAccessToken({ body: { token } })
+    expect(admin.payload).toMatchObject({
+      aud: urls.adminResource,
+      scope: 'platform-admin',
+      client_id: consoleClientId,
+    })
+
+    // The MCP endpoint's mapping rejects it (wrong audience, no mcp scope).
+    const mcp = await api().lumoVerifyMcpAccessToken({ body: { token } })
+    expect(
+      toMcpAuthInfo(token, mcp.payload, {
+        resource: urls.resource,
+        nowSeconds: now(),
+      })
+    ).toBeUndefined()
+  })
+
+  it('the admin verify endpoint rejects an MCP token', async () => {
+    const issued = await issue({
+      clientId,
+      redirectUri: REDIRECT_URI,
+      scope: 'mcp',
+      resource: urls.resource,
+    })
+    expect(issued.status).toBe(200)
+    const token = issued.body?.access_token as string
+    const admin = await api().lumoVerifyAdminAccessToken({ body: { token } })
+    expect(admin.payload).toBeNull()
+    // Unchanged MCP path still accepts it.
+    const mcp = await api().lumoVerifyMcpAccessToken({ body: { token } })
+    expect(
+      toMcpAuthInfo(token, mcp.payload, {
+        resource: urls.resource,
+        nowSeconds: now(),
+      })
+    ).toMatchObject({ clientId, scopes: ['mcp'] })
+  })
+
+  it('cannot mint one token for both resources carrying both scopes', async () => {
+    const q = new URLSearchParams({
+      response_type: 'code',
+      client_id: consoleClientId,
+      redirect_uri: CONSOLE_CB,
+      scope: 'platform-admin',
+      state: 'adm',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+    })
+    q.append('resource', urls.adminResource)
+    q.append('resource', urls.resource)
+    const authz = await call(`/oauth2/authorize?${q}`, { headers: { cookie } })
+    const location = authz.headers.get('location') ?? ''
+    expect(new URL(location, BASE).pathname).not.toBe('/oauth/consent')
+    expect(location).toMatch(/invalid_scope|invalid_target/)
+  })
+
+  it('the admin verify endpoint is not reachable over HTTP', async () => {
+    const res = await call('/lumo/admin/verify-access-token', {
+      method: 'POST',
+      body: JSON.stringify({ token: 'x' }),
+    })
+    expect(res.status).toBe(404)
+  })
+})

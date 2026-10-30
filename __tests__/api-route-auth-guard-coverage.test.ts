@@ -56,6 +56,8 @@ const AUTH_GUARDS = new Set([
   // app/api/mcp: passed to `withMcpAuth(..., { required: true })`.
   // LUM-1026: the @/lib/auth wrapper around MCP OAuth token verification.
   'lib/auth/mcp#verifyMcpAccessToken',
+  // LUM-1344: bearer OAuth token for <origin>/api/admin + role = 'admin'.
+  'lib/auth/platform-admin#requirePlatformAdmin',
 ])
 
 const AUTH_DELEGATES = new Set([

@@ -10,6 +10,12 @@
  *                    LUM-1073), mandatory PKCE S256, and a
  *                    server-only token check used by /api/mcp
  *
+ * LUM-1344 adds a second protected resource, <origin>/api/admin (scope
+ * `platform-admin`), for the platform admin console, plus a server-only
+ * check for its tokens. MCP clients are unaffected: dynamic registration,
+ * discovery and the MCP resource keep exactly the `mcp` / `offline_access`
+ * scopes, so no DCR client can request the admin scope or resource.
+ *
  * Package docs are not shipped with the npm tarball; the options used here are
  * documented in node_modules/@better-auth/oauth-provider/dist/oauth-*.d.mts
  * (`interface OAuthOptions`) and the JWT plugin in
@@ -36,9 +42,12 @@ import {
   MCP_OAUTH_SCOPES,
   MCP_REFRESH_TOKEN_TTL_SECONDS,
   MCP_REGISTER_RATE_LIMIT,
+  PLATFORM_ADMIN_SCOPE,
   checkAuthorizationPkce,
   checkClientRegistration,
   restoreNativeSchemeRedirectUris,
+  toAdminTokenIdentity,
+  type AccessTokenPayload,
   type McpOAuthUrls,
 } from './mcp-oauth-config'
 
@@ -55,6 +64,9 @@ const OAUTH_MODEL_NAMES = {
 
 /** Server-only endpoint /api/mcp calls to check a bearer token. */
 export const VERIFY_MCP_ACCESS_TOKEN_PATH = '/lumo/mcp/verify-access-token'
+
+/** LUM-1344 — server-only endpoint the admin API calls to check a bearer token. */
+export const VERIFY_ADMIN_ACCESS_TOKEN_PATH = '/lumo/admin/verify-access-token'
 
 /** Paths of Better Auth endpoints Lumo does not expose. */
 export const MCP_OAUTH_DISABLED_PATHS = [
@@ -74,24 +86,40 @@ export const MCP_OAUTH_DISABLED_PATHS = [
 ]
 
 function oauthProviderOptions(urls: McpOAuthUrls) {
-  const scopes: Scope[] = [...MCP_OAUTH_SCOPES]
+  const mcpScopes: Scope[] = [...MCP_OAUTH_SCOPES]
+  // Every scope this server knows. `platform-admin` is listed here only so
+  // the provisioned admin console client may hold it; everything an MCP
+  // client sees (DCR capabilities, discovery, the MCP resource) stays
+  // `mcpScopes`.
+  const scopes: Scope[] = [...mcpScopes, PLATFORM_ADMIN_SCOPE]
   return {
     schema: OAUTH_MODEL_NAMES,
     scopes,
+    clientRegistrationDefaultScopes: mcpScopes,
+    advertisedMetadata: { scopes_supported: mcpScopes },
     grantTypes: ['authorization_code', 'refresh_token'],
     loginPage: MCP_OAUTH_LOGIN_PAGE,
     consentPage: MCP_OAUTH_CONSENT_PAGE,
-    // The MCP endpoint is the one protected resource; every dynamically
-    // registered client is linked to it and may request only it.
+    // Two protected resources. Every dynamically registered client is
+    // linked to the MCP endpoint only and may request only it; the admin
+    // API (LUM-1344) is reachable only by a client an operator links to it.
+    // The token `aud` is the RFC 8707 `resource` the request names, and each
+    // resource's allowedScopes intersects the requested scopes, so an MCP
+    // token never carries `platform-admin` and an admin token never `mcp`.
     resources: [
       {
         identifier: urls.resource,
         name: 'Lumo MCP',
-        allowedScopes: scopes,
+        allowedScopes: mcpScopes,
+      },
+      {
+        identifier: urls.adminResource,
+        name: 'Lumo platform admin API',
+        allowedScopes: [PLATFORM_ADMIN_SCOPE],
       },
     ],
     resourceSeedMode: 'overwrite',
-    cachedResources: new Set([urls.resource]),
+    cachedResources: new Set([urls.resource, urls.adminResource]),
     enforcePerClientResources: true,
     clientRegistrationDefaultResources: [urls.resource],
     // RFC 7591 open registration — MCP clients register themselves. Kept
@@ -123,8 +151,46 @@ function badRequest(error: string, description: string): APIError {
   return new APIError('BAD_REQUEST', { error, error_description: description })
 }
 
-/** Lumo's policy hooks plus the server-only token check. */
-function lumoMcpOAuthPlugin(providerOptions: OAuthOptions<Scope[]>) {
+interface ValidatedToken {
+  payload: Record<string, unknown> | null
+  clientName: string | null
+}
+
+const NO_TOKEN: ValidatedToken = { payload: null, clientName: null }
+
+/**
+ * The provider's validation of an access token (signature / revocation /
+ * expiry), or NO_TOKEN when it is invalid or its client is gone or disabled.
+ * Audience and scope are the caller's to check.
+ */
+async function validateWithProvider(
+  ctx: Parameters<typeof getOAuthProviderApi>[0],
+  providerOptions: OAuthOptions<Scope[]>,
+  token: unknown
+): Promise<ValidatedToken> {
+  if (typeof token !== 'string' || token.length === 0) return NO_TOKEN
+  const provider = getOAuthProviderApi(ctx, providerOptions)
+  let payload: Record<string, unknown> | null
+  try {
+    payload = (await provider.validateAccessToken(token)) as Record<
+      string,
+      unknown
+    >
+  } catch {
+    payload = null
+  }
+  const clientId = payload?.client_id ?? payload?.azp
+  if (!payload?.active || typeof clientId !== 'string') return NO_TOKEN
+  const client = await provider.getClient(clientId)
+  if (!client || client.disabled) return NO_TOKEN
+  return { payload, clientName: client.name ?? null }
+}
+
+/** Lumo's policy hooks plus the server-only token checks. */
+function lumoMcpOAuthPlugin(
+  providerOptions: OAuthOptions<Scope[]>,
+  urls: McpOAuthUrls
+) {
   return {
     id: 'lumo-mcp-oauth',
     hooks: {
@@ -215,28 +281,32 @@ function lumoMcpOAuthPlugin(providerOptions: OAuthOptions<Scope[]>) {
         { method: 'POST', metadata: { SERVER_ONLY: true } },
         async ctx => {
           const token = (ctx.body as { token?: unknown } | undefined)?.token
-          if (typeof token !== 'string' || token.length === 0) {
-            return ctx.json({ payload: null, clientName: null })
-          }
-          const provider = getOAuthProviderApi(ctx, providerOptions)
-          let payload: Record<string, unknown> | null
-          try {
-            payload = (await provider.validateAccessToken(token)) as Record<
-              string,
-              unknown
-            >
-          } catch {
-            payload = null
-          }
-          const clientId = payload?.client_id ?? payload?.azp
-          if (!payload?.active || typeof clientId !== 'string') {
-            return ctx.json({ payload: null, clientName: null })
-          }
-          const client = await provider.getClient(clientId)
-          if (!client || client.disabled) {
-            return ctx.json({ payload: null, clientName: null })
-          }
-          return ctx.json({ payload, clientName: client.name ?? null })
+          return ctx.json(
+            await validateWithProvider(ctx, providerOptions, token)
+          )
+        }
+      ),
+      // LUM-1344: like the MCP check, but only a token for the admin
+      // resource carrying `platform-admin` comes back — anything else
+      // (an MCP token included) answers `payload: null`.
+      lumoVerifyAdminAccessToken: createAuthEndpoint(
+        VERIFY_ADMIN_ACCESS_TOKEN_PATH,
+        { method: 'POST', metadata: { SERVER_ONLY: true } },
+        async ctx => {
+          const token = (ctx.body as { token?: unknown } | undefined)?.token
+          const { payload } = await validateWithProvider(
+            ctx,
+            providerOptions,
+            token
+          )
+          const identity = toAdminTokenIdentity(
+            payload as AccessTokenPayload | null,
+            {
+              resource: urls.adminResource,
+              nowSeconds: Math.floor(Date.now() / 1000),
+            }
+          )
+          return ctx.json({ payload: identity ? payload : null })
         }
       ),
     },
@@ -259,6 +329,6 @@ export function mcpOAuthPlugins(urls: McpOAuthUrls): BetterAuthPlugin[] {
     // runtime shape is a regular plugin.
     provider as unknown as BetterAuthPlugin,
     // `provider.options` holds the resolved options (defaults applied).
-    lumoMcpOAuthPlugin(provider.options as OAuthOptions<Scope[]>),
+    lumoMcpOAuthPlugin(provider.options as OAuthOptions<Scope[]>, urls),
   ]
 }

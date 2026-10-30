@@ -6,7 +6,10 @@
  * token → AuthInfo mapping /api/mcp enforces (audience, expiry, scope).
  */
 import {
+  ADMIN_API_PATH,
   MCP_OAUTH_SCOPES,
+  PLATFORM_ADMIN_SCOPE,
+  toAdminTokenIdentity,
   buildProtectedResourceMetadata,
   checkAuthorizationPkce,
   MCP_NATIVE_REDIRECT_SCHEMES,
@@ -27,8 +30,21 @@ describe('resolveMcpOAuthUrls', () => {
       origin: 'https://lumo.example.com',
       issuer: 'https://lumo.example.com',
       resource: 'https://lumo.example.com/api/mcp',
+      adminResource: 'https://lumo.example.com/api/admin',
       authBaseUrl: 'https://lumo.example.com/api/auth',
     })
+  })
+
+  // LUM-1344 — the platform admin API is a second protected resource.
+  it('admin resource is <origin>/api/admin and MCP resource is unchanged', () => {
+    const urls = resolveMcpOAuthUrls({
+      BETTER_AUTH_URL: 'http://localhost:3000',
+    })
+    expect(ADMIN_API_PATH).toBe('/api/admin')
+    expect(PLATFORM_ADMIN_SCOPE).toBe('platform-admin')
+    expect(urls?.adminResource).toBe('http://localhost:3000/api/admin')
+    expect(urls?.resource).toBe('http://localhost:3000/api/mcp')
+    expect(MCP_OAUTH_SCOPES).toEqual(['mcp', 'offline_access'])
   })
 
   it('falls back to NEXT_PUBLIC_APP_URL', () => {
@@ -350,5 +366,54 @@ describe('buildProtectedResourceMetadata', () => {
         challenge_algs: ['S256'],
       },
     ])
+  })
+})
+
+// LUM-1344 — access-token payload → platform admin identity.
+describe('toAdminTokenIdentity', () => {
+  const ADMIN = 'https://lumo.example.com/api/admin'
+  const MCP = 'https://lumo.example.com/api/mcp'
+  const now = 1_000_000
+  const base = {
+    active: true,
+    sub: 'user-1',
+    client_id: 'console',
+    aud: ADMIN,
+    scope: 'platform-admin',
+    exp: now + 60,
+  }
+  const check = (payload: Record<string, unknown> | null) =>
+    toAdminTokenIdentity(payload, { resource: ADMIN, nowSeconds: now })
+
+  it('returns { userId, clientId } for an admin-audience platform-admin token', () => {
+    expect(check(base)).toEqual({ userId: 'user-1', clientId: 'console' })
+    expect(check({ ...base, client_id: undefined, azp: 'console' })).toEqual({
+      userId: 'user-1',
+      clientId: 'console',
+    })
+    expect(check({ ...base, aud: [MCP, ADMIN] })).toEqual({
+      userId: 'user-1',
+      clientId: 'console',
+    })
+  })
+
+  it.each([
+    ['a null payload', null],
+    ['an inactive token', { ...base, active: false }],
+    [
+      'an MCP token (aud /api/mcp, scope mcp)',
+      { ...base, aud: MCP, scope: 'mcp' },
+    ],
+    [
+      'the admin audience without the scope',
+      { ...base, scope: 'mcp offline_access' },
+    ],
+    ['the scope without the admin audience', { ...base, aud: MCP }],
+    ['no audience', { ...base, aud: undefined }],
+    ['an expired token', { ...base, exp: now }],
+    ['no subject', { ...base, sub: '' }],
+    ['no client', { ...base, client_id: undefined }],
+  ])('rejects %s', (_label, payload) => {
+    expect(check(payload as Record<string, unknown> | null)).toBeUndefined()
   })
 })
