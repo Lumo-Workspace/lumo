@@ -48,6 +48,8 @@ export const NON_WORKSPACE_MODELS: Readonly<Record<string, string>> = {
     'single-use client-assertion id; owned by no workspace',
   EmailDelivery:
     'system-email idempotency ledger (LUM-1041): no workspaceId, only the send key + outcome',
+  PlatformAdminAuditEvent:
+    'platform-level operator audit (LUM-1344); workspaceId is a plain value on purpose so rows survive workspace deletion',
 }
 
 export type BlobCleanup =

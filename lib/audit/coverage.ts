@@ -289,6 +289,12 @@ export const AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
     'per-member document share role change (routine collaboration)',
   'app/api/documents/[id]/shares/[shareId]/route.ts#DELETE':
     'per-member document share removal (routine collaboration)',
+  // LUM-1344: platform admin reads only look up the OWNER role to display
+  // the owner's email; nothing is gated on it.
+  'lib/services/platform-admin.service.ts#ownerOf':
+    'reads the OWNER role only to display the owner (platform admin read)',
+  'lib/services/platform-admin.service.ts#listWorkspaces':
+    'reads the OWNER role only to display the owner (platform admin read)',
 }
 
 /** Matches an OWNER check or a call to one of the owner-gate helpers. */
