@@ -315,6 +315,30 @@ describe('workspace install (TEAM)', () => {
   })
 })
 
+describe('status reads without Feishu env (no 500)', () => {
+  it.each([
+    ['FEISHU_APP_ID missing', () => delete process.env.FEISHU_APP_ID],
+    ['FEISHU_DOMAIN invalid', () => (process.env.FEISHU_DOMAIN = 'nope')],
+  ])('%s: status still answers', async (_name, breakEnv) => {
+    breakEnv()
+    repo.findAccount.mockResolvedValue({
+      name: 'M',
+      tenantKey: 'tk',
+      needsReauth: false,
+    })
+    await expect(getInstallStatus(WS)).resolves.toMatchObject({
+      connected: true,
+      reinstallRequired: true,
+    })
+    await expect(getAccountStatus(WS, 'm2')).resolves.toEqual({
+      installed: false,
+      connected: false,
+      name: null,
+      needsReauth: false,
+    })
+  })
+})
+
 describe('isInstallCurrent', () => {
   it('needs the same app id and domain as the env', () => {
     const app = { appId: 'cli_app', domain: 'feishu' as const }

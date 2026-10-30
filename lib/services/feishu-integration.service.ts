@@ -123,6 +123,27 @@ export function isInstallCurrent(
   return install.domain === app.domain && install.appId === app.appId
 }
 
+/**
+ * The deployment's app for a read-only status check: null instead of a throw
+ * when FEISHU_APP_ID / FEISHU_APP_SECRET are missing or FEISHU_DOMAIN is
+ * invalid, so a status GET never turns into a 500. No app means no install
+ * can be current.
+ */
+function currentAppOrNull(): FeishuAppCredentials | null {
+  try {
+    return feishuAppCredentials()
+  } catch {
+    return null
+  }
+}
+
+function isCurrentFor(
+  install: { domain: string; appId: string },
+  app: FeishuAppCredentials | null
+): boolean {
+  return app !== null && isInstallCurrent(install, app)
+}
+
 function requireCurrent(
   install: { domain: string; appId: string },
   app: Pick<FeishuAppCredentials, 'domain' | 'appId'>
@@ -231,7 +252,7 @@ export async function getInstallStatus(
     connected: true,
     tenantName: row.tenantName,
     domain: row.domain,
-    reinstallRequired: !isInstallCurrent(row, feishuAppCredentials()),
+    reinstallRequired: !isCurrentFor(row, currentAppOrNull()),
   }
 }
 
@@ -418,7 +439,7 @@ export async function getAccountStatus(
   ])
   // A link counts only against a current install of the same tenant.
   const installed =
-    install !== null && isInstallCurrent(install, feishuAppCredentials())
+    install !== null && isCurrentFor(install, currentAppOrNull())
   const connected =
     installed && row !== null && row.tenantKey === install.tenantKey
   return {
