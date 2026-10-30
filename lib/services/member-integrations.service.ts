@@ -26,7 +26,7 @@ import { disconnectIntegration as disconnectFigma } from '@/lib/services/figma-i
 import { githubService } from '@/lib/services/github.service'
 import { disconnectIntegration as disconnectGoogleDrive } from '@/lib/services/google-drive-integration.service'
 import {
-  disconnectAccount as disconnectFeishuAccount,
+  removeAccountLink as disconnectFeishuAccount,
   hasAccountLink as hasFeishuAccountLink,
 } from '@/lib/services/feishu-integration.service'
 

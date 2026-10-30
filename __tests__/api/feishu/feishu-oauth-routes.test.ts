@@ -39,6 +39,7 @@ import { GET as installStart } from '@/app/api/feishu/install/route'
 import { GET as installCallback } from '@/app/api/feishu/install/callback/route'
 import { GET as accountStart } from '@/app/api/feishu/account/connect/route'
 import { GET as accountCallback } from '@/app/api/feishu/account/callback/route'
+import { DELETE as accountDelete } from '@/app/api/feishu/account/route'
 
 const APP = 'https://lumo.test'
 
@@ -232,6 +233,25 @@ describe.each(CALLBACKS)('callback: $leg', flow => {
     expect(location(res)).toBe(`${settings}?feishu_error=tenant_mismatch`)
   })
 
+  it('refuses to exchange the code without a configured app URL (no relative redirect)', async () => {
+    const saved = process.env.NEXT_PUBLIC_APP_URL
+    delete process.env.NEXT_PUBLIC_APP_URL
+    try {
+      const state = encodeOauthState({
+        ...ALPHA_OWNER_STATE,
+        purpose: flow.purpose,
+      })
+      const res = await flow.GET(req(flow.path, { code: 'c', state }))
+      // Falls back to the request origin, never a relative Location.
+      expect(location(res)).toBe(
+        `${APP}/workspace/alpha/settings/${flow.page}?feishu_error=app_url_not_configured`
+      )
+      expect(flow.complete).not.toHaveBeenCalled()
+    } finally {
+      process.env.NEXT_PUBLIC_APP_URL = saved
+    }
+  })
+
   it('404s when the deployment has no Feishu app configured', async () => {
     delete process.env.FEISHU_APP_ID
     const state = encodeOauthState({
@@ -271,6 +291,43 @@ describe('install start', () => {
     process.env.LUMO_DOGFOOD_WORKSPACE_IDS = 'w_other'
     const res = await installStart(
       req('/api/feishu/install', { workspaceUrl: 'alpha' })
+    )
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('start routes without an app URL', () => {
+  it.each([
+    ['install', installStart, '/api/feishu/install', 'integrations'],
+    [
+      'account',
+      accountStart,
+      '/api/feishu/account/connect',
+      'connected-accounts',
+    ],
+  ] as const)(
+    '%s start names app_url_not_configured',
+    async (_n, GET, path, page) => {
+      const saved = process.env.NEXT_PUBLIC_APP_URL
+      delete process.env.NEXT_PUBLIC_APP_URL
+      try {
+        const res = await GET(req(path, { workspaceUrl: 'alpha' }))
+        expect(location(res)).toBe(
+          `${APP}/workspace/alpha/settings/${page}?feishu_error=app_url_not_configured`
+        )
+        expect(mockBuildAccountUrl).not.toHaveBeenCalled()
+      } finally {
+        process.env.NEXT_PUBLIC_APP_URL = saved
+      }
+    }
+  )
+})
+
+describe('account DELETE', () => {
+  it('404s outside the rollout instead of deleting', async () => {
+    process.env.LUMO_DOGFOOD_WORKSPACE_IDS = 'w_other'
+    const res = await accountDelete(
+      req('/api/feishu/account', { workspaceUrl: 'alpha' })
     )
     expect(res.status).toBe(404)
   })

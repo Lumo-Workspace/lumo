@@ -8,6 +8,9 @@ const REASON_KEYS: Record<string, string> = {
   no_refresh_token: 'feishu.error.noRefreshToken',
   not_owner: 'feishu.error.notOwner',
   expired: 'feishu.error.expired',
+  tenant_taken: 'feishu.error.tenantTaken',
+  reinstall_required: 'feishu.error.reinstallRequired',
+  app_url_not_configured: 'feishu.error.appUrlNotConfigured',
 }
 
 export function feishuErrorMessageId(reason: string): string {

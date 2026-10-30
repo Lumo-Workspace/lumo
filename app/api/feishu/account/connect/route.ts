@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIntegrationConfigured } from '@/lib/api/integration-configured'
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
-import { feishuFlowFailure, feishuSettingsUrl } from '@/lib/api/feishu-oauth'
-import { resolveAppUrl } from '@/lib/config/public-config'
+import {
+  feishuAppUrl,
+  feishuFlowFailure,
+  feishuSettingsUrl,
+} from '@/lib/api/feishu-oauth'
 import { buildAccountAuthorizeUrl } from '@/lib/services/feishu-integration.service'
 
 /**
@@ -19,7 +22,13 @@ export async function GET(request: NextRequest) {
   const ws = await requireWorkspaceByUrl(authResult.userId, workspaceUrl)
   if (ws instanceof NextResponse) return ws
 
-  const appUrl = resolveAppUrl() ?? ''
+  const { appUrl, base } = feishuAppUrl(request)
+  const settingsUrl = feishuSettingsUrl(base, ws.workspace.slug, 'account')
+  if (!appUrl) {
+    return NextResponse.redirect(
+      `${settingsUrl}?feishu_error=app_url_not_configured`
+    )
+  }
   try {
     const url = await buildAccountAuthorizeUrl({
       workspaceId: ws.workspaceId,
@@ -32,10 +41,6 @@ export async function GET(request: NextRequest) {
     if ((error as { status?: number }).status === 404) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
-    return feishuFlowFailure(
-      feishuSettingsUrl(appUrl, ws.workspace.slug, 'account'),
-      error,
-      'account start'
-    )
+    return feishuFlowFailure(settingsUrl, error, 'account start')
   }
 }

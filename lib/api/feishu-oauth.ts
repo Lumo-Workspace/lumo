@@ -6,6 +6,7 @@ import {
   type OauthStatePurpose,
 } from '@/lib/integrations/oauth-state'
 import { logger } from '@/lib/logger'
+import { requireAbsoluteAppUrl } from '@/lib/integrations/feishu/config'
 
 /**
  * LUM-1341 — what both Feishu OAuth callbacks share: the state must be ours,
@@ -34,6 +35,27 @@ export function feishuSettingsUrl(
   return `${appUrl}/workspace/${workspaceSlug}/settings/${SETTINGS_PAGE[leg]}`
 }
 
+/**
+ * The configured app URL, or null when NEXT_PUBLIC_APP_URL is missing or not
+ * absolute — plus the base to redirect the browser to either way (the request
+ * origin as a fallback, so a Location header is never relative; same fallback
+ * as app/api/github/app/install/route.ts).
+ */
+export function feishuAppUrl(request: NextRequest): {
+  appUrl: string | null
+  base: string
+} {
+  try {
+    const appUrl = requireAbsoluteAppUrl(resolveAppUrl())
+    return { appUrl, base: appUrl }
+  } catch {
+    logger.error(
+      '[feishu] NEXT_PUBLIC_APP_URL is not configured; the Feishu OAuth redirect URIs cannot be built'
+    )
+    return { appUrl: null, base: request.nextUrl.origin }
+  }
+}
+
 export interface VerifiedFeishuCallback {
   code: string
   appUrl: string
@@ -53,9 +75,9 @@ export async function verifyFeishuCallback(
   const params = request.nextUrl.searchParams
   const code = params.get('code')
   const stateParam = params.get('state')
-  const appUrl = resolveAppUrl() ?? ''
+  const { appUrl, base } = feishuAppUrl(request)
 
-  if (!stateParam) return NextResponse.redirect(`${appUrl}/?feishu_error=1`)
+  if (!stateParam) return NextResponse.redirect(`${base}/?feishu_error=1`)
 
   const decoded = decodeOauthState(stateParam, Date.now(), PURPOSE[leg])
   // The slug comes from the verified state, never the query string; an
@@ -65,8 +87,8 @@ export async function verifyFeishuCallback(
     decoded.ok ? decoded.payload.workspaceUrl : undefined
   )
   if (!ws)
-    return NextResponse.redirect(`${appUrl}/?feishu_error=identity_mismatch`)
-  const settingsUrl = feishuSettingsUrl(appUrl, ws.workspace.slug, leg)
+    return NextResponse.redirect(`${base}/?feishu_error=identity_mismatch`)
+  const settingsUrl = feishuSettingsUrl(base, ws.workspace.slug, leg)
   const fail = (reason: string) =>
     NextResponse.redirect(`${settingsUrl}?feishu_error=${reason}`)
 
@@ -78,6 +100,8 @@ export async function verifyFeishuCallback(
     return fail('identity_mismatch')
   }
   if (params.get('error')) return fail('denied')
+  // The token exchange must send the redirect_uri Feishu saw: no app URL, no exchange.
+  if (!appUrl) return fail('app_url_not_configured')
   if (!code) return fail('no_code')
 
   return {

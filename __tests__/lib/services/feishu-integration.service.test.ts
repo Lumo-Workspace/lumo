@@ -64,6 +64,8 @@ import {
   getUserClientForMember,
   hasAccountLink,
   isFeishuEnabled,
+  isInstallCurrent,
+  removeAccountLink,
 } from '@/lib/services/feishu-integration.service'
 import { FeishuNeedsReauthError } from '@/lib/integrations/feishu/client'
 
@@ -80,7 +82,21 @@ beforeEach(() => {
   delete process.env.FEISHU_DOMAIN
   fetchMock.mockReset()
   global.fetch = fetchMock as unknown as typeof fetch
+  // Defaults: a current install of tenant `tk`; writes succeed.
+  repo.findInstallStatus.mockResolvedValue(CURRENT_INSTALL)
+  repo.upsertInstall.mockResolvedValue('ok')
+  repo.updateTenantToken.mockResolvedValue(true)
+  repo.deleteInstall.mockResolvedValue({ install: true, accounts: 0 })
 })
+
+/** The install as findInstallStatus returns it (no token). */
+const CURRENT_INSTALL = {
+  domain: 'feishu',
+  appId: 'cli_app',
+  tenantKey: 'tk',
+  tenantName: 'Lumo Inc',
+  createdAt: new Date(0),
+}
 
 const userToken = (over = {}) => ({
   accessToken: 'u-access',
@@ -227,16 +243,17 @@ describe('workspace install (TEAM)', () => {
   })
 
   it('reports status from the row', async () => {
+    process.env.FEISHU_DOMAIN = 'lark'
     repo.findInstallStatus.mockResolvedValue({
+      ...CURRENT_INSTALL,
       domain: 'lark',
-      tenantKey: 'tk',
       tenantName: 'Acme',
-      createdAt: new Date(),
     })
     await expect(getInstallStatus(WS)).resolves.toEqual({
       connected: true,
       tenantName: 'Acme',
       domain: 'lark',
+      reinstallRequired: false,
     })
     repo.findInstallStatus.mockResolvedValue(null)
     await expect(getInstallStatus(WS)).resolves.toEqual({ connected: false })
@@ -252,6 +269,64 @@ describe('workspace install (TEAM)', () => {
     expect(mockAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'feishu.disconnected' })
     )
+    // No member links went with it: no second event.
+    expect(mockAudit).toHaveBeenCalledTimes(1)
+  })
+
+  it('disconnect removes every member link with the install, and audits it', async () => {
+    repo.deleteInstall.mockResolvedValue({ install: true, accounts: 3 })
+    await disconnectInstall(WS, 'OWNER')
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'feishu.member_accounts_removed',
+        metadata: { count: 3 },
+      })
+    )
+  })
+
+  it('refuses a tenant another workspace already holds (tenant_taken, 409)', async () => {
+    mockExchange.mockResolvedValue(userToken())
+    mockUserInfo.mockResolvedValue({ openId: 'ou', tenantKey: 'tk', name: 'O' })
+    mockTenantToken.mockResolvedValue({ token: 't', expiresAt: new Date() })
+    mockTenantInfo.mockResolvedValue({ tenantKey: 'tk', name: 'Lumo Inc' })
+    repo.upsertInstall.mockResolvedValue('tenant_taken')
+    process.env.LUMO_DOGFOOD_WORKSPACE_IDS = `${WS},ws_second`
+    await expect(
+      completeInstall({
+        workspaceId: 'ws_second',
+        memberId: 'm9',
+        role: 'OWNER',
+        code: 'c',
+        appUrl: APP_URL,
+      })
+    ).rejects.toMatchObject({ code: 'tenant_taken', status: 409 })
+    expect(mockAudit).not.toHaveBeenCalled()
+  })
+
+  it('reports an install made for another app / domain as reinstallRequired', async () => {
+    repo.findInstallStatus.mockResolvedValue({
+      ...CURRENT_INSTALL,
+      appId: 'cli_old',
+    })
+    await expect(getInstallStatus(WS)).resolves.toMatchObject({
+      connected: true,
+      reinstallRequired: true,
+    })
+  })
+})
+
+describe('isInstallCurrent', () => {
+  it('needs the same app id and domain as the env', () => {
+    const app = { appId: 'cli_app', domain: 'feishu' as const }
+    expect(isInstallCurrent({ appId: 'cli_app', domain: 'feishu' }, app)).toBe(
+      true
+    )
+    expect(isInstallCurrent({ appId: 'cli_old', domain: 'feishu' }, app)).toBe(
+      false
+    )
+    expect(isInstallCurrent({ appId: 'cli_app', domain: 'lark' }, app)).toBe(
+      false
+    )
   })
 })
 
@@ -262,6 +337,7 @@ describe('getTenantAccessToken', () => {
     repo.findInstallWithToken.mockResolvedValue({
       id: 'fi1',
       domain: 'feishu',
+      appId: 'cli_app',
       tenantKey: 'tk',
       tenantAccessToken: encrypt('cached'),
       tenantTokenExpiresAt: new Date(NOW + 3_600_000),
@@ -274,6 +350,7 @@ describe('getTenantAccessToken', () => {
     repo.findInstallWithToken.mockResolvedValue({
       id: 'fi1',
       domain: 'feishu',
+      appId: 'cli_app',
       tenantKey: 'tk',
       tenantAccessToken: encrypt('old'),
       tenantTokenExpiresAt: new Date(NOW + 60_000),
@@ -293,19 +370,57 @@ describe('getTenantAccessToken', () => {
       code: 'not_installed',
     })
   })
+
+  it('never hands out the cached token of another app (reinstall_required)', async () => {
+    repo.findInstallWithToken.mockResolvedValue({
+      id: 'fi1',
+      domain: 'feishu',
+      appId: 'cli_old',
+      tenantKey: 'tk',
+      tenantAccessToken: encrypt('other-app-token'),
+      tenantTokenExpiresAt: new Date(NOW + 3_600_000),
+    })
+    await expect(getTenantAccessToken(WS, NOW)).rejects.toMatchObject({
+      code: 'reinstall_required',
+      status: 409,
+    })
+    process.env.FEISHU_DOMAIN = 'lark'
+    repo.findInstallWithToken.mockResolvedValue({
+      id: 'fi1',
+      domain: 'feishu',
+      appId: 'cli_app',
+      tenantKey: 'tk',
+      tenantAccessToken: encrypt('feishu-token'),
+      tenantTokenExpiresAt: new Date(NOW + 3_600_000),
+    })
+    await expect(getTenantAccessToken(WS, NOW)).rejects.toMatchObject({
+      code: 'reinstall_required',
+    })
+    expect(mockTenantToken).not.toHaveBeenCalled()
+  })
+
+  it('a disconnect during the refresh yields a clean not_installed', async () => {
+    repo.findInstallWithToken.mockResolvedValue({
+      id: 'fi1',
+      domain: 'feishu',
+      appId: 'cli_app',
+      tenantKey: 'tk',
+      tenantAccessToken: null,
+      tenantTokenExpiresAt: null,
+    })
+    mockTenantToken.mockResolvedValue({ token: 'fresh', expiresAt: new Date() })
+    repo.updateTenantToken.mockResolvedValue(false)
+    await expect(getTenantAccessToken(WS, NOW)).rejects.toMatchObject({
+      code: 'not_installed',
+    })
+  })
 })
 
 describe('member account link (PERSONAL)', () => {
-  const install = {
-    id: 'fi1',
-    domain: 'feishu',
-    tenantKey: 'tk',
-    tenantAccessToken: null,
-    tenantTokenExpiresAt: null,
-  }
+  const install = CURRENT_INSTALL
 
   it('needs the workspace install before a member can start', async () => {
-    repo.findInstallWithToken.mockResolvedValue(null)
+    repo.findInstallStatus.mockResolvedValue(null)
     await expect(
       buildAccountAuthorizeUrl({
         workspaceId: WS,
@@ -317,7 +432,7 @@ describe('member account link (PERSONAL)', () => {
   })
 
   it('asks for offline_access + doc scopes with an account-leg state', async () => {
-    repo.findInstallWithToken.mockResolvedValue(install)
+    repo.findInstallStatus.mockResolvedValue(install)
     const url = new URL(
       await buildAccountAuthorizeUrl({
         workspaceId: WS,
@@ -336,7 +451,7 @@ describe('member account link (PERSONAL)', () => {
   })
 
   it('stores both tokens encrypted with their expiries', async () => {
-    repo.findInstallWithToken.mockResolvedValue(install)
+    repo.findInstallStatus.mockResolvedValue(install)
     const t = userToken()
     mockExchange.mockResolvedValue(t)
     mockUserInfo.mockResolvedValue({
@@ -374,7 +489,7 @@ describe('member account link (PERSONAL)', () => {
   })
 
   it('refuses a link without a refresh token (offline_access not granted)', async () => {
-    repo.findInstallWithToken.mockResolvedValue(install)
+    repo.findInstallStatus.mockResolvedValue(install)
     mockExchange.mockResolvedValue(userToken({ refreshToken: null }))
     await expect(
       completeAccountLink({
@@ -388,7 +503,7 @@ describe('member account link (PERSONAL)', () => {
   })
 
   it('refuses an account from another tenant', async () => {
-    repo.findInstallWithToken.mockResolvedValue(install)
+    repo.findInstallStatus.mockResolvedValue(install)
     mockExchange.mockResolvedValue(userToken())
     mockUserInfo.mockResolvedValue({
       openId: 'ou',
@@ -407,8 +522,11 @@ describe('member account link (PERSONAL)', () => {
   })
 
   it('reports status including needsReauth and whether the app is installed', async () => {
-    repo.findInstallStatus.mockResolvedValue({ tenantName: 'x' })
-    repo.findAccount.mockResolvedValue({ name: 'M', needsReauth: true })
+    repo.findAccount.mockResolvedValue({
+      name: 'M',
+      tenantKey: 'tk',
+      needsReauth: true,
+    })
     await expect(getAccountStatus(WS, 'm2')).resolves.toEqual({
       installed: true,
       connected: true,
@@ -423,6 +541,57 @@ describe('member account link (PERSONAL)', () => {
       name: null,
       needsReauth: false,
     })
+  })
+
+  it('never reports connected without a matching current install', async () => {
+    const link = { name: 'M', tenantKey: 'tk', needsReauth: false }
+    repo.findAccount.mockResolvedValue(link)
+    repo.findInstallStatus.mockResolvedValue(null)
+    await expect(getAccountStatus(WS, 'm2')).resolves.toMatchObject({
+      installed: false,
+      connected: false,
+    })
+    repo.findInstallStatus.mockResolvedValue({
+      ...CURRENT_INSTALL,
+      tenantKey: 'other',
+    })
+    await expect(getAccountStatus(WS, 'm2')).resolves.toMatchObject({
+      installed: true,
+      connected: false,
+      name: null,
+    })
+    repo.findInstallStatus.mockResolvedValue({
+      ...CURRENT_INSTALL,
+      appId: 'cli_old',
+    })
+    await expect(getAccountStatus(WS, 'm2')).resolves.toMatchObject({
+      installed: false,
+      connected: false,
+    })
+  })
+
+  it('an account flow refuses a stale install (reinstall_required)', async () => {
+    repo.findInstallStatus.mockResolvedValue({
+      ...CURRENT_INSTALL,
+      domain: 'lark',
+    })
+    await expect(
+      buildAccountAuthorizeUrl({
+        workspaceId: WS,
+        memberId: 'm2',
+        workspaceUrl: 'lumo',
+        appUrl: APP_URL,
+      })
+    ).rejects.toMatchObject({ code: 'reinstall_required', status: 409 })
+  })
+
+  it('the route disconnect is behind the rollout flag; member cleanup is not', async () => {
+    await expect(disconnectAccount('ws_customer', 'm2')).rejects.toMatchObject({
+      status: 404,
+    })
+    expect(repo.deleteAccount).not.toHaveBeenCalled()
+    await removeAccountLink('ws_customer', 'm2')
+    expect(repo.deleteAccount).toHaveBeenCalledWith('ws_customer', 'm2')
   })
 
   it('disconnect deletes the stored tokens and is audited', async () => {
@@ -556,6 +725,24 @@ describe('getUserClientForMember', () => {
     const client = await getUserClientForMember(WS, 'm2')
     await expect(client.get('/open-apis/x')).rejects.toBeTruthy()
     expect(repo.markAccountNeedsReauth).not.toHaveBeenCalled()
+  })
+
+  it('refuses with not_installed (409) when the install is gone or for another tenant', async () => {
+    repo.findAccount.mockResolvedValue(row())
+    repo.findInstallStatus.mockResolvedValue(null)
+    await expect(getUserClientForMember(WS, 'm2')).rejects.toMatchObject({
+      code: 'not_installed',
+      status: 409,
+    })
+    repo.findInstallStatus.mockResolvedValue({
+      ...CURRENT_INSTALL,
+      tenantKey: 'other',
+    })
+    await expect(getUserClientForMember(WS, 'm2')).rejects.toMatchObject({
+      code: 'not_installed',
+      status: 409,
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('refuses a missing or needs-reauth link up front', async () => {

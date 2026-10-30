@@ -3902,7 +3902,8 @@ model FeishuIntegration {
   /// 'feishu' (open.feishu.cn) or 'lark' (open.larksuite.com)
   domain               String
   appId                String
-  tenantKey            String
+  /// One Lumo workspace per Feishu tenant (LUM-1341 review).
+  tenantKey            String           @unique
   tenantName           String
   tenantAccessToken    String? // AES-256-GCM encrypted via lib/crypto.ts
   tenantTokenExpiresAt DateTime?
@@ -3911,7 +3912,6 @@ model FeishuIntegration {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@index([tenantKey])
   @@map("feishu_integrations")
 }
 

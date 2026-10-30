@@ -70,7 +70,12 @@ describe('FeishuIntegrationCard (TEAM)', () => {
 
   it('names the connected tenant', () => {
     set(teamHook, {
-      status: { connected: true, tenantName: 'Lumo Inc', domain: 'feishu' },
+      status: {
+        connected: true,
+        tenantName: 'Lumo Inc',
+        domain: 'feishu',
+        reinstallRequired: false,
+      },
     })
     const onConnectedChange = jest.fn()
     render(
@@ -79,6 +84,21 @@ describe('FeishuIntegrationCard (TEAM)', () => {
     expand()
     expect(screen.getByText('Lumo Inc')).toBeInTheDocument()
     expect(onConnectedChange).toHaveBeenCalledWith(true)
+  })
+
+  it('a stale install stays open and says an owner must reconnect', () => {
+    set(teamHook, {
+      status: {
+        connected: true,
+        tenantName: 'Lumo Inc',
+        domain: 'feishu',
+        reinstallRequired: true,
+      },
+    })
+    render(<FeishuIntegrationCard isOwner />)
+    expect(screen.getByTestId('feishu-reinstall-required')).toHaveTextContent(
+      'feishu.error.reinstallRequired'
+    )
   })
 
   it('does not report before the status has loaded', () => {

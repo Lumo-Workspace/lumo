@@ -403,6 +403,11 @@ the `feishu-integration` rollout flag (dogfood): add the workspace id to
 `LUMO_DOGFOOD_WORKSPACE_IDS` to see the cards. App Store (ISV) apps are not
 supported yet.
 
+One Feishu organization can be bound to one Lumo workspace. Disconnecting
+the workspace install also removes every member's account link, and changing
+`FEISHU_APP_ID` or `FEISHU_DOMAIN` makes an existing install stale until an
+owner reconnects it.
+
 1. <https://open.feishu.cn/app> (Lark: <https://open.larksuite.com/app>) →
    **Create custom app**. Copy the **App ID** and **App Secret**.
 2. **Security settings → Redirect URLs**: add both

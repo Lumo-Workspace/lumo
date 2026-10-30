@@ -1,4 +1,5 @@
-import { scopedPrisma } from '@/lib/db/workspace-scope'
+import { Prisma } from '@prisma/client'
+import { scopedPrisma, unscoped } from '@/lib/db/workspace-scope'
 
 /**
  * LUM-1341 — persistence for the Feishu / Lark connection: the workspace
@@ -7,8 +8,10 @@ import { scopedPrisma } from '@/lib/db/workspace-scope'
  * query pins its workspace (scopedPrisma, LUM-979).
  */
 
+/** Everything about the install except its token (LUM-1341 review). */
 const INSTALL_STATUS_SELECT = {
   domain: true,
+  appId: true,
   tenantKey: true,
   tenantName: true,
   createdAt: true,
@@ -17,6 +20,7 @@ const INSTALL_STATUS_SELECT = {
 const INSTALL_TOKEN_SELECT = {
   id: true,
   domain: true,
+  appId: true,
   tenantKey: true,
   tenantAccessToken: true,
   tenantTokenExpiresAt: true,
@@ -86,32 +90,65 @@ export const feishuIntegrationRepository = {
     })
   },
 
-  async upsertInstall(data: UpsertFeishuInstallData): Promise<void> {
+  /**
+   * Bind (or re-bind) the workspace. `tenantKey` is unique: when another
+   * workspace already holds this tenant the write fails with P2002 and this
+   * returns 'tenant_taken' — also when two installs race. A P2002 for any
+   * other reason is rethrown.
+   */
+  async upsertInstall(
+    data: UpsertFeishuInstallData
+  ): Promise<'ok' | 'tenant_taken'> {
     const { workspaceId, ...rest } = data
-    await scopedPrisma.feishuIntegration.upsert({
-      where: { workspaceId },
-      create: { workspaceId, ...rest },
-      update: rest,
-    })
+    try {
+      await scopedPrisma.feishuIntegration.upsert({
+        where: { workspaceId },
+        create: { workspaceId, ...rest },
+        update: rest,
+      })
+      return 'ok'
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error
+      const holder = await unscoped(
+        'LUM-1341: which workspace holds this Feishu tenant (unique tenantKey)'
+      ).feishuIntegration.findUnique({
+        where: { tenantKey: data.tenantKey },
+        select: { workspaceId: true },
+      })
+      if (holder && holder.workspaceId !== workspaceId) return 'tenant_taken'
+      throw error
+    }
   },
 
+  /** False when the install was removed meanwhile (nothing written). */
   async updateTenantToken(
     workspaceId: string,
     id: string,
     next: { tenantAccessToken: string; tenantTokenExpiresAt: Date }
-  ): Promise<void> {
-    await scopedPrisma.feishuIntegration.update({
+  ): Promise<boolean> {
+    const { count } = await scopedPrisma.feishuIntegration.updateMany({
       where: { id, workspaceId },
       data: next,
     })
+    return count > 0
   },
 
-  /** Idempotent: true when a row was removed. */
-  async deleteInstall(workspaceId: string): Promise<boolean> {
-    const { count } = await scopedPrisma.feishuIntegration.deleteMany({
-      where: { workspaceId },
+  /**
+   * Remove the install and, in the same transaction, every member account
+   * link in the workspace (their tokens belong to that install). Idempotent.
+   */
+  async deleteInstall(
+    workspaceId: string
+  ): Promise<{ install: boolean; accounts: number }> {
+    return scopedPrisma.$transaction(async tx => {
+      const accounts = await tx.feishuAccountIntegration.deleteMany({
+        where: { workspaceId },
+      })
+      const install = await tx.feishuIntegration.deleteMany({
+        where: { workspaceId },
+      })
+      return { install: install.count > 0, accounts: accounts.count }
     })
-    return count > 0
   },
 
   // ── Member account link (PERSONAL) ───────────────────────────────────────
@@ -174,4 +211,11 @@ export const feishuIntegrationRepository = {
     })
     return count > 0
   },
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  )
 }

@@ -44,7 +44,7 @@ jest.mock('@/lib/services/google-drive-integration.service', () => ({
 }))
 jest.mock('@/lib/services/feishu-integration.service', () => ({
   hasAccountLink: (...a: unknown[]) => mockHasFeishu(...a),
-  disconnectAccount: (...a: unknown[]) => mockDisconnectFeishu(...a),
+  removeAccountLink: (...a: unknown[]) => mockDisconnectFeishu(...a),
 }))
 jest.mock('@/lib/integrations/github/webhooks', () => ({
   deleteRepoWebhook: (...a: unknown[]) => mockDeleteRepoWebhook(...a),

@@ -29,6 +29,8 @@ export function FeishuIntegrationCard({
   } = useFeishuIntegration()
 
   const connected = status?.connected === true
+  const reinstallRequired =
+    status?.connected === true && status.reinstallRequired
 
   useEffect(() => {
     // Report once known, so the page can tell "none" from "loading".
@@ -52,7 +54,8 @@ export function FeishuIntegrationCard({
         title={intl.formatMessage({ id: 'feishu.title' })}
         description={intl.formatMessage({ id: 'feishu.description' })}
         headerAction={headerAction}
-        collapsible={connected}
+        // A stale install stays open so the prompt is seen.
+        collapsible={connected && !reinstallRequired}
         onReconnect={connected && isOwner ? handleConnect : undefined}
         reconnectLabel={intl.formatMessage({ id: 'common.reauthorize' })}
         onDisconnect={
@@ -61,6 +64,14 @@ export function FeishuIntegrationCard({
         disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
         menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
+        {reinstallRequired ? (
+          <p
+            className='text-caption text-danger-text'
+            data-testid='feishu-reinstall-required'
+          >
+            {intl.formatMessage({ id: 'feishu.error.reinstallRequired' })}
+          </p>
+        ) : null}
         {status?.connected ? (
           <p className='text-caption text-muted-foreground'>
             {intl.formatMessage(

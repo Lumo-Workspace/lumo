@@ -83,5 +83,22 @@ export type FeishuOauthLeg = 'install' | 'account'
  * value.
  */
 export function feishuRedirectUri(leg: FeishuOauthLeg, appUrl: string): string {
-  return `${appUrl.replace(/\/+$/, '')}/api/feishu/${leg}/callback`
+  return `${requireAbsoluteAppUrl(appUrl)}/api/feishu/${leg}/callback`
+}
+
+/**
+ * The app URL without a trailing slash; throws unless it is an absolute
+ * http(s) URL. A relative redirect_uri sent to Feishu fails its check on the
+ * provider side and a relative Location header throws in the route, so an
+ * unconfigured NEXT_PUBLIC_APP_URL must fail loudly instead.
+ */
+export function requireAbsoluteAppUrl(appUrl: string | undefined): string {
+  const base = (appUrl ?? '').trim().replace(/\/+$/, '')
+  if (!/^https?:\/\/[^/]+/i.test(base)) {
+    throw Object.assign(
+      new Error('NEXT_PUBLIC_APP_URL is not configured on this deployment'),
+      { status: 500, code: 'app_url_not_configured' }
+    )
+  }
+  return base
 }

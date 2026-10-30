@@ -145,11 +145,12 @@ export const AUDIT_INSTRUMENTED: Readonly<
   ],
   'lib/services/feishu-integration.service.ts#disconnectInstall': [
     'feishu.disconnected',
+    'feishu.member_accounts_removed',
   ],
   'lib/services/feishu-integration.service.ts#completeAccountLink': [
     'feishu_account.connected',
   ],
-  'lib/services/feishu-integration.service.ts#disconnectAccount': [
+  'lib/services/feishu-integration.service.ts#removeAccountLink': [
     'feishu_account.disconnected',
   ],
   'lib/services/github.service.ts#upsertIntegration': [

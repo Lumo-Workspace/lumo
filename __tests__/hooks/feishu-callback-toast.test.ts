@@ -13,6 +13,15 @@ describe('feishuErrorMessageId (LUM-1341)', () => {
     )
     expect(feishuErrorMessageId('not_owner')).toBe('feishu.error.notOwner')
     expect(feishuErrorMessageId('expired')).toBe('feishu.error.expired')
+    expect(feishuErrorMessageId('tenant_taken')).toBe(
+      'feishu.error.tenantTaken'
+    )
+    expect(feishuErrorMessageId('reinstall_required')).toBe(
+      'feishu.error.reinstallRequired'
+    )
+    expect(feishuErrorMessageId('app_url_not_configured')).toBe(
+      'feishu.error.appUrlNotConfigured'
+    )
   })
 
   it('falls back to the generic failure', () => {

@@ -6,7 +6,13 @@ import { API } from '@/app/workspace/[workspaceUrl]/constants'
 /** LUM-1341 — the workspace's Feishu / Lark install. */
 export type FeishuInstallStatus =
   | { connected: false }
-  | { connected: true; tenantName: string; domain: string }
+  | {
+      connected: true
+      tenantName: string
+      domain: string
+      /** Installed with another app id / domain than this deployment's. */
+      reinstallRequired: boolean
+    }
 
 /** LUM-1341 — the signed-in member's own Feishu account link. */
 export interface FeishuAccountStatus {

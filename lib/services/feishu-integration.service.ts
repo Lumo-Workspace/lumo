@@ -20,6 +20,7 @@ import { isFeatureEnabled } from '@/lib/features/is-enabled'
 import {
   feishuAppCredentials,
   feishuRedirectUri,
+  type FeishuAppCredentials,
 } from '@/lib/integrations/feishu/config'
 import {
   createFeishuUserClient,
@@ -49,7 +50,13 @@ import {
 
 export type FeishuInstallStatus =
   | { connected: false }
-  | { connected: true; tenantName: string; domain: string }
+  | {
+      connected: true
+      tenantName: string
+      domain: string
+      /** Installed for another app id / domain than this deployment's. */
+      reinstallRequired: boolean
+    }
 
 export interface FeishuAccountStatus {
   /** Whether the workspace has the app installed (a link needs it). */
@@ -65,6 +72,10 @@ export type FeishuFlowError =
   | 'not_installed'
   | 'tenant_mismatch'
   | 'no_refresh_token'
+  /** Another Lumo workspace already holds this Feishu tenant. */
+  | 'tenant_taken'
+  /** The install was made with another app id / domain than the env's. */
+  | 'reinstall_required'
 
 function flowError(code: FeishuFlowError, status: number, message: string) {
   return Object.assign(new Error(message), { status, code })
@@ -96,6 +107,31 @@ function requireOwner(role: string): void {
       'not_owner',
       403,
       'Only workspace owners can connect or disconnect Feishu'
+    )
+  }
+}
+
+/**
+ * Whether a stored install belongs to the app this deployment runs now. A
+ * changed FEISHU_APP_ID or FEISHU_DOMAIN makes the binding (and any cached
+ * tenant token, which is the other app's) stale until an owner reinstalls.
+ */
+export function isInstallCurrent(
+  install: { domain: string; appId: string },
+  app: Pick<FeishuAppCredentials, 'domain' | 'appId'>
+): boolean {
+  return install.domain === app.domain && install.appId === app.appId
+}
+
+function requireCurrent(
+  install: { domain: string; appId: string },
+  app: Pick<FeishuAppCredentials, 'domain' | 'appId'>
+): void {
+  if (!isInstallCurrent(install, app)) {
+    throw flowError(
+      'reinstall_required',
+      409,
+      'Feishu was connected with a different app; an owner must reconnect it'
     )
   }
 }
@@ -159,7 +195,7 @@ export async function completeInstall(
       'The Feishu account is not in the app’s tenant'
     )
   }
-  await feishuIntegrationRepository.upsertInstall({
+  const written = await feishuIntegrationRepository.upsertInstall({
     workspaceId: input.workspaceId,
     installedBy: input.memberId,
     domain: app.domain,
@@ -169,6 +205,13 @@ export async function completeInstall(
     tenantAccessToken: encrypt(tenantToken.token),
     tenantTokenExpiresAt: tenantToken.expiresAt,
   })
+  if (written === 'tenant_taken') {
+    throw flowError(
+      'tenant_taken',
+      409,
+      'This Feishu organization is already connected to another Lumo workspace'
+    )
+  }
   await recordAuditEvent({
     workspaceId: input.workspaceId,
     action: 'feishu.connected',
@@ -184,10 +227,18 @@ export async function getInstallStatus(
   if (!isFeishuEnabled(workspaceId)) return { connected: false }
   const row = await feishuIntegrationRepository.findInstallStatus(workspaceId)
   if (!row) return { connected: false }
-  return { connected: true, tenantName: row.tenantName, domain: row.domain }
+  return {
+    connected: true,
+    tenantName: row.tenantName,
+    domain: row.domain,
+    reinstallRequired: !isInstallCurrent(row, feishuAppCredentials()),
+  }
 }
 
-/** Owner only. Deletes the binding and the cached tenant token. */
+/**
+ * Owner only. Deletes the binding, the cached tenant token and — in the same
+ * transaction — every member's account link, whose tokens belong to it.
+ */
 export async function disconnectInstall(
   workspaceId: string,
   role: string,
@@ -195,13 +246,22 @@ export async function disconnectInstall(
 ): Promise<void> {
   requireEnabled(workspaceId)
   requireOwner(role)
-  await feishuIntegrationRepository.deleteInstall(workspaceId)
+  const removed = await feishuIntegrationRepository.deleteInstall(workspaceId)
   await recordAuditEvent({
     workspaceId,
     action: 'feishu.disconnected',
     target: { type: 'integration', id: 'feishu' },
     context: audit,
   })
+  if (removed.accounts > 0) {
+    await recordAuditEvent({
+      workspaceId,
+      action: 'feishu.member_accounts_removed',
+      target: { type: 'integration', id: 'feishu_account' },
+      metadata: { count: removed.accounts },
+      context: audit,
+    })
+  }
 }
 
 /**
@@ -217,25 +277,39 @@ export async function getTenantAccessToken(
   if (!row) {
     throw flowError('not_installed', 404, 'Feishu is not connected')
   }
+  const app = feishuAppCredentials()
+  // Never hand out a cached token minted for another app.
+  requireCurrent(row, app)
   if (
     row.tenantAccessToken &&
     isTenantTokenFresh(row.tenantTokenExpiresAt, now)
   ) {
     return decrypt(row.tenantAccessToken)
   }
-  const next = await fetchTenantAccessToken(feishuAppCredentials(), now)
-  await feishuIntegrationRepository.updateTenantToken(workspaceId, row.id, {
-    tenantAccessToken: encrypt(next.token),
-    tenantTokenExpiresAt: next.expiresAt,
-  })
+  const next = await fetchTenantAccessToken(app, now)
+  const stored = await feishuIntegrationRepository.updateTenantToken(
+    workspaceId,
+    row.id,
+    {
+      tenantAccessToken: encrypt(next.token),
+      tenantTokenExpiresAt: next.expiresAt,
+    }
+  )
+  if (!stored) {
+    // Disconnected while we were fetching: there is no install to act for.
+    throw flowError('not_installed', 404, 'Feishu is not connected')
+  }
   return next.token
 }
 
 // ── Member account link (PERSONAL) ──────────────────────────────────────────
 
-async function requireInstall(workspaceId: string) {
-  const row =
-    await feishuIntegrationRepository.findInstallWithToken(workspaceId)
+/** The workspace's current install (no token), or a 409 flow error. */
+async function requireInstall(
+  workspaceId: string,
+  app: Pick<FeishuAppCredentials, 'domain' | 'appId'>
+) {
+  const row = await feishuIntegrationRepository.findInstallStatus(workspaceId)
   if (!row) {
     throw flowError(
       'not_installed',
@@ -243,6 +317,7 @@ async function requireInstall(workspaceId: string) {
       'Feishu is not connected to this workspace yet'
     )
   }
+  requireCurrent(row, app)
   return row
 }
 
@@ -251,8 +326,8 @@ export async function buildAccountAuthorizeUrl(
   input: StartFlowInput
 ): Promise<string> {
   requireEnabled(input.workspaceId)
-  await requireInstall(input.workspaceId)
   const app = feishuAppCredentials()
+  await requireInstall(input.workspaceId, app)
   const state = encodeOauthState({
     workspaceId: input.workspaceId,
     memberId: input.memberId,
@@ -278,8 +353,8 @@ export async function completeAccountLink(
   audit?: AuditContext
 ): Promise<void> {
   requireEnabled(input.workspaceId)
-  const install = await requireInstall(input.workspaceId)
   const app = feishuAppCredentials()
+  const install = await requireInstall(input.workspaceId, app)
   const token = await exchangeCode({
     domain: app.domain,
     appId: app.appId,
@@ -341,16 +416,35 @@ export async function getAccountStatus(
     feishuIntegrationRepository.findInstallStatus(workspaceId),
     feishuIntegrationRepository.findAccount(workspaceId, memberId),
   ])
+  // A link counts only against a current install of the same tenant.
+  const installed =
+    install !== null && isInstallCurrent(install, feishuAppCredentials())
+  const connected =
+    installed && row !== null && row.tenantKey === install.tenantKey
   return {
-    installed: install !== null,
-    connected: row !== null,
-    name: row?.name ?? null,
-    needsReauth: row?.needsReauth ?? false,
+    installed,
+    connected,
+    name: connected ? (row?.name ?? null) : null,
+    needsReauth: connected ? (row?.needsReauth ?? false) : false,
   }
 }
 
-/** The member's own link; idempotent. Deletes the stored tokens. */
+/** The member's own link (the route); idempotent. Deletes the stored tokens. */
 export async function disconnectAccount(
+  workspaceId: string,
+  memberId: string,
+  audit?: AuditContext
+): Promise<void> {
+  requireEnabled(workspaceId)
+  await removeAccountLink(workspaceId, memberId, audit)
+}
+
+/**
+ * Delete a member's link whatever the rollout flag says — also used when a
+ * member is deactivated (lib/services/member-integrations.service.ts), where
+ * leftover tokens must go even if the flag has since been turned off.
+ */
+export async function removeAccountLink(
   workspaceId: string,
   memberId: string,
   audit?: AuditContext
@@ -408,11 +502,21 @@ export async function getUserClientForMember(
       code: 'feishu_needs_reauth',
     })
   }
+  // The link is only usable under a current install of the same tenant.
+  const app = feishuAppCredentials()
+  const install = await requireInstall(workspaceId, app)
+  if (install.tenantKey !== row.tenantKey) {
+    throw flowError(
+      'not_installed',
+      409,
+      'The Feishu account belongs to another tenant than the install'
+    )
+  }
   // The refresh-token ciphertext this client believes is stored: the
   // compare-and-swap key for every write below.
   let storedRefreshToken = row.refreshToken
   const raw = createFeishuUserClient({
-    app: feishuAppCredentials(),
+    app,
     tokens: {
       accessToken: decrypt(row.accessToken),
       refreshToken: decrypt(row.refreshToken),

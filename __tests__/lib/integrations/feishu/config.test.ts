@@ -8,6 +8,7 @@ import {
   feishuAppCredentials,
   feishuHosts,
   feishuRedirectUri,
+  requireAbsoluteAppUrl,
   resolveFeishuDomain,
 } from '@/lib/integrations/feishu/config'
 
@@ -71,6 +72,31 @@ describe('feishuRedirectUri', () => {
     )
     expect(feishuRedirectUri('account', 'https://lumo.test')).toBe(
       'https://lumo.test/api/feishu/account/callback'
+    )
+  })
+})
+
+describe('requireAbsoluteAppUrl (LUM-1341 review)', () => {
+  it('returns an absolute http(s) URL without its trailing slash', () => {
+    expect(requireAbsoluteAppUrl('https://lumo.test/')).toBe(
+      'https://lumo.test'
+    )
+    expect(requireAbsoluteAppUrl(' http://localhost:3000 ')).toBe(
+      'http://localhost:3000'
+    )
+  })
+
+  it('fails clearly on a missing or relative app URL', () => {
+    for (const bad of [undefined, '', '  ', '/', 'lumo.test', '/api']) {
+      expect(() => requireAbsoluteAppUrl(bad)).toThrow(
+        expect.objectContaining({ code: 'app_url_not_configured', status: 500 })
+      )
+    }
+  })
+
+  it('so a relative redirect_uri can never be built', () => {
+    expect(() => feishuRedirectUri('install', '')).toThrow(
+      expect.objectContaining({ code: 'app_url_not_configured' })
     )
   })
 })
