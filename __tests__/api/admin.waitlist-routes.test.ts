@@ -75,7 +75,7 @@ describe('/api/admin/waitlist routes', () => {
     expect(audit.record).not.toHaveBeenCalled()
   })
 
-  it('approve returns {entry,email} and audits with the outcome', async () => {
+  it('approve returns {entry,email}; the audit lives in the service', async () => {
     svc.approve.mockResolvedValue({
       entry: { id: 'w1' },
       email: 'failed',
@@ -84,32 +84,22 @@ describe('/api/admin/waitlist routes', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ entry: { id: 'w1' }, email: 'failed' })
     expect(svc.approve).toHaveBeenCalledWith('w1', 'admin-1')
-    expect(audit.record).toHaveBeenCalledWith({
-      adminUserId: 'admin-1',
-      action: 'waitlist.approve',
-      targetType: 'waitlist',
-      targetId: 'w1',
-      metadata: { email: 'failed' },
-    })
+    expect(audit.record).not.toHaveBeenCalled()
   })
 
-  it('resend audits waitlist.resend', async () => {
+  it('resend returns {entry,email}; the audit lives in the service', async () => {
     svc.resend.mockResolvedValue({
       entry: { id: 'w1' },
       email: 'sent',
     } as never)
     const res = await resend(req('waitlist/w1/resend', 'POST'), params)
     expect(res.status).toBe(200)
-    expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'waitlist.resend',
-        targetId: 'w1',
-        metadata: { email: 'sent' },
-      })
-    )
+    expect(await res.json()).toEqual({ entry: { id: 'w1' }, email: 'sent' })
+    expect(svc.resend).toHaveBeenCalledWith('w1', 'admin-1')
+    expect(audit.record).not.toHaveBeenCalled()
   })
 
-  it('resend 409 from the service is passed through and not audited', async () => {
+  it('resend 409 from the service is passed through', async () => {
     svc.resend.mockRejectedValue(
       Object.assign(new Error('not approved'), {
         status: 409,

@@ -1,6 +1,7 @@
 import { waitlistAdmin } from '@/lib/services/waitlist-admin.service'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { sendEmail } from '@/lib/integrations/email'
+import { platformAdminAudit } from '@/lib/services/platform-admin-audit.service'
 
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: {
@@ -15,12 +16,16 @@ jest.mock('@/lib/integrations/email', () => ({
   sendEmail: jest.fn(),
   isEmailDelivered: (r: { status: string }) => r.status === 'sent',
 }))
+jest.mock('@/lib/services/platform-admin-audit.service', () => ({
+  platformAdminAudit: { record: jest.fn() },
+}))
 jest.mock('@/lib/config/public-config', () => ({
   resolveAppUrl: () => 'https://app.example.com',
 }))
 
 const repo = miscRepository as jest.Mocked<typeof miscRepository>
 const send = sendEmail as jest.Mock
+const audit = platformAdminAudit.record as jest.Mock
 const T = new Date('2026-10-01T00:00:00Z')
 
 const row = (over: Record<string, unknown> = {}) => ({
@@ -42,6 +47,8 @@ describe('waitlistAdmin', () => {
   beforeEach(() => {
     jest.resetAllMocks()
     send.mockResolvedValue({ status: 'sent' })
+    audit.mockResolvedValue(undefined)
+    repo.approveWaitlistEntryIfPending.mockResolvedValue({ count: 1 } as never)
   })
 
   it('list paginates with a cursor', async () => {
@@ -144,6 +151,94 @@ describe('waitlistAdmin', () => {
     await expect(waitlistAdmin.resend('x', 'a')).rejects.toMatchObject({
       status: 404,
       code: 'WAITLIST_NOT_FOUND',
+    })
+  })
+
+  describe('audit (LUM-1344: written before the email)', () => {
+    it('approve audits waitlist.approve with approvedNow before sending', async () => {
+      repo.findWaitlistEntryById.mockResolvedValue(row() as never)
+      send.mockImplementation(async () => {
+        expect(audit).toHaveBeenCalledTimes(1)
+        return { status: 'sent' }
+      })
+      await waitlistAdmin.approve('w1', 'admin-1')
+      expect(audit).toHaveBeenCalledWith({
+        adminUserId: 'admin-1',
+        action: 'waitlist.approve',
+        targetType: 'waitlist',
+        targetId: 'w1',
+        metadata: { approvedNow: true },
+      })
+    })
+
+    it('approve of an already-approved entry records approvedNow=false', async () => {
+      repo.approveWaitlistEntryIfPending.mockResolvedValue({
+        count: 0,
+      } as never)
+      repo.findWaitlistEntryById.mockResolvedValue(
+        row({ status: 'APPROVED', approvedAt: T }) as never
+      )
+      await waitlistAdmin.approve('w1', 'admin-2')
+      expect(audit).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: { approvedNow: false } })
+      )
+    })
+
+    it('email send throws: audit row still written and approval stands', async () => {
+      repo.findWaitlistEntryById.mockResolvedValue(row() as never)
+      send.mockRejectedValue(new Error('provider down'))
+      await expect(waitlistAdmin.approve('w1', 'admin-1')).rejects.toThrow(
+        'provider down'
+      )
+      expect(repo.approveWaitlistEntryIfPending).toHaveBeenCalledWith(
+        'w1',
+        'admin-1'
+      )
+      expect(audit).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'waitlist.approve', targetId: 'w1' })
+      )
+    })
+
+    it('markWaitlistInvited throws: audit row still written', async () => {
+      repo.findWaitlistEntryById.mockResolvedValue(row() as never)
+      repo.markWaitlistInvited.mockRejectedValue(new Error('db blip'))
+      await expect(waitlistAdmin.approve('w1', 'admin-1')).rejects.toThrow(
+        'db blip'
+      )
+      expect(audit).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'waitlist.approve' })
+      )
+    })
+
+    it('resend audits waitlist.resend with the admin before sending', async () => {
+      repo.findWaitlistEntryById.mockResolvedValue(
+        row({ status: 'APPROVED', approvedAt: T }) as never
+      )
+      send.mockRejectedValue(new Error('provider down'))
+      await expect(waitlistAdmin.resend('w1', 'admin-3')).rejects.toThrow()
+      expect(audit).toHaveBeenCalledWith({
+        adminUserId: 'admin-3',
+        action: 'waitlist.resend',
+        targetType: 'waitlist',
+        targetId: 'w1',
+      })
+    })
+
+    it('resend on a PENDING entry writes no audit row', async () => {
+      repo.findWaitlistEntryById.mockResolvedValue(row() as never)
+      await expect(waitlistAdmin.resend('w1', 'a')).rejects.toMatchObject({
+        status: 409,
+      })
+      expect(audit).not.toHaveBeenCalled()
+    })
+
+    it('audit write failure aborts before any email is sent', async () => {
+      repo.findWaitlistEntryById.mockResolvedValue(row() as never)
+      audit.mockRejectedValue(new Error('audit down'))
+      await expect(waitlistAdmin.approve('w1', 'admin-1')).rejects.toThrow(
+        'audit down'
+      )
+      expect(send).not.toHaveBeenCalled()
     })
   })
 })

@@ -5,6 +5,7 @@ import {
   sendEmail,
 } from '@/lib/integrations/email'
 import { resolveAppUrl } from '@/lib/config/public-config'
+import { platformAdminAudit } from '@/lib/services/platform-admin-audit.service'
 
 /** LUM-1344: platform admin waitlist management (approve + invite email). */
 
@@ -91,7 +92,19 @@ export const waitlistAdmin = {
   ): Promise<{ entry: WaitlistAdminItem; email: WaitlistEmailOutcome }> {
     await requireEntry(id)
     // Conditional on PENDING: a double approve never overwrites approvedAt.
-    await miscRepository.approveWaitlistEntryIfPending(id, adminUserId)
+    const { count } = await miscRepository.approveWaitlistEntryIfPending(
+      id,
+      adminUserId
+    )
+    // Audit before the email: a send/bookkeeping failure must not leave an
+    // approval without its audit row. The email outcome lives in the response.
+    await platformAdminAudit.record({
+      adminUserId,
+      action: 'waitlist.approve',
+      targetType: 'waitlist',
+      targetId: id,
+      metadata: { approvedNow: count > 0 },
+    })
     const approved = await requireEntry(id)
     const email = await sendApprovalEmail(approved)
     const entry = email === 'sent' ? await requireEntry(id) : approved
@@ -100,7 +113,7 @@ export const waitlistAdmin = {
 
   async resend(
     id: string,
-    _adminUserId: string
+    adminUserId: string
   ): Promise<{ entry: WaitlistAdminItem; email: WaitlistEmailOutcome }> {
     const current = await requireEntry(id)
     if (current.status !== 'APPROVED') {
@@ -109,6 +122,12 @@ export const waitlistAdmin = {
         code: 'WAITLIST_NOT_APPROVED',
       })
     }
+    await platformAdminAudit.record({
+      adminUserId,
+      action: 'waitlist.resend',
+      targetType: 'waitlist',
+      targetId: id,
+    })
     const email = await sendApprovalEmail(current)
     const entry = email === 'sent' ? await requireEntry(id) : current
     return { entry, email }
