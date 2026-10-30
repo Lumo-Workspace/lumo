@@ -23,7 +23,7 @@ waitlist 形同虚设。
 ## 3. 非目标（这一版不做）
 
 - 计费/订阅本身：Lumo 目前没有任何套餐、席位或支付数据，订阅页只放占位说明。
-- 在后台里任命管理员：继续用 `scripts/auth-admin/*` 这类脚本给人设 `auth_users.role = 'admin'`。
+- 在后台里任命管理员：用 `scripts/auth-admin/grant-admin.ts` / `revoke-admin.ts` 给人设 / 撤 `auth_users.role = 'admin'`。
 - 在后台里改客户数据（封禁、删 workspace、改成员等）：只读。唯一的写操作是 waitlist 审批。
 - 模拟登录（impersonation）：Lumo 已在 admin 插件里显式关闭（LUM-1071），保持关闭。
 
@@ -152,7 +152,7 @@ waitlist 形同虚设。
 ## 9. 交付与发布顺序
 
 1. 合并主应用 PR 并部署；确认 `migrate deploy` 已在生产执行（对生产库跑 `prisma migrate status`）。门禁开关此时仍默认关。
-2. 给运营人员设 `role = 'admin'`（`scripts/auth-admin` 或等效的运营操作；`scripts/auth-admin` 目前只有 ban/unban/remove，没有设角色的子命令）。
+2. 给运营人员设 `role = 'admin'`：`npx tsx scripts/auth-admin/grant-admin.ts --email <运营邮箱>`（默认演练，加 `--confirm` 才写；撤销用 `revoke-admin.ts`，下一次请求即失效；已封禁用户拒绝授予）。
 3. 运行 `scripts/admin-oauth/register-console-client.ts --confirm` 注册后台 OAuth 客户端（需要一个已有的 admin；客户端记在该运营用户名下，见 9.1）。
 4. 配置并部署后台（LUM-1345）。
 5. 在后台把现有 waitlist 积压里该放行的人批准掉。

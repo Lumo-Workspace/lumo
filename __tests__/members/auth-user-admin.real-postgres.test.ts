@@ -397,6 +397,38 @@ describe('LUM-1071 auth admin on Better Auth (real Postgres)', () => {
     })
   })
 
+  it('LUM-1344 grant-admin / revoke-admin: dry run writes nothing, --confirm flips auth_users.role', async () => {
+    const role = async () =>
+      (
+        await db().authUser.findUnique({
+          where: { id: userId },
+          select: { role: true },
+        })
+      )?.role
+    expect(
+      await quietly(() => runAuthAdmin('grant-admin', ['--email', email]))
+    ).toBe(0)
+    expect(await role()).toBe('user')
+    expect(
+      await quietly(() =>
+        runAuthAdmin('grant-admin', ['--user-id', userId, '--confirm'])
+      )
+    ).toBe(0)
+    expect(await role()).toBe('admin')
+    expect(
+      await quietly(() =>
+        runAuthAdmin('revoke-admin', ['--user-id', userId, '--confirm'])
+      )
+    ).toBe(0)
+    expect(await role()).toBe('user')
+    // Unknown user: exit 1, nothing written.
+    expect(
+      await quietly(() =>
+        runAuthAdmin('grant-admin', ['--user-id', 'nobody', '--confirm'])
+      )
+    ).toBe(1)
+  })
+
   it('auth admin remove deprovisions and deletes the identity once another OWNER exists', async () => {
     await seedMember('m_solo_owner2', 'user_second_owner', 'OWNER', SOLO_WS)
     await seedOauthTokens(userId)

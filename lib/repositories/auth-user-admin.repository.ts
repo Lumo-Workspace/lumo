@@ -96,6 +96,11 @@ export const authUserAdminRepository = {
     return count > 0
   },
 
+  /** LUM-1344 — set `auth_users.role` (the platform admin flag). */
+  async setRole(userId: string, role: string): Promise<void> {
+    await prisma.authUser.update({ where: { id: userId }, data: { role } })
+  },
+
   /**
    * Delete a user. Sessions, linked accounts (password, GitHub, Google), MCP
    * OAuth tokens, consents and clients go with it (ON DELETE CASCADE); the

@@ -11,12 +11,25 @@ import type {
   AuthAdminPlan,
   AuthAdminTarget,
   BanResult,
+  PlatformAdminRoleResult,
   RemoveResult,
   UnbanResult,
 } from '@/lib/services/auth-user-admin.service'
 import type { DeprovisionOutcome } from '@/lib/services/member-deprovision.service'
 
-export type AuthAdminCommand = 'ban' | 'unban' | 'remove'
+export type AuthAdminCommand =
+  | 'ban'
+  | 'unban'
+  | 'remove'
+  | 'grant-admin'
+  | 'revoke-admin'
+
+/** LUM-1344 — commands that only change the platform admin role. */
+export function isRoleCommand(
+  command: AuthAdminCommand
+): command is 'grant-admin' | 'revoke-admin' {
+  return command === 'grant-admin' || command === 'revoke-admin'
+}
 
 export interface AuthAdminArgs {
   target: AuthAdminTarget
@@ -147,6 +160,16 @@ export function formatPlan(
       `  would set: banned=true, reason=${args.reason ? 'given' : '(none)'}, expires=${args.expiresInDays === null ? 'never' : `in ${args.expiresInDays} day(s)`}`
     )
   }
+  if (isRoleCommand(command)) {
+    lines.push(
+      command === 'grant-admin'
+        ? plan.user?.banned
+          ? '  would refuse: the user is banned (unban first)'
+          : `  would set: role=admin (platform admin API access)${plan.user?.role === 'admin' ? '; already admin, nothing to do' : ''}`
+        : `  would set: role=user${plan.user?.role === 'admin' ? '' : '; not admin, nothing to do'}`
+    )
+    return lines
+  }
   if (command === 'unban') {
     lines.push(
       '  would clear the ban fields; memberships are NOT restored (re-invite to bring the person back)'
@@ -182,6 +205,19 @@ export function formatUnbanResult(r: UnbanResult): string[] {
     r.changed
       ? `unbanned ${r.userId}; memberships are NOT restored`
       : `${r.userId} was not banned; nothing changed`,
+  ]
+}
+
+export function formatRoleResult(
+  command: 'grant-admin' | 'revoke-admin',
+  r: PlatformAdminRoleResult
+): string[] {
+  if (!r.changed)
+    return [`${r.userId} already has role=${r.role}; nothing changed`]
+  return [
+    command === 'grant-admin'
+      ? `granted platform admin to ${r.userId} (role=${r.role})`
+      : `revoked platform admin from ${r.userId} (role=${r.role}); its admin tokens stop working on the next request`,
   ]
 }
 

@@ -13,15 +13,15 @@
 import { NextResponse } from 'next/server'
 import { verifyAdminAccessToken } from './better-auth/admin-oauth'
 import { authUserRepository } from '@/lib/repositories/auth-user.repository'
+import { PLATFORM_ADMIN_ROLE } from './platform-admin-role'
+
+export { PLATFORM_ADMIN_ROLE }
 
 /** The authenticated platform admin a route acts for. */
 export interface PlatformAdmin {
   userId: string
   email: string
 }
-
-/** Role string Lumo assigns to platform admins on `auth_users.role`. */
-export const PLATFORM_ADMIN_ROLE = 'admin'
 
 /** Prefix of Lumo CLI API keys — refused outright on the admin API. */
 const CLI_API_KEY_PREFIX = 'lum_'
