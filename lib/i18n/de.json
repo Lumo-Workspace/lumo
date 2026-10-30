@@ -3314,5 +3314,7 @@
   "settings.ai": "KI",
   "settings.ai.subtitle": "Welche KI-Funktionen in diesem Workspace laufen und welche Inhalte Lumo mit KI schreibt.",
   "settings.export": "Export",
-  "integrations.team.noneConnected": "Für das Team ist noch keine Integration verbunden. Der Workspace-Owner installiert sie hier."
+  "integrations.team.noneConnected": "Für das Team ist noch keine Integration verbunden. Der Workspace-Owner installiert sie hier.",
+  "onboarding.waitlistPending.body": "Das Erstellen von Workspaces ist freigegebenen Wartelisten-Mitgliedern vorbehalten. Wir benachrichtigen Sie per E-Mail, sobald Ihr Zugang freigegeben wurde. Danach können Sie sich anmelden und Ihren Workspace erstellen.",
+  "onboarding.waitlistPending.title": "Sie stehen auf der Warteliste"
 }

@@ -3314,5 +3314,7 @@
   "settings.ai": "AI",
   "settings.ai.subtitle": "這個工作區啟用哪些 AI 功能，以及 Lumo 用 AI 寫下的內容。",
   "settings.export": "匯出",
-  "integrations.team.noneConnected": "團隊尚未連結任何整合。工作區擁有者會在這裡安裝。"
+  "integrations.team.noneConnected": "團隊尚未連結任何整合。工作區擁有者會在這裡安裝。",
+  "onboarding.waitlistPending.body": "建立工作區僅限已通過審核的候補名單成員。您的存取權限獲准後，我們會立即以電子郵件通知您，屆時即可登入並建立工作區。",
+  "onboarding.waitlistPending.title": "您已加入候補名單"
 }

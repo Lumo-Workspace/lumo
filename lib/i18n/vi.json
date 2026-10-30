@@ -3314,5 +3314,7 @@
   "settings.ai": "AI",
   "settings.ai.subtitle": "Những tính năng AI chạy trong workspace này và nội dung Lumo viết bằng AI.",
   "settings.export": "Xuất dữ liệu",
-  "integrations.team.noneConnected": "Chưa có tích hợp nào của nhóm được kết nối. Chủ sở hữu workspace cài đặt chúng tại đây."
+  "integrations.team.noneConnected": "Chưa có tích hợp nào của nhóm được kết nối. Chủ sở hữu workspace cài đặt chúng tại đây.",
+  "onboarding.waitlistPending.body": "Việc tạo không gian làm việc chỉ dành cho các thành viên đã được duyệt trong danh sách chờ. Chúng tôi sẽ gửi email cho bạn ngay khi quyền truy cập được duyệt, sau đó bạn có thể đăng nhập và tạo không gian làm việc của mình.",
+  "onboarding.waitlistPending.title": "Bạn đang trong danh sách chờ"
 }

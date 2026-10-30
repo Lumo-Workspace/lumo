@@ -3314,5 +3314,7 @@
   "settings.ai": "AI",
   "settings.ai.subtitle": "Fitur AI mana yang berjalan di workspace ini, dan konten yang ditulis Lumo dengan AI.",
   "settings.export": "Ekspor",
-  "integrations.team.noneConnected": "Belum ada integrasi tim yang terhubung. Pemilik workspace memasangnya di sini."
+  "integrations.team.noneConnected": "Belum ada integrasi tim yang terhubung. Pemilik workspace memasangnya di sini.",
+  "onboarding.waitlistPending.body": "Pembuatan workspace dibatasi untuk anggota daftar tunggu yang telah disetujui. Kami akan mengirim email begitu akses Anda disetujui, lalu Anda dapat masuk dan membuat workspace Anda.",
+  "onboarding.waitlistPending.title": "Anda ada di daftar tunggu"
 }

@@ -3314,5 +3314,7 @@
   "settings.ai": "AI",
   "settings.ai.subtitle": "このワークスペースで動かす AI 機能と、Lumo が AI で書いた内容。",
   "settings.export": "エクスポート",
-  "integrations.team.noneConnected": "チームの連携はまだ接続されていません。ワークスペースのオーナーがここでインストールします。"
+  "integrations.team.noneConnected": "チームの連携はまだ接続されていません。ワークスペースのオーナーがここでインストールします。",
+  "onboarding.waitlistPending.body": "ワークスペースの作成は、承認されたウェイトリストのメンバーに限られています。アクセスが承認され次第メールでお知らせしますので、その後サインインしてワークスペースを作成してください。",
+  "onboarding.waitlistPending.title": "ウェイトリストに登録されています"
 }

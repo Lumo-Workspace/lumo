@@ -3314,5 +3314,7 @@
   "settings.ai": "AI",
   "settings.ai.subtitle": "Which AI features run in this workspace, and the content Lumo writes with AI.",
   "settings.export": "Export",
-  "integrations.team.noneConnected": "No team integration is connected yet. The workspace owner installs them here."
+  "integrations.team.noneConnected": "No team integration is connected yet. The workspace owner installs them here.",
+  "onboarding.waitlistPending.body": "Workspace creation is limited to approved waitlist members. We will email you as soon as your access is approved, then you can sign in and create your workspace.",
+  "onboarding.waitlistPending.title": "You are on the waitlist"
 }
