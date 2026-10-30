@@ -19,4 +19,15 @@ describe('buildWaitlistApprovedEmail', () => {
     })
     expect(html).toContain('Hi,')
   })
+
+  it('escapes the entrant name and the sign-in URL', () => {
+    const { html } = buildWaitlistApprovedEmail({
+      name: '<img src=x onerror=1>',
+      signInUrl: 'https://app.example.com/signin?a="><script>',
+    })
+    expect(html).toContain('&lt;img')
+    expect(html).not.toContain('<img src=x')
+    expect(html).not.toContain('"><script>')
+    expect(html).toContain('&quot;&gt;&lt;script&gt;')
+  })
 })

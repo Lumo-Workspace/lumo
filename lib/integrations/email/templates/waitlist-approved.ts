@@ -1,11 +1,19 @@
 import type { WaitlistApprovedEmailOptions, InviteEmailResult } from '../types'
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 export function buildWaitlistApprovedEmail({
   name,
   signInUrl,
 }: WaitlistApprovedEmailOptions): InviteEmailResult {
   const lumoLogo = `<img src="https://www.uselumo.ai/logo-dark.svg" width="32" height="32" alt="Lumo" style="display:block;"/>`
-  const greeting = name ? `Hi ${name},` : 'Hi,'
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi,'
 
   return {
     subject: "You're in — create your Lumo workspace",
@@ -55,7 +63,7 @@ export function buildWaitlistApprovedEmail({
           <!-- CTA Button -->
           <tr>
             <td align="center" style="padding:0 40px 40px;">
-              <a href="${signInUrl}" style="display:inline-block;background:#111111;color:#ffffff;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:-0.1px;">Sign in to Lumo</a>
+              <a href="${escapeHtml(signInUrl)}" style="display:inline-block;background:#111111;color:#ffffff;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:-0.1px;">Sign in to Lumo</a>
             </td>
           </tr>
 
