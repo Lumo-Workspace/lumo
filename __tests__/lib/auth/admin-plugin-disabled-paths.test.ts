@@ -15,10 +15,22 @@ describe('admin plugin disabled paths', () => {
     for (const path of paths) {
       expect(ADMIN_DISABLED_PATHS).toContain(path)
     }
+    // And no stale entry the plugin no longer serves.
+    for (const path of ADMIN_DISABLED_PATHS) {
+      expect(paths).toContain(path)
+    }
+    expect([...ADMIN_DISABLED_PATHS].sort()).toEqual([...paths].sort())
   })
 
   it('keeps the session.create.before ban hook', () => {
-    const plugin = lumoAdminPlugin()
-    expect(plugin.init).toBeDefined()
+    const plugin = lumoAdminPlugin() as unknown as {
+      init: () => {
+        options: {
+          databaseHooks: { session: { create: { before: unknown } } }
+        }
+      }
+    }
+    const { options } = plugin.init()
+    expect(typeof options.databaseHooks.session.create.before).toBe('function')
   })
 })

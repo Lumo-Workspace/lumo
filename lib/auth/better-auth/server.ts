@@ -223,7 +223,7 @@ function createBetterAuth() {
     },
     disabledPaths: [
       ...(mcpOAuthUrls ? MCP_OAUTH_DISABLED_PATHS : []),
-      // LUM-1071: impersonation is closed.
+      // LUM-1071/LUM-1344: every admin plugin endpoint is closed.
       ...ADMIN_DISABLED_PATHS,
       ...(passwordEnabled ? [] : PASSWORD_DISABLED_PATHS),
       ...(emailCodeEnabled ? EMAIL_OTP_DISABLED_PATHS : []),
