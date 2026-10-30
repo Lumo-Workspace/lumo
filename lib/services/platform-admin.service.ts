@@ -25,7 +25,13 @@ export interface AdminWorkspaceItem {
 }
 
 export interface AdminWorkspaceDetail extends AdminWorkspaceItem {
-  members: { userId: string; email: string; role: string; joinedAt: Date }[]
+  members: {
+    userId: string
+    /** null when the AuthUser row is missing (matches ownerEmail). */
+    email: string | null
+    role: string
+    joinedAt: Date
+  }[]
   llmSpendByMonth: { month: string; usdMicros: string }[]
 }
 
@@ -149,7 +155,7 @@ export const platformAdminService = {
       ownerEmail: ownerOf(members, emails),
       members: members.map(m => ({
         userId: m.clerkId,
-        email: emails.get(m.clerkId) ?? '',
+        email: emails.get(m.clerkId) ?? null,
         role: m.role,
         joinedAt: m.joinedAt,
       })),

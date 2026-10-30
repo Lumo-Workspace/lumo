@@ -93,6 +93,21 @@ describe('platformAdminService', () => {
     expect(() => JSON.stringify(res)).not.toThrow()
   })
 
+  it('getWorkspace: member with no AuthUser row has email null', async () => {
+    repo.findWorkspace.mockResolvedValue(ws('a'))
+    repo.listActiveMembers.mockResolvedValue([
+      { workspaceId: 'a', clerkId: 'u1', role: 'OWNER', joinedAt: T },
+      { workspaceId: 'a', clerkId: 'gone', role: 'MEMBER', joinedAt: T },
+    ])
+    repo.findUserEmails.mockResolvedValue([{ id: 'u1', email: 'o@x.com' }])
+    repo.listSpendForWorkspace.mockResolvedValue([])
+    const res = await platformAdminService.getWorkspace('a')
+    expect(res.members).toEqual([
+      { userId: 'u1', email: 'o@x.com', role: 'OWNER', joinedAt: T },
+      { userId: 'gone', email: null, role: 'MEMBER', joinedAt: T },
+    ])
+  })
+
   it('getWorkspace: unknown id throws 404', async () => {
     repo.findWorkspace.mockResolvedValue(null)
     await expect(platformAdminService.getWorkspace('x')).rejects.toMatchObject({
