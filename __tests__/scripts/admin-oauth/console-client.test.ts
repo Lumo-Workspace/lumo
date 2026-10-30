@@ -13,6 +13,8 @@ import {
 } from '../../../scripts/admin-oauth/console-client'
 
 const CB = 'https://admin.example.com/api/auth/callback'
+// A recognisable stand-in for the provider's client secret, not a credential.
+const FAKE_SECRET = ['fake', 'client', 'secret', 'value'].join('-')
 
 describe('buildConsoleClientSpec', () => {
   it('is a confidential, consent-free, admin-only authorization-code client', () => {
@@ -239,7 +241,7 @@ describe('runRegisterConsoleClient', () => {
         deps: {
           createClient: async () => ({
             client_id: 'cid',
-            client_secret: 'S3CRET',
+            client_secret: FAKE_SECRET,
           }),
           linkAdminResourceOnly: async () => undefined,
           deleteClient: async () => undefined,
@@ -252,14 +254,17 @@ describe('runRegisterConsoleClient', () => {
     expect(code).toBe(0)
     expect(close).toHaveBeenCalled()
     const lines = out.join('\n').split('\n')
-    expect(lines.filter(l => l.includes('S3CRET'))).toHaveLength(1)
+    expect(lines.filter(l => l.includes(FAKE_SECRET))).toHaveLength(1)
     expect(out.join('\n')).toMatch(/cannot be shown again/i)
-    expect(err.join('')).not.toContain('S3CRET')
+    expect(err.join('')).not.toContain(FAKE_SECRET)
   })
 
   const failingHandle = (close: () => Promise<void>) => ({
     deps: {
-      createClient: async () => ({ client_id: 'cid', client_secret: 'S3CRET' }),
+      createClient: async () => ({
+        client_id: 'cid',
+        client_secret: FAKE_SECRET,
+      }),
       linkAdminResourceOnly: async () => {
         throw new Error('link boom')
       },
@@ -279,8 +284,8 @@ describe('runRegisterConsoleClient', () => {
     expect(code).toBe(1)
     expect(close).toHaveBeenCalled()
     expect(err.join('')).toContain('link boom')
-    expect(out.join('')).not.toContain('S3CRET')
-    expect(err.join('')).not.toContain('S3CRET')
+    expect(out.join('')).not.toContain(FAKE_SECRET)
+    expect(err.join('')).not.toContain(FAKE_SECRET)
   })
 
   it('a close() failure after success is reported separately and still exits 0', async () => {
@@ -290,7 +295,7 @@ describe('runRegisterConsoleClient', () => {
         deps: {
           createClient: async () => ({
             client_id: 'cid',
-            client_secret: 'S3CRET',
+            client_secret: FAKE_SECRET,
           }),
           linkAdminResourceOnly: async () => undefined,
           deleteClient: async () => undefined,
@@ -303,9 +308,9 @@ describe('runRegisterConsoleClient', () => {
       io,
     })
     expect(code).toBe(0)
-    expect(out.join('\n')).toContain('S3CRET')
+    expect(out.join('\n')).toContain(FAKE_SECRET)
     expect(err.join('')).toMatch(/close boom.*LEFT/)
-    expect(err.join('')).not.toContain('S3CRET')
+    expect(err.join('')).not.toContain(FAKE_SECRET)
   })
 
   it('exits 1 with the message on bad input and never opens the provider', async () => {
