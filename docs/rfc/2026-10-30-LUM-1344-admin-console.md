@@ -151,10 +151,12 @@ waitlist 形同虚设。
 
 ## 9. 交付与发布顺序
 
-1. 主应用：schema 迁移 + 管理接口 + 门禁（开关默认关）——走 Lumo 任务和 PR。
-2. 新 repo：后台骨架 + 各页面，对接管理接口。
-3. 给运营人员设 `role = 'admin'`。
-4. 生产环境打开门禁开关前，先在后台把现有 waitlist 里该放行的人批准掉。
+1. 合并主应用 PR 并部署；确认 `migrate deploy` 已在生产执行（对生产库跑 `prisma migrate status`）。门禁开关此时仍默认关。
+2. 给运营人员设 `role = 'admin'`（`scripts/auth-admin` 或等效的运营操作；`scripts/auth-admin` 目前只有 ban/unban/remove，没有设角色的子命令）。
+3. 运行 `scripts/admin-oauth/register-console-client.ts --confirm` 注册后台 OAuth 客户端（需要一个已有的 admin；客户端记在该运营用户名下，见 9.1）。
+4. 配置并部署后台（LUM-1345）。
+5. 在后台把现有 waitlist 积压里该放行的人批准掉。
+6. 在生产设置 `WORKSPACE_CREATION_REQUIRES_APPROVAL=true` 打开门禁。
 
 ### 9.1 Provisioning the console client
 
