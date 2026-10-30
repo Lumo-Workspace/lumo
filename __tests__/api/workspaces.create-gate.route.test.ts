@@ -11,8 +11,10 @@ jest.mock('@/lib/auth', () => ({
 }))
 
 const mockAssertMayCreate = jest.fn()
+const mockIsApprovalRequired = jest.fn()
 const mockCreateWorkspace = jest.fn()
 jest.mock('@/lib/services', () => ({
+  isWorkspaceApprovalRequired: () => mockIsApprovalRequired(),
   workspaceCreationGate: {
     assertMayCreate: (...a: unknown[]) => mockAssertMayCreate(...a),
   },
@@ -35,6 +37,7 @@ function makeRequest() {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockIsApprovalRequired.mockReturnValue(true)
   ;(requireAuth as jest.Mock).mockResolvedValue({ userId: 'user-1' })
   ;(getVerifiedEmails as jest.Mock).mockResolvedValue(['a@acme.com'])
   ;(getCurrentUser as jest.Mock).mockResolvedValue({
@@ -93,5 +96,38 @@ describe('POST /api/workspaces gate', () => {
     const res = await POST(makeRequest())
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual({ error: 'Slug taken' })
+  })
+
+  it('passes WORKSPACE_EMAIL_UNVERIFIED through in the body', async () => {
+    mockAssertMayCreate.mockRejectedValue(
+      Object.assign(new Error('Verify your email'), {
+        status: 403,
+        code: 'WORKSPACE_EMAIL_UNVERIFIED',
+      })
+    )
+    const res = await POST(makeRequest())
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({
+      error: 'Verify your email',
+      code: 'WORKSPACE_EMAIL_UNVERIFIED',
+    })
+    expect(mockCreateWorkspace).not.toHaveBeenCalled()
+  })
+
+  it('skips identity lookups and the gate when approval is not required', async () => {
+    mockIsApprovalRequired.mockReturnValue(false)
+    mockCreateWorkspace.mockResolvedValue({
+      workspace: { id: 'w1', slug: 'acme' },
+      member: { id: 'm1' },
+    })
+    const res = await POST(makeRequest())
+    expect(res.status).toBe(201)
+    expect(getCurrentUser).not.toHaveBeenCalled()
+    expect(getVerifiedEmails).not.toHaveBeenCalled()
+    expect(mockAssertMayCreate).not.toHaveBeenCalled()
+    expect(mockCreateWorkspace).toHaveBeenCalledWith('user-1', {
+      name: 'Acme',
+      slug: 'acme',
+    })
   })
 })

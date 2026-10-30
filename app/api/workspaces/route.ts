@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser, getVerifiedEmails, requireAuth } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
 import { createWorkspaceSchema } from '@/lib/validation/schemas'
-import { workspaceCreationGate, workspaceService } from '@/lib/services'
+import {
+  isWorkspaceApprovalRequired,
+  workspaceCreationGate,
+  workspaceService,
+} from '@/lib/services'
 
 /**
  * POST /api/workspaces — Create a workspace and become owner.
@@ -13,19 +17,22 @@ export async function POST(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const user = await getCurrentUser()
-    const displayName =
-      [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
-      user?.username ||
-      null
-    await workspaceCreationGate.assertMayCreate({
-      userId,
-      verifiedEmails: await getVerifiedEmails(),
-      primaryEmail:
-        user?.primaryEmailAddress?.emailAddress?.toLowerCase() ?? null,
-      displayName,
-      now: new Date(),
-    })
+    // Identity is only needed by the gate; skip the lookups when it is off.
+    if (isWorkspaceApprovalRequired()) {
+      const user = await getCurrentUser()
+      const displayName =
+        [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+        user?.username ||
+        null
+      await workspaceCreationGate.assertMayCreate({
+        userId,
+        verifiedEmails: await getVerifiedEmails(),
+        primaryEmail:
+          user?.primaryEmailAddress?.emailAddress?.toLowerCase() ?? null,
+        displayName,
+        now: new Date(),
+      })
+    }
 
     const body = await request.json()
     const parsed = createWorkspaceSchema.safeParse(body)
