@@ -33,15 +33,6 @@ export const FEISHU_ACCOUNT_SCOPES = [
  */
 export const FEISHU_INSTALL_SCOPES = [] as const
 
-/**
- * Refresh-token codes that mean the link is gone for good: invalid (20026),
- * expired (20037), revoked (20064), already used (20073) or minted for
- * another app (20024). Anything else (5xx, 20050, 20072) is transient.
- */
-export const FEISHU_REFRESH_DEAD_CODES: readonly number[] = [
-  20024, 20026, 20037, 20064, 20073,
-]
-
 export function getAuthorizeUrl(opts: {
   domain: FeishuDomain
   appId: string

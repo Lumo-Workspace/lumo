@@ -111,20 +111,40 @@ describe('feishu-integration.repository', () => {
     pinned('FeishuAccountIntegration', 'upsert', up)
     expect(up.update.needsReauth).toBe(false)
     expect(up.create.needsReauth).toBe(false)
-    await repo.updateAccountTokens('w1', 'a1', {
-      accessToken: 'a',
-      refreshToken: 'r',
-      expiresAt: new Date(0),
-      refreshExpiresAt: null,
+    // Compare-and-swap on the stored refresh-token ciphertext (LUM-1341).
+    account.updateMany.mockResolvedValueOnce({ count: 1 })
+    await expect(
+      repo.updateAccountTokens('w1', 'a1', 'enc-old', {
+        accessToken: 'a',
+        refreshToken: 'r',
+        expiresAt: new Date(0),
+        refreshExpiresAt: null,
+      })
+    ).resolves.toBe(true)
+    const swap = account.updateMany.mock.calls[0][0]
+    pinned('FeishuAccountIntegration', 'updateMany', swap)
+    expect(swap.where).toEqual({
+      id: 'a1',
+      workspaceId: 'w1',
+      refreshToken: 'enc-old',
     })
-    pinned(
-      'FeishuAccountIntegration',
-      'update',
-      account.update.mock.calls[0][0]
-    )
-    await repo.markAccountNeedsReauth('w1', 'a1')
-    const mark = account.updateMany.mock.calls[0][0]
+    expect(swap.data.needsReauth).toBe(false)
+    account.updateMany.mockResolvedValueOnce({ count: 0 })
+    await expect(
+      repo.updateAccountTokens('w1', 'a1', 'enc-stale', {
+        accessToken: 'a',
+        refreshToken: 'r',
+        expiresAt: new Date(0),
+        refreshExpiresAt: null,
+      })
+    ).resolves.toBe(false)
+    account.updateMany.mockResolvedValueOnce({ count: 1 })
+    await expect(
+      repo.markAccountNeedsReauth('w1', 'a1', 'enc-old')
+    ).resolves.toBe(true)
+    const mark = account.updateMany.mock.calls[2][0]
     pinned('FeishuAccountIntegration', 'updateMany', mark)
+    expect(mark.where.refreshToken).toBe('enc-old')
     expect(mark.data).toEqual({ needsReauth: true })
     await expect(repo.deleteAccount('w1', 'm1')).resolves.toBe(false)
     pinned(

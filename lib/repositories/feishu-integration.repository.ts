@@ -132,22 +132,39 @@ export const feishuIntegrationRepository = {
     })
   },
 
+  /**
+   * Compare-and-swap: store a rotated pair only if the row still holds the
+   * refresh token that was rotated (`expectedRefreshToken`, the stored
+   * ciphertext). False when another refresh got there first. A successful
+   * rotation also clears a needsReauth a lost race may have set.
+   */
   async updateAccountTokens(
     workspaceId: string,
     id: string,
+    expectedRefreshToken: string,
     next: FeishuAccountTokenUpdate
-  ): Promise<void> {
-    await scopedPrisma.feishuAccountIntegration.update({
-      where: { id, workspaceId },
-      data: next,
+  ): Promise<boolean> {
+    const { count } = await scopedPrisma.feishuAccountIntegration.updateMany({
+      where: { id, workspaceId, refreshToken: expectedRefreshToken },
+      data: { ...next, needsReauth: false },
     })
+    return count > 0
   },
 
-  async markAccountNeedsReauth(workspaceId: string, id: string): Promise<void> {
-    await scopedPrisma.feishuAccountIntegration.updateMany({
-      where: { id, workspaceId },
+  /**
+   * Flag the link for reconnect only while it still holds the refresh token
+   * that failed — never over a pair another refresh has since stored.
+   */
+  async markAccountNeedsReauth(
+    workspaceId: string,
+    id: string,
+    expectedRefreshToken: string
+  ): Promise<boolean> {
+    const { count } = await scopedPrisma.feishuAccountIntegration.updateMany({
+      where: { id, workspaceId, refreshToken: expectedRefreshToken },
       data: { needsReauth: true },
     })
+    return count > 0
   },
 
   /** Idempotent: true when a row (and so its tokens) was removed. */

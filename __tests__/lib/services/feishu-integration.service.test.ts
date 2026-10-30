@@ -458,7 +458,9 @@ describe('getUserClientForMember', () => {
     new Response(JSON.stringify(body), { status })
 
   it('refreshes an expired token and persists the rotated pair encrypted', async () => {
-    repo.findAccount.mockResolvedValue(row())
+    const stored = row()
+    repo.findAccount.mockResolvedValue(stored)
+    repo.updateAccountTokens.mockResolvedValue(true)
     fetchMock
       .mockResolvedValueOnce(
         json(200, {
@@ -472,22 +474,80 @@ describe('getUserClientForMember', () => {
       .mockResolvedValueOnce(json(200, { code: 0, data: {} }))
     const client = await getUserClientForMember(WS, 'm2')
     await client.get('/open-apis/docx/v1/documents/x')
-    const [ws, id, next] = repo.updateAccountTokens.mock.calls[0]
-    expect([ws, id]).toEqual([WS, 'fa1'])
+    const [ws, id, expected, next] = repo.updateAccountTokens.mock.calls[0]
+    // Compare-and-swap against the ciphertext this client read.
+    expect([ws, id, expected]).toEqual([WS, 'fa1', stored.refreshToken])
     expect(decrypt(next.accessToken)).toBe('a2')
     expect(decrypt(next.refreshToken)).toBe('r2')
     expect(repo.markAccountNeedsReauth).not.toHaveBeenCalled()
   })
 
   it('marks the link needsReauth when the refresh fails for good', async () => {
-    repo.findAccount.mockResolvedValue(row())
+    const stored = row()
+    repo.findAccount.mockResolvedValue(stored)
     fetchMock.mockResolvedValueOnce(json(400, { code: 20064 }))
     const client = await getUserClientForMember(WS, 'm2')
     await expect(client.get('/open-apis/x')).rejects.toBeInstanceOf(
       FeishuNeedsReauthError
     )
-    expect(repo.markAccountNeedsReauth).toHaveBeenCalledWith(WS, 'fa1')
+    // Only while the row still holds the refresh token that failed.
+    expect(repo.markAccountNeedsReauth).toHaveBeenCalledWith(
+      WS,
+      'fa1',
+      stored.refreshToken
+    )
     expect(repo.updateAccountTokens).not.toHaveBeenCalled()
+  })
+
+  it('a refresh that lost the race to another process adopts the stored pair, no needsReauth', async () => {
+    const mine = row()
+    const rotated = row({
+      accessToken: encrypt('a2'),
+      refreshToken: encrypt('r2'),
+      expiresAt: new Date(Date.now() + 7_200_000),
+    })
+    // Read at client creation, then re-read after the failed refresh.
+    repo.findAccount.mockResolvedValueOnce(mine).mockResolvedValue(rotated)
+    fetchMock
+      .mockResolvedValueOnce(json(400, { code: 20073, error: 'used' }))
+      .mockResolvedValueOnce(json(200, { code: 0, data: { ok: 1 } }))
+    const client = await getUserClientForMember(WS, 'm2')
+    await expect(client.get('/open-apis/x')).resolves.toEqual({
+      code: 0,
+      data: { ok: 1 },
+    })
+    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe('Bearer a2')
+    expect(repo.markAccountNeedsReauth).not.toHaveBeenCalled()
+    expect(repo.updateAccountTokens).not.toHaveBeenCalled()
+  })
+
+  it('a rotation whose compare-and-swap loses keeps the request going', async () => {
+    repo.findAccount.mockResolvedValue(row())
+    repo.updateAccountTokens.mockResolvedValue(false)
+    fetchMock
+      .mockResolvedValueOnce(
+        json(200, {
+          code: 0,
+          access_token: 'a2',
+          expires_in: 7200,
+          refresh_token: 'r2',
+          refresh_token_expires_in: 604800,
+        })
+      )
+      .mockResolvedValueOnce(json(200, { code: 0 }))
+    const client = await getUserClientForMember(WS, 'm2')
+    await expect(client.get('/open-apis/x')).resolves.toEqual({ code: 0 })
+    expect(repo.markAccountNeedsReauth).not.toHaveBeenCalled()
+  })
+
+  it('a rate-limited refresh (429) never flags needsReauth', async () => {
+    repo.findAccount.mockResolvedValue(row())
+    fetchMock.mockResolvedValueOnce(json(429, { code: 99991400 }))
+    const client = await getUserClientForMember(WS, 'm2')
+    await expect(client.get('/open-apis/x')).rejects.toMatchObject({
+      httpStatus: 429,
+    })
+    expect(repo.markAccountNeedsReauth).not.toHaveBeenCalled()
   })
 
   it('does not mark needsReauth on a transient refresh failure', async () => {

@@ -380,9 +380,13 @@ export async function hasAccountLink(
 }
 
 /**
- * A client acting as the member. Rotated tokens are persisted; a refresh that
- * can never succeed again marks the link needsReauth before the error
- * propagates, so the card asks the member to reconnect.
+ * A client acting as the member. Rotated tokens are persisted with a
+ * compare-and-swap on the stored refresh token, so two processes refreshing
+ * the same single-use token cannot overwrite each other; the loser re-reads
+ * the stored pair and carries on (lib/integrations/feishu/client.ts). Only a
+ * refresh that can never succeed again, with nothing rotated meanwhile, marks
+ * the link needsReauth — and only while it still holds that refresh token —
+ * so the card asks the member to reconnect.
  */
 export async function getUserClientForMember(
   workspaceId: string,
@@ -404,6 +408,9 @@ export async function getUserClientForMember(
       code: 'feishu_needs_reauth',
     })
   }
+  // The refresh-token ciphertext this client believes is stored: the
+  // compare-and-swap key for every write below.
+  let storedRefreshToken = row.refreshToken
   const raw = createFeishuUserClient({
     app: feishuAppCredentials(),
     tokens: {
@@ -413,16 +420,35 @@ export async function getUserClientForMember(
       refreshExpiresAt: row.refreshExpiresAt,
     },
     onTokensRefreshed: async next => {
-      await feishuIntegrationRepository.updateAccountTokens(
+      const refreshToken = encrypt(next.refreshToken)
+      const stored = await feishuIntegrationRepository.updateAccountTokens(
         workspaceId,
         row.id,
+        storedRefreshToken,
         {
           accessToken: encrypt(next.accessToken),
-          refreshToken: encrypt(next.refreshToken),
+          refreshToken,
           expiresAt: next.expiresAt,
           refreshExpiresAt: next.refreshExpiresAt,
         }
       )
+      // Lost the write to another refresh: keep using our (valid) pair in
+      // memory, never overwrite theirs.
+      if (stored) storedRefreshToken = refreshToken
+    },
+    reloadTokens: async () => {
+      const current = await feishuIntegrationRepository.findAccount(
+        workspaceId,
+        memberId
+      )
+      if (!current || current.id !== row.id) return null
+      storedRefreshToken = current.refreshToken
+      return {
+        accessToken: decrypt(current.accessToken),
+        refreshToken: decrypt(current.refreshToken),
+        expiresAt: current.expiresAt,
+        refreshExpiresAt: current.refreshExpiresAt,
+      }
     },
   })
   return {
@@ -433,7 +459,8 @@ export async function getUserClientForMember(
         if (error instanceof FeishuNeedsReauthError) {
           await feishuIntegrationRepository.markAccountNeedsReauth(
             workspaceId,
-            row.id
+            row.id,
+            storedRefreshToken
           )
         }
         throw error
