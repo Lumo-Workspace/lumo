@@ -156,6 +156,18 @@ waitlist 形同虚设。
 3. 给运营人员设 `role = 'admin'`。
 4. 生产环境打开门禁开关前，先在后台把现有 waitlist 里该放行的人批准掉。
 
+### 9.1 Provisioning the console client
+
+动态客户端注册拿不到 `platform-admin`，所以运营人员在服务端注册一次后台这个 OAuth 客户端（机密客户端、无同意页、只授 `platform-admin`、只关联 `/api/admin` 资源、不发 refresh token）。默认是 dry run，加 `--confirm` 才写库；`DATABASE_URL` 在自己的 shell 里指向目标库：
+
+```
+npx tsx scripts/admin-oauth/register-console-client.ts --name "Lumo Admin" \
+  --redirect-uri https://admin.example.com/api/auth/callback \
+  --operator-email <已是 admin 的运营人员邮箱> --confirm
+```
+
+成功时只打印一次 client id 和 client secret（库里只存哈希，之后无法再看到）；把它们配进后台的环境变量。`--operator-email` 必须是已有 `role = 'admin'` 且未被封禁的用户：provider 的创建接口要求登录态，脚本为其临时建一个会话，用完即删。
+
 ## 10. 留给实现者
 
 - 后台到主应用的鉴权具体机制（满足 7.3 的约束）。

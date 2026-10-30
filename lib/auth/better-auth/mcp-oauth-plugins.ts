@@ -106,6 +106,11 @@ function oauthProviderOptions(urls: McpOAuthUrls) {
     // The token `aud` is the RFC 8707 `resource` the request names, and each
     // resource's allowedScopes intersects the requested scopes, so an MCP
     // token never carries `platform-admin` and an admin token never `mcp`.
+    // Refresh tokens are a per-client matter, not a per-resource one: the
+    // provider issues one whenever the client requests `offline_access` and
+    // holds the `refresh_token` grant. The console client is provisioned
+    // (scripts/admin-oauth) with neither, so admin sessions get no refresh
+    // token and the admin signs in again when the access token expires.
     resources: [
       {
         identifier: urls.resource,
