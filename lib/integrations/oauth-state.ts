@@ -17,11 +17,15 @@ const MAX_FUTURE_SKEW_MS = 60 * 1000
 
 /**
  * Which flow a state belongs to. Member OAuth states carry none; the GitHub
- * App install / reverify legs carry 'github-app' (LUM-991). A decoder only
- * accepts a state minted for the purpose it expects, so a state from one flow
- * cannot be replayed into another.
+ * App install / reverify legs carry 'github-app' (LUM-991); the Feishu
+ * workspace install and member account legs carry their own (LUM-1341). A
+ * decoder only accepts a state minted for the purpose it expects, so a state
+ * from one flow cannot be replayed into another.
  */
-export type OauthStatePurpose = 'github-app'
+export type OauthStatePurpose =
+  | 'github-app'
+  | 'feishu-install'
+  | 'feishu-account'
 
 export interface OauthStatePayload {
   workspaceId: string

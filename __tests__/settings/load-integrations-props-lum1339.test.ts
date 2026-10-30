@@ -34,10 +34,23 @@ it('reads the role in the page’s own workspace and gates Codeup on its flag', 
   await expect(loadIntegrationsProps('bravo')).resolves.toEqual({
     isOwner: true,
     configured: { slack: true, figma: false },
-    unreleased: ['codeup'],
+    unreleased: ['codeup', 'feishu', 'feishuAccount'],
   })
   expect(userWorkspace).toHaveBeenCalledWith('u1', 'bravo')
   expect(flag).toHaveBeenCalledWith('codeup-integration', 'w2')
+  expect(flag).toHaveBeenCalledWith('feishu-integration', 'w2')
+})
+
+it('LUM-1341: Feishu cards follow their own flag, apart from Codeup', async () => {
+  userId.mockResolvedValue('u1')
+  userWorkspace.mockResolvedValue({
+    workspaceId: 'w3',
+    member: { role: 'OWNER' },
+  })
+  flag.mockImplementation((key: string) => key === 'feishu-integration')
+
+  const props = await loadIntegrationsProps('charlie')
+  expect(props.unreleased).toEqual(['codeup'])
 })
 
 it('a member, Codeup released', async () => {

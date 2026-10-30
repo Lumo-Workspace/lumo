@@ -21,6 +21,8 @@ const messages: Record<string, string> = {
   'figma.title': 'Figma',
   'githubAccount.title': 'GitHub account',
   'googleDrive.title': 'Google Drive',
+  'feishu.title': 'Feishu / Lark',
+  'feishuAccount.title': 'Feishu / Lark account',
   'integrations.notAvailable': 'Not available on this deployment: {names}.',
   'integrations.team.noneConnected':
     'No team integration is connected yet. The workspace owner installs them here.',
@@ -92,6 +94,14 @@ jest.mock(
   '@/app/workspace/[workspaceUrl]/components/GoogleDriveIntegrationCard',
   () => ({ GoogleDriveIntegrationCard: mockCard('googleDrive') })
 )
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/FeishuIntegrationCard',
+  () => ({ FeishuIntegrationCard: mockCard('feishu') })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/FeishuAccountCard',
+  () => ({ FeishuAccountCard: mockCard('feishuAccount') })
+)
 
 import { render, screen } from '@testing-library/react'
 import { IntegrationsPage } from '@/app/workspace/[workspaceUrl]/components/pages/IntegrationsPage'
@@ -105,6 +115,8 @@ const ALL_CONFIGURED: Record<IntegrationId, boolean> = {
   sentry: true,
   figma: true,
   googleDrive: true,
+  feishu: true,
+  feishuAccount: true,
 }
 
 function orderOf(testId: string): number {
@@ -129,11 +141,16 @@ describe('IntegrationsPage — one page per kind (LUM-1339)', () => {
     expect(
       screen.getByText('Install once for the entire team.')
     ).toBeInTheDocument()
-    for (const id of ['github', 'slack', 'sentry', 'codeup']) {
+    for (const id of ['github', 'slack', 'sentry', 'codeup', 'feishu']) {
       expect(screen.getAllByTestId(`card-${id}`)).toHaveLength(1)
     }
     // A member's own GitHub link is personal — it must not sit on this page.
-    for (const id of ['githubAccount', 'figma', 'googleDrive']) {
+    for (const id of [
+      'githubAccount',
+      'figma',
+      'googleDrive',
+      'feishuAccount',
+    ]) {
       expect(screen.queryByTestId(`card-${id}`)).toBeNull()
     }
   })
@@ -148,10 +165,15 @@ describe('IntegrationsPage — one page per kind (LUM-1339)', () => {
     expect(
       screen.getByText('Each member connects their own account.')
     ).toBeInTheDocument()
-    for (const id of ['githubAccount', 'figma', 'googleDrive']) {
+    for (const id of [
+      'githubAccount',
+      'figma',
+      'googleDrive',
+      'feishuAccount',
+    ]) {
       expect(screen.getAllByTestId(`card-${id}`)).toHaveLength(1)
     }
-    for (const id of ['github', 'slack', 'sentry', 'codeup']) {
+    for (const id of ['github', 'slack', 'sentry', 'codeup', 'feishu']) {
       expect(screen.queryByTestId(`card-${id}`)).toBeNull()
     }
   })

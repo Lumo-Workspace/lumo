@@ -139,6 +139,21 @@ export const AUDIT_INSTRUMENTED: Readonly<
   'lib/services/google-drive-integration.service.ts#disconnectIntegration': [
     'google_drive.disconnected',
   ],
+  // LUM-1341 — Feishu / Lark: the workspace install (OWNER) and the member link
+  'lib/services/feishu-integration.service.ts#completeInstall': [
+    'feishu.connected',
+    'feishu.member_accounts_removed',
+  ],
+  'lib/services/feishu-integration.service.ts#disconnectInstall': [
+    'feishu.disconnected',
+    'feishu.member_accounts_removed',
+  ],
+  'lib/services/feishu-integration.service.ts#completeAccountLink': [
+    'feishu_account.connected',
+  ],
+  'lib/services/feishu-integration.service.ts#removeAccountLink': [
+    'feishu_account.disconnected',
+  ],
   'lib/services/github.service.ts#upsertIntegration': [
     'github_oauth.connected',
   ],
@@ -250,6 +265,9 @@ export const AUDIT_EXEMPT: Readonly<Record<AuditUnit, string>> = {
   'lib/services/ai-derived-content.service.ts#getStatus': READ_ONLY,
   'lib/services/github-app-install.service.ts#getStatus': READ_ONLY,
   'lib/services/codeup.service.ts#listRepositories': READ_ONLY,
+  'lib/services/feishu-integration.service.ts#requireOwner': GATE_HELPER,
+  'lib/services/feishu-integration.service.ts#buildInstallAuthorizeUrl':
+    'read-only gate before the Feishu round trip; completeInstall is audited',
   'lib/services/done-requirements-settings.service.ts#get': READ_ONLY,
   'lib/services/github-app-install.service.ts#startReverify':
     'read-only gate before the GitHub round trip; reverify is audited',

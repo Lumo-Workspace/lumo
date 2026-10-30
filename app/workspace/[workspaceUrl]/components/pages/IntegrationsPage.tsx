@@ -17,6 +17,8 @@ import { SentryIntegrationCard } from '../SentryIntegrationCard'
 import { CodeupIntegrationCard } from '../CodeupIntegrationCard'
 import { FigmaIntegrationCard } from '../FigmaIntegrationCard'
 import { GoogleDriveIntegrationCard } from '../GoogleDriveIntegrationCard'
+import { FeishuIntegrationCard } from '../FeishuIntegrationCard'
+import { FeishuAccountCard } from '../FeishuAccountCard'
 
 // Every kind, for ranking. On a page, cards are ordered by connection status
 // first (connected on top) then alphabetically by display name — both
@@ -85,6 +87,12 @@ export function IntegrationsPage({
       googleDrive: (c: boolean) =>
         setConnectedMap(p =>
           p.googleDrive === c ? p : { ...p, googleDrive: c }
+        ),
+      feishu: (c: boolean) =>
+        setConnectedMap(p => (p.feishu === c ? p : { ...p, feishu: c })),
+      feishuAccount: (c: boolean) =>
+        setConnectedMap(p =>
+          p.feishuAccount === c ? p : { ...p, feishuAccount: c }
         ),
     }),
     []
@@ -171,6 +179,15 @@ export function IntegrationsPage({
     figma: <FigmaIntegrationCard onConnectedChange={reporters.figma} />,
     googleDrive: (
       <GoogleDriveIntegrationCard onConnectedChange={reporters.googleDrive} />
+    ),
+    feishu: (
+      <FeishuIntegrationCard
+        isOwner={isOwner}
+        onConnectedChange={reporters.feishu}
+      />
+    ),
+    feishuAccount: (
+      <FeishuAccountCard onConnectedChange={reporters.feishuAccount} />
     ),
   }
 

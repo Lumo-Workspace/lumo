@@ -76,6 +76,11 @@ const REQUIRED_ENV: Record<
     'GOOGLE_DRIVE_OAUTH_REDIRECT_URI',
     ENCRYPTION_KEY,
   ],
+  // LUM-1341: one self-built app serves both lines; FEISHU_DOMAIN
+  // (feishu | lark, default feishu) is optional. Redirect URIs derive from
+  // the app URL (/api/feishu/{install,account}/callback).
+  feishu: ['FEISHU_APP_ID', 'FEISHU_APP_SECRET', ENCRYPTION_KEY],
+  feishuAccount: ['FEISHU_APP_ID', 'FEISHU_APP_SECRET', ENCRYPTION_KEY],
 }
 
 function present(env: Env, name: string): boolean {

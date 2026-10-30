@@ -2,7 +2,8 @@
  * LUM-906 PR2 ruling (b) — when a member is deactivated, their personal
  * integration credentials in THAT workspace go with them: the GitHub OAuth
  * integration (its repo webhooks are deleted on GitHub first, best effort,
- * like the user's own disconnect), Figma and Google Drive. Each disconnect
+ * like the user's own disconnect), Figma, Google Drive and the Feishu
+ * account link (LUM-1341). Each disconnect
  * reuses the integration's own service, so it is audited with the existing
  * `*.disconnected` action and the deactivation's actor (OWNER removal →
  * MEMBER, Clerk → WEBHOOK).
@@ -24,8 +25,16 @@ import type { AuditContext } from '@/lib/services/audit.service'
 import { disconnectIntegration as disconnectFigma } from '@/lib/services/figma-integration.service'
 import { githubService } from '@/lib/services/github.service'
 import { disconnectIntegration as disconnectGoogleDrive } from '@/lib/services/google-drive-integration.service'
+import {
+  removeAccountLink as disconnectFeishuAccount,
+  hasAccountLink as hasFeishuAccountLink,
+} from '@/lib/services/feishu-integration.service'
 
-export type MemberIntegration = 'github_oauth' | 'figma' | 'google_drive'
+export type MemberIntegration =
+  | 'github_oauth'
+  | 'figma'
+  | 'google_drive'
+  | 'feishu_account'
 
 /** Best effort: remove the integration's repo webhooks on GitHub. */
 async function deleteGithubRepoWebhooks(integration: {
@@ -98,6 +107,11 @@ export async function removeMemberIntegrations(
   ) {
     await disconnectGoogleDrive(workspaceId, memberId, audit)
     removed.push('google_drive')
+  }
+
+  if (await hasFeishuAccountLink(workspaceId, memberId)) {
+    await disconnectFeishuAccount(workspaceId, memberId, audit)
+    removed.push('feishu_account')
   }
 
   return removed

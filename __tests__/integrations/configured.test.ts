@@ -29,6 +29,8 @@ const FULL: Record<string, string> = {
   GOOGLE_CLIENT_ID: 'x',
   GOOGLE_CLIENT_SECRET: 'x',
   GOOGLE_DRIVE_OAUTH_REDIRECT_URI: 'x',
+  FEISHU_APP_ID: 'x',
+  FEISHU_APP_SECRET: 'x',
 }
 
 describe('integrationConfigStatus — registry integrations', () => {
@@ -40,6 +42,8 @@ describe('integrationConfigStatus — registry integrations', () => {
     'codeup',
     'figma',
     'googleDrive',
+    'feishu',
+    'feishuAccount',
   ] as const
 
   it.each(ids)('%s is not configured with only DATABASE_URL + Clerk', id => {
@@ -81,6 +85,8 @@ describe('integrationConfigStatus — registry integrations', () => {
       codeup: true,
       figma: false,
       googleDrive: false,
+      feishu: false,
+      feishuAccount: false,
     })
     expect(
       Object.values(configuredRegistryIntegrations(FULL)).every(Boolean)
