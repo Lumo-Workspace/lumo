@@ -11,19 +11,37 @@
  * deprovisions the person's memberships — the plugin's HTTP endpoints know
  * nothing about Lumo memberships.
  *
- * Its /admin/* endpoints only answer a user whose role is an admin role
- * (default ["admin"]); Lumo never assigns one (new users get "user"), so they
- * are inert. Impersonation is closed regardless: both endpoints are disabled
- * (404) and no role carries the `impersonate` permission.
+ * Its /admin/* endpoints answer any user whose role is an admin role
+ * (["admin"]). LUM-1344 now assigns `admin` to platform operators for the
+ * platform console (/api/admin), so every plugin endpoint is disabled
+ * (404, ADMIN_DISABLED_PATHS) — ban/delete/set-role/set-password must only go
+ * through Lumo's own services. No role carries the `impersonate` permission.
  */
 import { admin } from 'better-auth/plugins'
 import { createAccessControl } from 'better-auth/plugins/access'
 import type { BetterAuthPlugin } from 'better-auth'
 
-/** The admin plugin's impersonation endpoints, closed in Lumo. */
+/**
+ * Every HTTP endpoint of the admin plugin, closed in Lumo (404). Pinned to the
+ * plugin by __tests__/lib/auth/admin-plugin-disabled-paths.test.ts, so a
+ * better-auth upgrade that adds an endpoint fails CI until it is listed.
+ */
 export const ADMIN_DISABLED_PATHS = [
+  '/admin/set-role',
+  '/admin/create-user',
+  '/admin/update-user',
+  '/admin/list-users',
+  '/admin/get-user',
+  '/admin/list-user-sessions',
+  '/admin/unban-user',
+  '/admin/ban-user',
   '/admin/impersonate-user',
   '/admin/stop-impersonating',
+  '/admin/revoke-user-session',
+  '/admin/revoke-user-sessions',
+  '/admin/remove-user',
+  '/admin/set-user-password',
+  '/admin/has-permission',
 ]
 
 /**
