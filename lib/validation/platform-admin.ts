@@ -37,3 +37,8 @@ export const adminAuditQuerySchema = z.object({
 export type AdminListQuery = z.infer<typeof adminListQuerySchema>
 export type AdminUsageQuery = z.infer<typeof adminUsageQuerySchema>
 export type AdminAuditQuery = z.infer<typeof adminAuditQuerySchema>
+
+export const adminWaitlistQuerySchema = adminListQuerySchema.extend({
+  status: z.enum(['PENDING', 'APPROVED']).optional(),
+})
+export type AdminWaitlistQuery = z.infer<typeof adminWaitlistQuerySchema>
