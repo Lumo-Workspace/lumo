@@ -18,6 +18,10 @@ export { documentRevisionService } from './documentRevision.service'
 export { documentTemplateService } from './document-template.service'
 export { taskTemplateService } from './task-template.service'
 export { workspaceService } from './workspace.service'
+export {
+  workspaceCreationGate,
+  isWorkspaceApprovalRequired,
+} from './workspace-creation-gate.service'
 export { aiDerivedContentService } from './ai-derived-content.service'
 export { aiFeaturesService } from './ai-features.service'
 export type { AiFeaturesStatus } from './ai-features.service'

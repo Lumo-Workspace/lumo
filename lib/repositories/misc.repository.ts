@@ -44,6 +44,35 @@ export const miscRepository = {
     return prisma.waitlistEntry.create({ data })
   },
 
+  /** An APPROVED waitlist entry for any of these (lowercase) emails. */
+  async findApprovedWaitlistEntryByEmails(emails: string[]) {
+    if (emails.length === 0) return null
+    return prisma.waitlistEntry.findFirst({
+      where: { email: { in: emails }, status: 'APPROVED' },
+      select: { id: true },
+    })
+  },
+
+  /**
+   * Record a blocked workspace-creation attempt. Creates a PENDING
+   * ONBOARDING_BLOCKED entry; an existing row for the email is left untouched.
+   */
+  async upsertBlockedWaitlistEntry(data: {
+    email: string
+    name: string | null
+  }) {
+    return prisma.waitlistEntry.upsert({
+      where: { email: data.email },
+      create: {
+        email: data.email,
+        name: data.name,
+        source: 'ONBOARDING_BLOCKED',
+      },
+      update: {},
+      select: { id: true, status: true },
+    })
+  },
+
   // ── ApiKey ─────────────────────────────────────────────────────────────
 
   /** List active (non-revoked) API keys for a workspace member. */
