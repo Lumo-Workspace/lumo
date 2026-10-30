@@ -94,7 +94,10 @@ describe('feishu-integration.repository', () => {
   })
 
   it('install writes are pinned to the workspace (same workspace reinstall is an upsert)', async () => {
-    await expect(repo.upsertInstall(INSTALL_DATA)).resolves.toBe('ok')
+    await expect(repo.upsertInstall(INSTALL_DATA)).resolves.toEqual({
+      status: 'ok',
+      removedAccounts: 0,
+    })
     pinned('FeishuIntegration', 'upsert', install.upsert.mock.calls[0][0])
     expect(install.upsert.mock.calls[0][0].create.workspaceId).toBe('w1')
     await expect(
@@ -145,12 +148,37 @@ describe('feishu-integration.repository', () => {
   it('upsertInstall maps a unique tenantKey held by another workspace to tenant_taken', async () => {
     install.upsert.mockRejectedValue(p2002())
     mockUnscopedFind.mockResolvedValue({ workspaceId: 'w_other' })
-    await expect(repo.upsertInstall(INSTALL_DATA)).resolves.toBe('tenant_taken')
+    await expect(repo.upsertInstall(INSTALL_DATA)).resolves.toEqual({
+      status: 'tenant_taken',
+    })
+    // The upsert failed first: nothing was deleted.
+    expect(account.deleteMany).not.toHaveBeenCalled()
     expect(mockUnscopedFind).toHaveBeenCalledWith({
       where: { tenantKey: 'tk' },
       select: { workspaceId: true },
     })
     expect(mockUnscoped.mock.calls[0]?.[0]).toMatch(/LUM-1341/)
+  })
+
+  it('a reinstall removes only the workspace member links of other tenants, in the transaction', async () => {
+    account.deleteMany.mockResolvedValue({ count: 2 })
+    await expect(
+      repo.upsertInstall({ ...INSTALL_DATA, tenantKey: 'tk2' })
+    ).resolves.toEqual({ status: 'ok', removedAccounts: 2 })
+    const del = account.deleteMany.mock.calls[0][0]
+    pinned('FeishuAccountIntegration', 'deleteMany', del)
+    expect(del).toEqual({
+      where: { workspaceId: 'w1', NOT: { tenantKey: 'tk2' } },
+    })
+    // Same-tenant reinstall: the filter keeps that tenant's links.
+    account.deleteMany.mockResolvedValue({ count: 0 })
+    await expect(repo.upsertInstall(INSTALL_DATA)).resolves.toEqual({
+      status: 'ok',
+      removedAccounts: 0,
+    })
+    expect(account.deleteMany.mock.calls[1][0].where.NOT).toEqual({
+      tenantKey: 'tk',
+    })
   })
 
   it('upsertInstall rethrows a P2002 that is not another workspace holding the tenant', async () => {

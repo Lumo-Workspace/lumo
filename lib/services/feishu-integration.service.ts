@@ -226,7 +226,7 @@ export async function completeInstall(
     tenantAccessToken: encrypt(tenantToken.token),
     tenantTokenExpiresAt: tenantToken.expiresAt,
   })
-  if (written === 'tenant_taken') {
+  if (written.status === 'tenant_taken') {
     throw flowError(
       'tenant_taken',
       409,
@@ -240,6 +240,16 @@ export async function completeInstall(
     metadata: { domain: app.domain },
     context: audit,
   })
+  if (written.removedAccounts > 0) {
+    // Reinstalled into another tenant: the old tenant's member links went.
+    await recordAuditEvent({
+      workspaceId: input.workspaceId,
+      action: 'feishu.member_accounts_removed',
+      target: { type: 'integration', id: 'feishu_account' },
+      metadata: { count: written.removedAccounts },
+      context: audit,
+    })
+  }
 }
 
 export async function getInstallStatus(

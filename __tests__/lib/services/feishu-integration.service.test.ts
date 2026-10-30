@@ -84,7 +84,7 @@ beforeEach(() => {
   global.fetch = fetchMock as unknown as typeof fetch
   // Defaults: a current install of tenant `tk`; writes succeed.
   repo.findInstallStatus.mockResolvedValue(CURRENT_INSTALL)
-  repo.upsertInstall.mockResolvedValue('ok')
+  repo.upsertInstall.mockResolvedValue({ status: 'ok', removedAccounts: 0 })
   repo.updateTenantToken.mockResolvedValue(true)
   repo.deleteInstall.mockResolvedValue({ install: true, accounts: 0 })
 })
@@ -289,7 +289,7 @@ describe('workspace install (TEAM)', () => {
     mockUserInfo.mockResolvedValue({ openId: 'ou', tenantKey: 'tk', name: 'O' })
     mockTenantToken.mockResolvedValue({ token: 't', expiresAt: new Date() })
     mockTenantInfo.mockResolvedValue({ tenantKey: 'tk', name: 'Lumo Inc' })
-    repo.upsertInstall.mockResolvedValue('tenant_taken')
+    repo.upsertInstall.mockResolvedValue({ status: 'tenant_taken' })
     process.env.LUMO_DOGFOOD_WORKSPACE_IDS = `${WS},ws_second`
     await expect(
       completeInstall({
@@ -301,6 +301,52 @@ describe('workspace install (TEAM)', () => {
       })
     ).rejects.toMatchObject({ code: 'tenant_taken', status: 409 })
     expect(mockAudit).not.toHaveBeenCalled()
+  })
+
+  it('a reinstall into another tenant audits the old-tenant member links it removed', async () => {
+    mockExchange.mockResolvedValue(userToken())
+    mockUserInfo.mockResolvedValue({
+      openId: 'ou',
+      tenantKey: 'tk2',
+      name: 'O',
+    })
+    mockTenantToken.mockResolvedValue({ token: 't', expiresAt: new Date() })
+    mockTenantInfo.mockResolvedValue({ tenantKey: 'tk2', name: 'New Org' })
+    repo.upsertInstall.mockResolvedValue({ status: 'ok', removedAccounts: 2 })
+    await completeInstall({
+      workspaceId: WS,
+      memberId: 'm1',
+      role: 'OWNER',
+      code: 'c',
+      appUrl: APP_URL,
+    })
+    expect(repo.upsertInstall).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: WS, tenantKey: 'tk2' })
+    )
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'feishu.member_accounts_removed',
+        metadata: { count: 2 },
+      })
+    )
+  })
+
+  it('a same-tenant reinstall removes nothing and audits only the connect', async () => {
+    mockExchange.mockResolvedValue(userToken())
+    mockUserInfo.mockResolvedValue({ openId: 'ou', tenantKey: 'tk', name: 'O' })
+    mockTenantToken.mockResolvedValue({ token: 't', expiresAt: new Date() })
+    mockTenantInfo.mockResolvedValue({ tenantKey: 'tk', name: 'Lumo Inc' })
+    await completeInstall({
+      workspaceId: WS,
+      memberId: 'm1',
+      role: 'OWNER',
+      code: 'c',
+      appUrl: APP_URL,
+    })
+    expect(mockAudit).toHaveBeenCalledTimes(1)
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'feishu.connected' })
+    )
   })
 
   it('reports an install made for another app / domain as reinstallRequired', async () => {

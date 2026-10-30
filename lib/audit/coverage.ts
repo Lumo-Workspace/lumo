@@ -142,6 +142,7 @@ export const AUDIT_INSTRUMENTED: Readonly<
   // LUM-1341 — Feishu / Lark: the workspace install (OWNER) and the member link
   'lib/services/feishu-integration.service.ts#completeInstall': [
     'feishu.connected',
+    'feishu.member_accounts_removed',
   ],
   'lib/services/feishu-integration.service.ts#disconnectInstall': [
     'feishu.disconnected',

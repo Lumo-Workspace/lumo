@@ -91,22 +91,33 @@ export const feishuIntegrationRepository = {
   },
 
   /**
-   * Bind (or re-bind) the workspace. `tenantKey` is unique: when another
-   * workspace already holds this tenant the write fails with P2002 and this
-   * returns 'tenant_taken' — also when two installs race. A P2002 for any
-   * other reason is rethrown.
+   * Bind (or re-bind) the workspace and, in the same transaction, delete the
+   * workspace's member account links of any OTHER tenant (a reinstall into a
+   * new tenant orphans them; a same-tenant reinstall keeps them).
+   *
+   * `tenantKey` is unique: when another workspace already holds this tenant
+   * the upsert fails with P2002, the transaction rolls back (nothing is
+   * deleted) and this returns 'tenant_taken' — also when two installs race.
+   * A P2002 for any other reason is rethrown.
    */
   async upsertInstall(
     data: UpsertFeishuInstallData
-  ): Promise<'ok' | 'tenant_taken'> {
+  ): Promise<
+    { status: 'ok'; removedAccounts: number } | { status: 'tenant_taken' }
+  > {
     const { workspaceId, ...rest } = data
     try {
-      await scopedPrisma.feishuIntegration.upsert({
-        where: { workspaceId },
-        create: { workspaceId, ...rest },
-        update: rest,
+      const removed = await scopedPrisma.$transaction(async tx => {
+        await tx.feishuIntegration.upsert({
+          where: { workspaceId },
+          create: { workspaceId, ...rest },
+          update: rest,
+        })
+        return tx.feishuAccountIntegration.deleteMany({
+          where: { workspaceId, NOT: { tenantKey: data.tenantKey } },
+        })
       })
-      return 'ok'
+      return { status: 'ok', removedAccounts: removed.count }
     } catch (error) {
       if (!isUniqueViolation(error)) throw error
       const holder = await unscoped(
@@ -115,7 +126,9 @@ export const feishuIntegrationRepository = {
         where: { tenantKey: data.tenantKey },
         select: { workspaceId: true },
       })
-      if (holder && holder.workspaceId !== workspaceId) return 'tenant_taken'
+      if (holder && holder.workspaceId !== workspaceId) {
+        return { status: 'tenant_taken' }
+      }
       throw error
     }
   },
