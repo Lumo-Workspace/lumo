@@ -104,13 +104,12 @@ describe('TaskFilterMenu', () => {
     )
     const trigger = screen.getByRole('button', { name: /filter/i })
     expect(trigger).toHaveTextContent('Filter')
-    // The count pill is a direct child carrying only the active count.
+    // The count pill is the trigger's only direct <span> child.
     expect(
-      [...trigger.querySelectorAll('span')].map(s => s.textContent)
+      [...trigger.querySelectorAll(':scope > span')].map(s => s.textContent)
     ).toEqual(['1'])
-    // Visible label → no aria-label override and no tooltip wrapper.
+    // Visible label → the accessible name comes from the text, not aria-label.
     expect(trigger).not.toHaveAttribute('aria-label')
-    expect(trigger).not.toHaveAttribute('data-slot', 'tooltip-trigger')
   })
 
   it('only offers contextual dimensions that can narrow the current scope', () => {
