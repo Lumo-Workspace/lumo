@@ -9,6 +9,7 @@ import {
   formatBanResult,
   formatPlan,
   formatRemoveResult,
+  formatRoleResult,
   formatUnbanResult,
   parseAuthAdminArgs,
   REASON_MAX_CHARS,
@@ -159,5 +160,62 @@ describe('LUM-1071 auth admin CLI', () => {
     expect(
       formatRemoveResult({ userId: 'u', outcome: 'already_removed' })
     ).toEqual(['u was already removed; nothing changed'])
+  })
+
+  it('LUM-1344 grant-admin / revoke-admin: target + --confirm only', () => {
+    expect(
+      parseAuthAdminArgs('grant-admin', ['--email', 'op@b.test', '--confirm'])
+    ).toMatchObject({ target: { email: 'op@b.test' }, confirm: true })
+    expect(() =>
+      parseAuthAdminArgs('revoke-admin', ['--user-id', 'u', '--reason', 'x'])
+    ).toThrow(/Usage: npx tsx scripts\/auth-admin\/revoke-admin.ts/)
+  })
+
+  it('LUM-1344 role plans and results', () => {
+    const plan = {
+      userId: 'user_1',
+      user: { id: 'user_1', role: 'user', banned: false, banExpires: null },
+      sessions: 0,
+      oauthTokens: 0,
+      memberships: [
+        {
+          workspaceId: 'ws_a',
+          memberId: 'm1',
+          role: 'OWNER',
+          action: 'keep_last_owner' as const,
+        },
+      ],
+    }
+    const none = { reason: null, expiresInDays: null }
+    const grant = formatPlan('grant-admin', plan, none)
+    expect(grant).toContain(
+      '  would set: role=admin (platform admin API access)'
+    )
+    // Role changes never touch memberships: none listed.
+    expect(grant.join('\n')).not.toContain('memberships')
+    expect(
+      formatPlan(
+        'grant-admin',
+        { ...plan, user: { ...plan.user, banned: true } },
+        none
+      )
+    ).toContain('  would refuse: the user is banned (unban first)')
+    expect(formatPlan('revoke-admin', plan, none)).toContain(
+      '  would set: role=user; not admin, nothing to do'
+    )
+    expect(
+      formatRoleResult('grant-admin', {
+        userId: 'u',
+        role: 'admin',
+        changed: true,
+      })
+    ).toEqual(['granted platform admin to u (role=admin)'])
+    expect(
+      formatRoleResult('revoke-admin', {
+        userId: 'u',
+        role: 'user',
+        changed: false,
+      })
+    ).toEqual(['u already has role=user; nothing changed'])
   })
 })

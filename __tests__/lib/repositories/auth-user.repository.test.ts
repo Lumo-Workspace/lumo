@@ -33,6 +33,28 @@ const SELECT = {
 beforeEach(() => jest.resetAllMocks())
 
 describe('authUserRepository', () => {
+  // LUM-1344 — the platform admin guard reads only the access columns.
+  it('findPlatformAccessById selects id, email, role and banned only', async () => {
+    mockAuthUser.findUnique.mockResolvedValue({
+      id: 'u1',
+      email: 'a@x.io',
+      role: 'admin',
+      banned: null,
+    })
+    await expect(
+      authUserRepository.findPlatformAccessById('u1')
+    ).resolves.toEqual({
+      id: 'u1',
+      email: 'a@x.io',
+      role: 'admin',
+      banned: false,
+    })
+    expect(mockAuthUser.findUnique).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      select: { id: true, email: true, role: true, banned: true },
+    })
+  })
+
   it('findById selects only the directory columns (never password rows)', async () => {
     mockAuthUser.findUnique.mockResolvedValue(null)
     await authUserRepository.findById('u1')

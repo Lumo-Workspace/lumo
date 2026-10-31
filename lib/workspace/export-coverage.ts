@@ -100,6 +100,8 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   // LUM-919: the exported audit log carries the same notice as an event.
   SubprocessorNoticeDelivery:
     "Lumo's record of the subprocessor notices it emailed (idempotency)",
+  PlatformAdminAuditEvent:
+    'platform-level operator audit (LUM-1344), not customer data; workspaceId is a plain value so rows survive workspace deletion',
 }
 
 const MODEL_BLOCK_RE = /^model (\w+) \{([\s\S]*?)\n\}/gm

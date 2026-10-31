@@ -3314,5 +3314,9 @@
   "settings.ai": "IA",
   "settings.ai.subtitle": "Qué funciones de IA se ejecutan en este espacio de trabajo y el contenido que Lumo escribe con IA.",
   "settings.export": "Exportar",
-  "integrations.team.noneConnected": "Aún no hay ninguna integración del equipo conectada. La persona propietaria del espacio de trabajo las instala aquí."
+  "integrations.team.noneConnected": "Aún no hay ninguna integración del equipo conectada. La persona propietaria del espacio de trabajo las instala aquí.",
+  "onboarding.waitlistPending.body": "La creación de espacios de trabajo está limitada a los miembros aprobados de la lista de espera. Te enviaremos un correo apenas se apruebe tu acceso; entonces podrás iniciar sesión y crear tu espacio de trabajo.",
+  "onboarding.waitlistPending.title": "Estás en la lista de espera",
+  "onboarding.emailUnverified.body": "Para crear un espacio de trabajo necesitas una dirección de correo verificada. Verifica el correo de tu cuenta y vuelve a iniciar sesión para crear tu espacio de trabajo.",
+  "onboarding.emailUnverified.title": "Verifica tu correo para continuar"
 }

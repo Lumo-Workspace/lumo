@@ -19,6 +19,7 @@
  * must not be the Google Drive import's GOOGLE_CLIENT_ID either (see
  * googleSignInSharesDriveClient).
  */
+import { isTruthyFlag } from '@/lib/config/env-flag'
 import { resolveEmailTransport } from '@/lib/integrations/email/transport'
 
 type Env = Record<string, string | undefined>
@@ -80,11 +81,6 @@ export function resolveSocialProviders(
     if (clientId && clientSecret) out[provider] = { clientId, clientSecret }
   }
   return out
-}
-
-const isTruthyFlag = (raw: string | undefined): boolean => {
-  const v = raw?.trim().toLowerCase()
-  return v === 'true' || v === '1' || v === 'yes'
 }
 
 /** `true` / `1` / `yes` (any case) disable self-service sign-up. */

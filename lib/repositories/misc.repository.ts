@@ -1,6 +1,20 @@
 import { prisma } from '@/lib/db/prisma'
 import { ACTIVE_MEMBER } from '@/lib/members/deactivation'
-import type { TaskPriority } from '@prisma/client'
+import type { Prisma, TaskPriority } from '@prisma/client'
+
+const WAITLIST_ADMIN_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  company: true,
+  teamSize: true,
+  source: true,
+  status: true,
+  createdAt: true,
+  approvedAt: true,
+  lastInvitedAt: true,
+  inviteCount: true,
+} satisfies Prisma.WaitlistEntrySelect
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -42,6 +56,87 @@ export const miscRepository = {
   /** Create a waitlist entry. */
   async createWaitlistEntry(data: CreateWaitlistEntryData) {
     return prisma.waitlistEntry.create({ data })
+  },
+
+  /** An APPROVED waitlist entry for any of these (lowercase) emails. */
+  async findApprovedWaitlistEntryByEmails(emails: string[]) {
+    if (emails.length === 0) return null
+    return prisma.waitlistEntry.findFirst({
+      where: { email: { in: emails }, status: 'APPROVED' },
+      select: { id: true },
+    })
+  },
+
+  /**
+   * Record a blocked workspace-creation attempt. Creates a PENDING
+   * ONBOARDING_BLOCKED entry; an existing row for the email is left untouched.
+   */
+  async upsertBlockedWaitlistEntry(data: {
+    email: string
+    name: string | null
+  }) {
+    return prisma.waitlistEntry.upsert({
+      where: { email: data.email },
+      create: {
+        email: data.email,
+        name: data.name,
+        source: 'ONBOARDING_BLOCKED',
+      },
+      update: {},
+      select: { id: true, status: true },
+    })
+  },
+
+  /** Waitlist page for the admin console, newest first. */
+  async listWaitlistEntries(args: {
+    status?: 'PENDING' | 'APPROVED' | undefined
+    q?: string | undefined
+    cursor?: string | undefined
+    take: number
+  }) {
+    const where: Prisma.WaitlistEntryWhereInput = {
+      ...(args.status ? { status: args.status } : {}),
+      ...(args.q
+        ? {
+            OR: [
+              { email: { contains: args.q, mode: 'insensitive' } },
+              { name: { contains: args.q, mode: 'insensitive' } },
+              { company: { contains: args.q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    }
+    return prisma.waitlistEntry.findMany({
+      where,
+      select: WAITLIST_ADMIN_SELECT,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: args.take,
+      ...(args.cursor ? { cursor: { id: args.cursor }, skip: 1 } : {}),
+    })
+  },
+
+  async findWaitlistEntryById(id: string) {
+    return prisma.waitlistEntry.findUnique({
+      where: { id },
+      select: WAITLIST_ADMIN_SELECT,
+    })
+  },
+
+  /** PENDING -> APPROVED only; a concurrent second approve changes nothing. */
+  async approveWaitlistEntryIfPending(id: string, approvedById: string) {
+    return prisma.waitlistEntry.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { status: 'APPROVED', approvedAt: new Date(), approvedById },
+    })
+  },
+
+  /** Record a delivered invite email. */
+  async markWaitlistInvited(id: string) {
+    return prisma.waitlistEntry.update({
+      where: { id },
+      data: { lastInvitedAt: new Date(), inviteCount: { increment: 1 } },
+      select: { id: true },
+    })
   },
 
   // ── ApiKey ─────────────────────────────────────────────────────────────

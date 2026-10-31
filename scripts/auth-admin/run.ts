@@ -1,5 +1,6 @@
 /**
- * LUM-1071 — the shared entry of scripts/auth-admin/{ban,unban,remove}.ts:
+ * LUM-1071 — the shared entry of scripts/auth-admin/{ban,unban,remove}.ts
+ * (and LUM-1344's {grant,revoke}-admin.ts):
  * parse → resolve the user → print the dry-run plan, or (with --confirm) call
  * the service and print the result. Exit code 0 on success, 1 on any error
  * (the message is printed; never a stack with data).
@@ -12,7 +13,9 @@ import {
   formatBanResult,
   formatPlan,
   formatRemoveResult,
+  formatRoleResult,
   formatUnbanResult,
+  isRoleCommand,
   parseAuthAdminArgs,
   writeLines,
   type AuthAdminCommand,
@@ -36,7 +39,13 @@ export async function runAuthAdmin(
       ])
       return 0
     }
-    if (command === 'ban') {
+    if (isRoleCommand(command)) {
+      const result =
+        command === 'grant-admin'
+          ? await authUserAdminService.grantPlatformAdmin(userId)
+          : await authUserAdminService.revokePlatformAdmin(userId)
+      writeLines(formatRoleResult(command, result))
+    } else if (command === 'ban') {
       const result = await authUserAdminService.ban(userId, {
         reason: args.reason,
         expiresAt: banExpiresAt(args.expiresInDays, now),

@@ -3314,5 +3314,9 @@
   "settings.ai": "AI",
   "settings.ai.subtitle": "이 워크스페이스에서 실행할 AI 기능과 Lumo가 AI로 작성한 콘텐츠.",
   "settings.export": "내보내기",
-  "integrations.team.noneConnected": "아직 연결된 팀 통합이 없습니다. 워크스페이스 소유자가 여기에서 설치합니다."
+  "integrations.team.noneConnected": "아직 연결된 팀 통합이 없습니다. 워크스페이스 소유자가 여기에서 설치합니다.",
+  "onboarding.waitlistPending.body": "워크스페이스 생성은 승인된 대기자 명단 회원에게만 허용됩니다. 접근이 승인되면 바로 이메일로 알려 드리며, 그 후 로그인하여 워크스페이스를 만들 수 있습니다.",
+  "onboarding.waitlistPending.title": "대기자 명단에 등록되어 있습니다",
+  "onboarding.emailUnverified.body": "워크스페이스를 만들려면 인증된 이메일 주소가 필요합니다. 계정의 이메일을 인증한 후 다시 로그인하여 워크스페이스를 만드세요.",
+  "onboarding.emailUnverified.title": "계속하려면 이메일을 인증하세요"
 }

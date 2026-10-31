@@ -54,6 +54,9 @@ function WorkspaceStep({
   const [slugEdited, setSlugEdited] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [blockedNotice, setBlockedNotice] = useState<
+    'waitlistPending' | 'emailUnverified' | null
+  >(null)
 
   const handleNameChange = (value: string) => {
     setName(value)
@@ -82,6 +85,14 @@ function WorkspaceStep({
       })
       const data = await res.json()
       if (!res.ok) {
+        if (data.code === 'WORKSPACE_APPROVAL_REQUIRED') {
+          setBlockedNotice('waitlistPending')
+          return
+        }
+        if (data.code === 'WORKSPACE_EMAIL_UNVERIFIED') {
+          setBlockedNotice('emailUnverified')
+          return
+        }
         setError(
           data.error ||
             intl.formatMessage({ id: 'onboarding.workspace.error.create' })
@@ -97,6 +108,37 @@ function WorkspaceStep({
   }
 
   const isValid = name.trim().length >= 2 && slug.length >= 2
+
+  if (blockedNotice) {
+    return (
+      <Card className='w-full max-w-md shadow-elevation-3'>
+        <CardHeader className='text-center space-y-6'>
+          <div className='flex justify-center'>
+            <Image
+              src='/logo-dark.svg'
+              alt={intl.formatMessage({ id: 'onboarding.logoAlt' })}
+              width={62}
+              height={62}
+              className='h-[62px] w-[62px]'
+              priority
+            />
+          </div>
+          <CardTitle className='text-body font-normal text-foreground'>
+            {blockedNotice === 'emailUnverified'
+              ? intl.formatMessage({ id: 'onboarding.emailUnverified.title' })
+              : intl.formatMessage({ id: 'onboarding.waitlistPending.title' })}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className='text-caption text-muted-foreground text-center'>
+            {blockedNotice === 'emailUnverified'
+              ? intl.formatMessage({ id: 'onboarding.emailUnverified.body' })
+              : intl.formatMessage({ id: 'onboarding.waitlistPending.body' })}
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className='w-full max-w-md shadow-elevation-3'>

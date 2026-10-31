@@ -22,6 +22,7 @@
  * that never existed is a 404). A failed personal-integration cleanup throws (500) after
  * the deactivation, and a re-run finishes it.
  */
+import { PLATFORM_ADMIN_ROLE } from '@/lib/auth/platform-admin-role'
 import { logger } from '@/lib/logger'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import {
@@ -37,6 +38,9 @@ import {
   type DeprovisionOutcome,
   type DeprovisionPlanEntry,
 } from '@/lib/services/member-deprovision.service'
+
+/** The admin plugin's defaultRole (lib/auth/better-auth/admin-plugin.ts). */
+const DEFAULT_USER_ROLE = 'user'
 
 /** Audit metadata marking deprovisioning done by these operations. */
 const AUDIT_TRIGGER = { trigger: 'auth-admin' } as const
@@ -71,6 +75,13 @@ export interface BanResult {
 
 export interface UnbanResult {
   userId: string
+  changed: boolean
+}
+
+/** LUM-1344 — the outcome of granting or revoking platform admin. */
+export interface PlatformAdminRoleResult {
+  userId: string
+  role: string
   changed: boolean
 }
 
@@ -190,6 +201,44 @@ export const authUserAdminService = {
     const changed = await authUserAdminRepository.clearBan(userId)
     logger.info('[auth-admin] user unbanned', { userId, changed })
     return { userId, changed }
+  },
+
+  /**
+   * LUM-1344 — make a user a platform admin (`role = 'admin'`), the role
+   * requirePlatformAdmin checks on every /api/admin request. Refused (409)
+   * for a banned user: the guard would refuse them anyway, and granting it
+   * would silently return once the ban is lifted.
+   */
+  async grantPlatformAdmin(userId: string): Promise<PlatformAdminRoleResult> {
+    const user = await requireUser(userId)
+    if (user.banned) {
+      throw httpError(`User ${userId} is banned; unban first`, 409)
+    }
+    const changed = user.role !== PLATFORM_ADMIN_ROLE
+    if (changed) {
+      await authUserAdminRepository.setRole(userId, PLATFORM_ADMIN_ROLE)
+    }
+    logger.info('[auth-admin] platform admin granted', { userId, changed })
+    return { userId, role: PLATFORM_ADMIN_ROLE, changed }
+  },
+
+  /**
+   * LUM-1344 — take platform admin away (`role = 'user'`, the plugin's
+   * default). Takes effect on the next /api/admin request: the guard reads
+   * the role every time, so tokens already issued stop working.
+   */
+  async revokePlatformAdmin(userId: string): Promise<PlatformAdminRoleResult> {
+    const user = await requireUser(userId)
+    const changed = user.role === PLATFORM_ADMIN_ROLE
+    if (changed) {
+      await authUserAdminRepository.setRole(userId, DEFAULT_USER_ROLE)
+    }
+    logger.info('[auth-admin] platform admin revoked', { userId, changed })
+    return {
+      userId,
+      role: changed ? DEFAULT_USER_ROLE : (user.role ?? DEFAULT_USER_ROLE),
+      changed,
+    }
   },
 
   async remove(

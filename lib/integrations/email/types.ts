@@ -23,3 +23,8 @@ export interface WorkspaceDeletionEmailResult {
   subject: string
   html: string
 }
+
+export interface WaitlistApprovedEmailOptions {
+  name: string | null
+  signInUrl: string
+}

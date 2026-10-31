@@ -2,6 +2,7 @@
 export type {
   InviteEmailOptions,
   InviteEmailResult,
+  WaitlistApprovedEmailOptions,
   WorkspaceDeletionEmailOptions,
   WorkspaceDeletionEmailResult,
 } from './types'
@@ -22,6 +23,7 @@ export {
 
 // Templates
 export { buildInviteEmail } from './templates/invite'
+export { buildWaitlistApprovedEmail } from './templates/waitlist-approved'
 export { buildWorkspaceDeletionEmail } from './templates/workspace-deletion'
 export {
   buildSubprocessorChangeEmail,

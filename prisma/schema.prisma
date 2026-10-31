@@ -2618,7 +2618,45 @@ model WaitlistEntry {
   teamSize  String?
   createdAt DateTime @default(now())
 
+  // LUM-1344: workspace-creation approval gate.
+  status        WaitlistStatus @default(PENDING)
+  source        WaitlistSource @default(MARKETING_FORM)
+  approvedAt    DateTime?
+  // Better Auth user id of the approving platform admin (plain value, no FK).
+  approvedById  String?
+  lastInvitedAt DateTime?
+  inviteCount   Int            @default(0)
+
+  @@index([status, createdAt])
   @@map("waitlist_entries")
+}
+
+enum WaitlistStatus {
+  PENDING
+  APPROVED
+}
+
+enum WaitlistSource {
+  MARKETING_FORM
+  ONBOARDING_BLOCKED
+}
+
+// LUM-1344: platform-level admin audit trail. Deliberately has NO relations
+// (workspaceId is a bare value) so rows survive workspace/user deletion.
+model PlatformAdminAuditEvent {
+  id          String   @id @default(cuid())
+  adminUserId String
+  action      String
+  targetType  String
+  targetId    String
+  workspaceId String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([adminUserId, createdAt])
+  @@index([targetType, targetId])
+  @@map("platform_admin_audit_events")
 }
 
 // ─── Documents ──────────────────────────────────────────────────────────────

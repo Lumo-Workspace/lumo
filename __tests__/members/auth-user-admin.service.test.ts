@@ -11,6 +11,7 @@ const mockRepo = {
   banAndRevoke: jest.fn(),
   clearBan: jest.fn(),
   deleteUser: jest.fn(),
+  setRole: jest.fn(),
 }
 const mockDeprovision = {
   planDeprovision: jest.fn(),
@@ -260,5 +261,48 @@ describe('LUM-1071 auth admin service', () => {
         },
       ])
     ).toEqual(['a'])
+  })
+
+  it('LUM-1344 grantPlatformAdmin sets role=admin; idempotent; refuses banned and unknown users', async () => {
+    await expect(
+      authUserAdminService.grantPlatformAdmin('user_1')
+    ).resolves.toEqual({ userId: 'user_1', role: 'admin', changed: true })
+    expect(mockRepo.setRole).toHaveBeenCalledWith('user_1', 'admin')
+
+    mockRepo.setRole.mockClear()
+    mockRepo.findBanState.mockResolvedValue({ ...USER, role: 'admin' })
+    await expect(
+      authUserAdminService.grantPlatformAdmin('user_1')
+    ).resolves.toMatchObject({ changed: false })
+
+    mockRepo.findBanState.mockResolvedValue({ ...USER, banned: true })
+    await expect(
+      authUserAdminService.grantPlatformAdmin('user_1')
+    ).rejects.toMatchObject({ status: 409 })
+
+    mockRepo.findBanState.mockResolvedValue(null)
+    await expect(
+      authUserAdminService.grantPlatformAdmin('user_x')
+    ).rejects.toMatchObject({ status: 404 })
+    expect(mockRepo.setRole).not.toHaveBeenCalled()
+  })
+
+  it('LUM-1344 revokePlatformAdmin sets role=user only for an admin', async () => {
+    mockRepo.findBanState.mockResolvedValue({ ...USER, role: 'admin' })
+    await expect(
+      authUserAdminService.revokePlatformAdmin('user_1')
+    ).resolves.toEqual({ userId: 'user_1', role: 'user', changed: true })
+    expect(mockRepo.setRole).toHaveBeenCalledWith('user_1', 'user')
+
+    mockRepo.setRole.mockClear()
+    mockRepo.findBanState.mockResolvedValue({ ...USER, role: null })
+    await expect(
+      authUserAdminService.revokePlatformAdmin('user_1')
+    ).resolves.toEqual({ userId: 'user_1', role: 'user', changed: false })
+    mockRepo.findBanState.mockResolvedValue(null)
+    await expect(
+      authUserAdminService.revokePlatformAdmin('user_x')
+    ).rejects.toMatchObject({ status: 404 })
+    expect(mockRepo.setRole).not.toHaveBeenCalled()
   })
 })

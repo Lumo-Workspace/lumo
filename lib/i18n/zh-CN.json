@@ -3314,5 +3314,9 @@
   "settings.ai": "AI",
   "settings.ai.subtitle": "这个工作区启用哪些 AI 功能，以及 Lumo 用 AI 写下的内容。",
   "settings.export": "导出",
-  "integrations.team.noneConnected": "团队还没有连接任何集成。工作区所有者在这里安装。"
+  "integrations.team.noneConnected": "团队还没有连接任何集成。工作区所有者在这里安装。",
+  "onboarding.waitlistPending.body": "创建工作区仅限已通过审核的候补名单成员。您的访问获批后，我们会立即通过邮件通知您，届时您即可登录并创建工作区。",
+  "onboarding.waitlistPending.title": "您已加入候补名单",
+  "onboarding.emailUnverified.body": "创建工作区需要已验证的邮箱地址。请先验证您账户中的邮箱，然后重新登录以创建工作区。",
+  "onboarding.emailUnverified.title": "请先验证邮箱以继续"
 }

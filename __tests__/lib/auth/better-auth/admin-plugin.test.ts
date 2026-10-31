@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-1071 — the admin plugin as configured: impersonation closed, field
+ * LUM-1071 — the admin plugin as configured: every endpoint closed, field
  * names match the migration.
  */
 import { readFileSync } from 'fs'
@@ -18,21 +18,20 @@ const MIGRATION = path.join(
 )
 
 describe('LUM-1071 admin plugin', () => {
-  it('admin plugin lists both impersonation endpoints for disabling', () => {
+  it('admin plugin: every endpoint, impersonation included, is listed for disabling', () => {
     const plugin = lumoAdminPlugin() as unknown as {
       id: string
       endpoints: Record<string, { path: string }>
     }
     expect(plugin.id).toBe('admin')
     const paths = Object.values(plugin.endpoints).map(e => e.path)
-    for (const p of ADMIN_DISABLED_PATHS) expect(paths).toContain(p)
-    expect(ADMIN_DISABLED_PATHS).toEqual([
-      '/admin/impersonate-user',
-      '/admin/stop-impersonating',
-    ])
+    for (const p of ['/admin/impersonate-user', '/admin/stop-impersonating']) {
+      expect(ADMIN_DISABLED_PATHS).toContain(p)
+    }
+    expect([...ADMIN_DISABLED_PATHS].sort()).toEqual([...paths].sort())
   })
 
-  it('admin plugin is installed in the Better Auth instance with impersonation disabled', async () => {
+  it('admin plugin is installed in the Better Auth instance with its endpoints disabled', async () => {
     const saved = {
       secret: process.env.BETTER_AUTH_SECRET,
       url: process.env.BETTER_AUTH_URL,

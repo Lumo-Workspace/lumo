@@ -3314,5 +3314,9 @@
   "settings.ai": "IA",
   "settings.ai.subtitle": "Les fonctionnalités d'IA actives dans cet espace de travail et le contenu que Lumo rédige avec l'IA.",
   "settings.export": "Exporter",
-  "integrations.team.noneConnected": "Aucune intégration d'équipe n'est encore connectée. Le propriétaire de l'espace de travail les installe ici."
+  "integrations.team.noneConnected": "Aucune intégration d'équipe n'est encore connectée. Le propriétaire de l'espace de travail les installe ici.",
+  "onboarding.waitlistPending.body": "La création d'espaces de travail est réservée aux membres approuvés de la liste d'attente. Nous vous enverrons un e-mail dès que votre accès sera approuvé ; vous pourrez alors vous connecter et créer votre espace de travail.",
+  "onboarding.waitlistPending.title": "Vous êtes sur la liste d'attente",
+  "onboarding.emailUnverified.body": "La création d'un espace de travail nécessite une adresse e-mail vérifiée. Vérifiez l'adresse e-mail de votre compte, puis reconnectez-vous pour créer votre espace de travail.",
+  "onboarding.emailUnverified.title": "Vérifiez votre e-mail pour continuer"
 }

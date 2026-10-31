@@ -9,6 +9,8 @@
  *                                                  root /.well-known/…)
  *   resource      https://lumo.example.com/api/mcp (RFC 8707 / RFC 9728; the
  *                                                  `aud` of every MCP token)
+ *   adminResource https://lumo.example.com/api/admin (LUM-1344; the `aud` of
+ *                                                  platform admin console tokens)
  *   endpoints     https://lumo.example.com/api/auth/oauth2/{authorize,token,register,…}
  */
 import { resolveBetterAuthBaseUrl, BETTER_AUTH_BASE_PATH } from './config'
@@ -17,6 +19,14 @@ type Env = Record<string, string | undefined>
 
 /** Path of the MCP endpoint (app/api/mcp/route.ts). */
 export const MCP_ENDPOINT_PATH = '/api/mcp'
+
+/**
+ * LUM-1344 — path of the platform admin API (app/api/admin/*), the second
+ * protected resource. Its tokens carry `aud` = <origin>/api/admin and the
+ * `platform-admin` scope; they are never accepted by /api/mcp and MCP tokens
+ * are never accepted by the admin API.
+ */
+export const ADMIN_API_PATH = '/api/admin'
 
 /** Path of the RFC 9728 protected-resource metadata MCP clients are sent to. */
 export const PROTECTED_RESOURCE_METADATA_PATH =
@@ -30,6 +40,14 @@ export const PROTECTED_RESOURCE_METADATA_PATH =
 export const MCP_SCOPE = 'mcp'
 export const OFFLINE_ACCESS_SCOPE = 'offline_access'
 export const MCP_OAUTH_SCOPES = [MCP_SCOPE, OFFLINE_ACCESS_SCOPE] as const
+
+/**
+ * LUM-1344 — the only scope the admin resource grants. Not advertised in
+ * discovery and outside every dynamically registered client's capability
+ * set: only an operator-provisioned client linked to the admin resource can
+ * request it, and the admin API still requires `auth_users.role = 'admin'`.
+ */
+export const PLATFORM_ADMIN_SCOPE = 'platform-admin'
 
 /** Token lifetimes (seconds). */
 export const MCP_ACCESS_TOKEN_TTL_SECONDS = 60 * 60 // 1 hour
@@ -50,6 +68,8 @@ export interface McpOAuthUrls {
   issuer: string
   /** The protected resource (RFC 8707 `resource`, token `aud`). */
   resource: string
+  /** LUM-1344 — the platform admin API resource (<origin>/api/admin). */
+  adminResource: string
   /** Base of Better Auth's own endpoints (…/api/auth). */
   authBaseUrl: string
 }
@@ -75,6 +95,7 @@ export function resolveMcpOAuthUrls(
     origin,
     issuer: origin,
     resource: `${origin}${MCP_ENDPOINT_PATH}`,
+    adminResource: `${origin}${ADMIN_API_PATH}`,
     authBaseUrl: `${origin}${BETTER_AUTH_BASE_PATH}`,
   }
 }
@@ -394,6 +415,40 @@ export function toMcpAuthInfo(
     userId: sub,
     extra: { userId: sub },
   }
+}
+
+// ─── Access-token → platform admin identity (LUM-1344) ──────────────────────
+
+/** Who an admin-API access token acts for. */
+export interface AdminTokenIdentity {
+  /** The Better Auth user id (`sub`). */
+  userId: string
+  clientId: string
+}
+
+/**
+ * The user and client an admin-API access token acts for, or undefined when
+ * the admin API must not accept it: inactive, expired, not issued for the
+ * admin resource (`aud`), without the `platform-admin` scope, or missing the
+ * user / client. Both the audience AND the scope are required, so an MCP
+ * token (aud /api/mcp, scope mcp) never passes.
+ */
+export function toAdminTokenIdentity(
+  payload: AccessTokenPayload | null | undefined,
+  options: { resource: string; nowSeconds: number }
+): AdminTokenIdentity | undefined {
+  if (!payload || payload.active !== true) return undefined
+  const { sub, exp, scope } = payload
+  const clientId =
+    typeof payload.client_id === 'string' ? payload.client_id : payload.azp
+  if (typeof sub !== 'string' || sub.length === 0) return undefined
+  if (typeof clientId !== 'string' || clientId.length === 0) return undefined
+  if (typeof exp !== 'number' || exp <= options.nowSeconds) return undefined
+  if (!audienceList(payload.aud).includes(options.resource)) return undefined
+  const scopes =
+    typeof scope === 'string' ? scope.split(' ').filter(Boolean) : []
+  if (!scopes.includes(PLATFORM_ADMIN_SCOPE)) return undefined
+  return { userId: sub, clientId }
 }
 
 // ─── Discovery metadata ─────────────────────────────────────────────────────
