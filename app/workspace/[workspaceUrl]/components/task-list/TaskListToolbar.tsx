@@ -23,7 +23,8 @@ interface Props {
   /**
    * The scope's filter entry point — rendered immediately before the Display
    * menu. Required (rather than optional) so a new board can't silently ship
-   * without one; pass `null` only for a scope that genuinely cannot filter.
+   * without one; pass `null` only for a scope that genuinely cannot filter, or
+   * one that leads its `leftSlot` with the filter entry instead (My tasks).
    */
   filterMenu: ReactNode
   leftSlot?: ReactNode
@@ -68,9 +69,12 @@ export function TaskListToolbar({
     defaultSidebarLabel
 
   return (
-    <div className='h-12 flex items-center justify-between gap-2 px-4 md:px-8'>
-      <div className='flex items-center gap-2'>{leftSlot}</div>
-      <div className='flex items-center gap-2'>
+    // Only the left slot wraps; the view controls stay pinned top-right.
+    <div className='min-h-12 py-2 flex items-start justify-between gap-2 px-4 md:px-8'>
+      <div className='flex flex-1 flex-wrap items-center gap-2 min-w-0'>
+        {leftSlot}
+      </div>
+      <div className='flex shrink-0 items-center gap-2'>
         {filterMenu}
         <DisplayOptionsMenu
           completedFilter={completedFilter}
