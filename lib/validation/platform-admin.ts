@@ -39,6 +39,11 @@ export type AdminUsageQuery = z.infer<typeof adminUsageQuerySchema>
 export type AdminAuditQuery = z.infer<typeof adminAuditQuerySchema>
 
 export const adminWaitlistQuerySchema = adminListQuerySchema.extend({
-  status: z.enum(['PENDING', 'APPROVED']).optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'DISMISSED']).optional(),
 })
 export type AdminWaitlistQuery = z.infer<typeof adminWaitlistQuerySchema>
+
+/** Body of POST /api/admin/waitlist/dismiss: up to 100 entry ids. */
+export const adminWaitlistDismissSchema = z.object({
+  ids: z.array(z.string().trim().min(1).max(64)).min(1).max(100),
+})

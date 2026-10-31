@@ -79,7 +79,7 @@ waitlist 形同虚设。
 
 `WaitlistEntry` 增加（additive，单次 release 即可）：
 
-- `status`：`PENDING`（默认）/ `APPROVED`
+- `status`：`PENDING`（默认）/ `APPROVED` / `DISMISSED`（后续追加：运营在后台忽略无效邮箱，可批量、可恢复为 `PENDING`；不发邮件；被忽略的邮箱再次报名或在 onboarding 被挡时保持 `DISMISSED`，不重新进入待审列表，也不放行建 workspace）
 - `approvedAt`、`approvedById`（批准人的 auth user id）
 - `lastInvitedAt`、`inviteCount`（重发计数）
 - `source`：`MARKETING_FORM` / `ONBOARDING_BLOCKED`（区分来源）
@@ -87,7 +87,7 @@ waitlist 形同虚设。
 邮箱匹配一律小写比较。
 
 新增平台级审计表 `PlatformAdminAuditEvent`（**不能**复用 `AuditEvent`：后者 `workspaceId` 必填、随 workspace 级联删除、会定期清理）：
-管理员 auth user id、动作（如 `waitlist.approve`、`waitlist.resend`、`workspace.view`、`user.view`）、对象类型与 id、
+管理员 auth user id、动作（如 `waitlist.approve`、`waitlist.resend`、`waitlist.dismiss`、`waitlist.restore`、`workspace.view`、`user.view`）、对象类型与 id、
 可选的被访问 workspaceId（只存值，不建级联外键，workspace 被删后记录保留）、时间。保留期不跟随现有审计清理任务。
 
 ### 7.2 门禁规则

@@ -22,7 +22,7 @@ export interface WaitlistAdminItem {
   company: string | null
   teamSize: string | null
   source: 'MARKETING_FORM' | 'ONBOARDING_BLOCKED'
-  status: 'PENDING' | 'APPROVED'
+  status: 'PENDING' | 'APPROVED' | 'DISMISSED'
   createdAt: Date
   approvedAt: Date | null
   lastInvitedAt: Date | null
@@ -30,7 +30,7 @@ export interface WaitlistAdminItem {
 }
 
 export interface WaitlistListQuery {
-  status?: 'PENDING' | 'APPROVED' | undefined
+  status?: 'PENDING' | 'APPROVED' | 'DISMISSED' | undefined
   q?: string | undefined
   cursor?: string | undefined
   limit: number
@@ -41,6 +41,13 @@ function notFound(): Error {
     status: 404,
     code: 'WAITLIST_NOT_FOUND',
   })
+}
+
+function dismissedError(): Error {
+  return Object.assign(
+    new Error('Waitlist entry is dismissed; restore it first'),
+    { status: 409, code: 'WAITLIST_DISMISSED' }
+  )
 }
 
 async function requireEntry(id: string): Promise<WaitlistAdminItem> {
@@ -95,12 +102,16 @@ export const waitlistAdmin = {
     id: string,
     adminUserId: string
   ): Promise<{ entry: WaitlistAdminItem; email: WaitlistEmailOutcome }> {
-    await requireEntry(id)
+    if ((await requireEntry(id)).status === 'DISMISSED') throw dismissedError()
     // Conditional on PENDING: a double approve never overwrites approvedAt.
     const { count } = await miscRepository.approveWaitlistEntryIfPending(
       id,
       adminUserId
     )
+    // Nothing changed and it was dismissed meanwhile: refuse, as above.
+    if (count === 0 && (await requireEntry(id)).status === 'DISMISSED') {
+      throw dismissedError()
+    }
     // Audit before the email: a send/bookkeeping failure must not leave an
     // approval without its audit row. The email outcome lives in the response.
     await platformAdminAudit.record({
@@ -137,5 +148,54 @@ export const waitlistAdmin = {
     const email = await sendApprovalEmail(current)
     const entry = email === 'sent' ? await requireEntry(id) : current
     return { entry, email }
+  },
+
+  /**
+   * Dismiss PENDING entries (invalid or unwanted sign-ups). No email is sent.
+   * Each id is a conditional PENDING -> DISMISSED update of its own, so an
+   * entry approved meanwhile is skipped rather than reported; ids that are
+   * unknown or not PENDING are skipped, not an error. Each entry actually
+   * dismissed gets its own audit row, written right after its update (the
+   * same order as approve).
+   */
+  async dismiss(
+    ids: string[],
+    adminUserId: string
+  ): Promise<{ dismissed: string[] }> {
+    const dismissed: string[] = []
+    for (const id of new Set(ids)) {
+      const { count } = await miscRepository.dismissWaitlistEntryIfPending(id)
+      if (count === 0) continue
+      await platformAdminAudit.record({
+        adminUserId,
+        action: 'waitlist.dismiss',
+        targetType: 'waitlist',
+        targetId: id,
+      })
+      dismissed.push(id)
+    }
+    return { dismissed }
+  },
+
+  /** Undo a dismiss: DISMISSED -> PENDING. 409 for any other state. */
+  async restore(
+    id: string,
+    adminUserId: string
+  ): Promise<{ entry: WaitlistAdminItem }> {
+    await requireEntry(id)
+    const { count } = await miscRepository.restoreWaitlistEntryIfDismissed(id)
+    if (count === 0) {
+      throw Object.assign(new Error('Waitlist entry is not dismissed'), {
+        status: 409,
+        code: 'WAITLIST_NOT_DISMISSED',
+      })
+    }
+    await platformAdminAudit.record({
+      adminUserId,
+      action: 'waitlist.restore',
+      targetType: 'waitlist',
+      targetId: id,
+    })
+    return { entry: await requireEntry(id) }
   },
 }

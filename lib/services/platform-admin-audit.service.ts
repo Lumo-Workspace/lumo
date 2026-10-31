@@ -15,6 +15,8 @@ export type PlatformAdminAction =
   | 'waitlist.list'
   | 'waitlist.approve'
   | 'waitlist.resend'
+  | 'waitlist.dismiss'
+  | 'waitlist.restore'
   | 'audit.list'
 
 export interface PlatformAdminAuditInput {

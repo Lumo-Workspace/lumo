@@ -89,7 +89,7 @@ export const miscRepository = {
 
   /** Waitlist page for the admin console, newest first. */
   async listWaitlistEntries(args: {
-    status?: 'PENDING' | 'APPROVED' | undefined
+    status?: 'PENDING' | 'APPROVED' | 'DISMISSED' | undefined
     q?: string | undefined
     cursor?: string | undefined
     take: number
@@ -127,6 +127,22 @@ export const miscRepository = {
     return prisma.waitlistEntry.updateMany({
       where: { id, status: 'PENDING' },
       data: { status: 'APPROVED', approvedAt: new Date(), approvedById },
+    })
+  },
+
+  /** PENDING -> DISMISSED for one entry; count 0 when it was not PENDING. */
+  async dismissWaitlistEntryIfPending(id: string) {
+    return prisma.waitlistEntry.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { status: 'DISMISSED' },
+    })
+  },
+
+  /** DISMISSED -> PENDING only. */
+  async restoreWaitlistEntryIfDismissed(id: string) {
+    return prisma.waitlistEntry.updateMany({
+      where: { id, status: 'DISMISSED' },
+      data: { status: 'PENDING' },
     })
   },
 
