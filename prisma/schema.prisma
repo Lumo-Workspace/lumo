@@ -2634,6 +2634,7 @@ model WaitlistEntry {
 enum WaitlistStatus {
   PENDING
   APPROVED
+  DISMISSED
 }
 
 enum WaitlistSource {

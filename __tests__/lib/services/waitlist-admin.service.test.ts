@@ -9,6 +9,9 @@ jest.mock('@/lib/repositories/misc.repository', () => ({
     findWaitlistEntryById: jest.fn(),
     approveWaitlistEntryIfPending: jest.fn(),
     markWaitlistInvited: jest.fn(),
+    findPendingWaitlistIds: jest.fn(),
+    dismissWaitlistEntriesIfPending: jest.fn(),
+    restoreWaitlistEntryIfDismissed: jest.fn(),
   },
 }))
 jest.mock('@/lib/integrations/email', () => ({
@@ -243,6 +246,92 @@ describe('waitlistAdmin', () => {
         'audit down'
       )
       expect(send).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('dismiss / restore', () => {
+    it('approve refuses a dismissed entry with 409 and sends nothing', async () => {
+      repo.findWaitlistEntryById.mockResolvedValue(
+        row({ status: 'DISMISSED' }) as never
+      )
+      await expect(
+        waitlistAdmin.approve('w1', 'admin-1')
+      ).rejects.toMatchObject({ status: 409, code: 'WAITLIST_DISMISSED' })
+      expect(repo.approveWaitlistEntryIfPending).not.toHaveBeenCalled()
+      expect(send).not.toHaveBeenCalled()
+      expect(audit).not.toHaveBeenCalled()
+    })
+
+    it('dismiss changes only PENDING ids, dedupes, audits each and sends no email', async () => {
+      repo.findPendingWaitlistIds.mockResolvedValue(['w1', 'w3'])
+      repo.dismissWaitlistEntriesIfPending.mockResolvedValue({
+        count: 2,
+      } as never)
+      const res = await waitlistAdmin.dismiss(
+        ['w1', 'w1', 'w2', 'w3'],
+        'admin-1'
+      )
+      expect(repo.findPendingWaitlistIds).toHaveBeenCalledWith([
+        'w1',
+        'w2',
+        'w3',
+      ])
+      expect(repo.dismissWaitlistEntriesIfPending).toHaveBeenCalledWith([
+        'w1',
+        'w3',
+      ])
+      expect(res).toEqual({ dismissed: ['w1', 'w3'] })
+      expect(audit).toHaveBeenCalledTimes(2)
+      expect(audit).toHaveBeenCalledWith({
+        adminUserId: 'admin-1',
+        action: 'waitlist.dismiss',
+        targetType: 'waitlist',
+        targetId: 'w3',
+      })
+      expect(send).not.toHaveBeenCalled()
+    })
+
+    it('dismiss with nothing PENDING writes and audits nothing', async () => {
+      repo.findPendingWaitlistIds.mockResolvedValue([])
+      const res = await waitlistAdmin.dismiss(['w9'], 'admin-1')
+      expect(res).toEqual({ dismissed: [] })
+      expect(repo.dismissWaitlistEntriesIfPending).not.toHaveBeenCalled()
+      expect(audit).not.toHaveBeenCalled()
+    })
+
+    it('restore moves DISMISSED back to PENDING and audits waitlist.restore', async () => {
+      repo.findWaitlistEntryById
+        .mockResolvedValueOnce(row({ status: 'DISMISSED' }) as never)
+        .mockResolvedValueOnce(row({ status: 'PENDING' }) as never)
+      repo.restoreWaitlistEntryIfDismissed.mockResolvedValue({
+        count: 1,
+      } as never)
+      const res = await waitlistAdmin.restore('w1', 'admin-1')
+      expect(res.entry.status).toBe('PENDING')
+      expect(audit).toHaveBeenCalledWith({
+        adminUserId: 'admin-1',
+        action: 'waitlist.restore',
+        targetType: 'waitlist',
+        targetId: 'w1',
+      })
+    })
+
+    it('restore of an entry that is not dismissed is 409 and not audited', async () => {
+      repo.findWaitlistEntryById.mockResolvedValue(row() as never)
+      repo.restoreWaitlistEntryIfDismissed.mockResolvedValue({
+        count: 0,
+      } as never)
+      await expect(
+        waitlistAdmin.restore('w1', 'admin-1')
+      ).rejects.toMatchObject({ status: 409, code: 'WAITLIST_NOT_DISMISSED' })
+      expect(audit).not.toHaveBeenCalled()
+    })
+
+    it('restore of an unknown id is 404', async () => {
+      repo.findWaitlistEntryById.mockResolvedValue(null)
+      await expect(waitlistAdmin.restore('nope', 'a')).rejects.toMatchObject({
+        status: 404,
+      })
     })
   })
 })

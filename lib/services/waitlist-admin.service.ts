@@ -22,7 +22,7 @@ export interface WaitlistAdminItem {
   company: string | null
   teamSize: string | null
   source: 'MARKETING_FORM' | 'ONBOARDING_BLOCKED'
-  status: 'PENDING' | 'APPROVED'
+  status: 'PENDING' | 'APPROVED' | 'DISMISSED'
   createdAt: Date
   approvedAt: Date | null
   lastInvitedAt: Date | null
@@ -30,7 +30,7 @@ export interface WaitlistAdminItem {
 }
 
 export interface WaitlistListQuery {
-  status?: 'PENDING' | 'APPROVED' | undefined
+  status?: 'PENDING' | 'APPROVED' | 'DISMISSED' | undefined
   q?: string | undefined
   cursor?: string | undefined
   limit: number
@@ -95,7 +95,16 @@ export const waitlistAdmin = {
     id: string,
     adminUserId: string
   ): Promise<{ entry: WaitlistAdminItem; email: WaitlistEmailOutcome }> {
-    await requireEntry(id)
+    const current = await requireEntry(id)
+    if (current.status === 'DISMISSED') {
+      throw Object.assign(
+        new Error('Waitlist entry is dismissed; restore it first'),
+        {
+          status: 409,
+          code: 'WAITLIST_DISMISSED',
+        }
+      )
+    }
     // Conditional on PENDING: a double approve never overwrites approvedAt.
     const { count } = await miscRepository.approveWaitlistEntryIfPending(
       id,
@@ -137,5 +146,51 @@ export const waitlistAdmin = {
     const email = await sendApprovalEmail(current)
     const entry = email === 'sent' ? await requireEntry(id) : current
     return { entry, email }
+  },
+
+  /**
+   * Dismiss PENDING entries (invalid or unwanted sign-ups). No email is sent.
+   * Ids that are unknown or not PENDING are skipped, not an error; each entry
+   * actually dismissed gets its own audit row.
+   */
+  async dismiss(
+    ids: string[],
+    adminUserId: string
+  ): Promise<{ dismissed: string[] }> {
+    const unique = [...new Set(ids)]
+    const pending = await miscRepository.findPendingWaitlistIds(unique)
+    if (pending.length === 0) return { dismissed: [] }
+    await miscRepository.dismissWaitlistEntriesIfPending(pending)
+    for (const targetId of pending) {
+      await platformAdminAudit.record({
+        adminUserId,
+        action: 'waitlist.dismiss',
+        targetType: 'waitlist',
+        targetId,
+      })
+    }
+    return { dismissed: pending }
+  },
+
+  /** Undo a dismiss: DISMISSED -> PENDING. 409 for any other state. */
+  async restore(
+    id: string,
+    adminUserId: string
+  ): Promise<{ entry: WaitlistAdminItem }> {
+    await requireEntry(id)
+    const { count } = await miscRepository.restoreWaitlistEntryIfDismissed(id)
+    if (count === 0) {
+      throw Object.assign(new Error('Waitlist entry is not dismissed'), {
+        status: 409,
+        code: 'WAITLIST_NOT_DISMISSED',
+      })
+    }
+    await platformAdminAudit.record({
+      adminUserId,
+      action: 'waitlist.restore',
+      targetType: 'waitlist',
+      targetId: id,
+    })
+    return { entry: await requireEntry(id) }
   },
 }
