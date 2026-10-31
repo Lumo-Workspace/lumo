@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react'
 import { useIntl } from 'react-intl'
+import { cn } from '@/lib/utils'
 import type { WorkspaceMemberInfo } from '../../types'
 import { useFilterLabels } from '../../hooks/useFilterLabels'
 import {
@@ -23,6 +24,11 @@ interface TaskFilterChipsProps {
   members: WorkspaceMemberInfo[]
   onClearDimension: (dimension: FilterDimension) => void
   onClearAll: () => void
+  /**
+   * `row` (default) is its own padded row under the toolbar; `inline` drops the
+   * page gutter so the chips can sit inside a toolbar slot.
+   */
+  layout?: 'row' | 'inline'
 }
 
 /**
@@ -37,6 +43,7 @@ export function TaskFilterChips({
   members,
   onClearDimension,
   onClearAll,
+  layout = 'row',
 }: TaskFilterChipsProps) {
   const intl = useIntl()
   const { dimensionLabel, valueLabel } = useFilterLabels(tasks, members)
@@ -45,7 +52,12 @@ export function TaskFilterChips({
   if (dimensions.length === 0) return null
 
   return (
-    <div className='flex flex-wrap items-center gap-1.5 px-4 pb-2 md:px-8'>
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-1.5',
+        layout === 'row' && 'px-4 pb-2 md:px-8'
+      )}
+    >
       {dimensions.map(dimension => {
         const values = filters[dimension] ?? []
         const shown = valueLabel(dimension, values[0] as string)

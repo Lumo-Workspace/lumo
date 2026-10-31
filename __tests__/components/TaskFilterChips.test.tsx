@@ -63,6 +63,32 @@ function renderChips(
 }
 
 describe('TaskFilterChips', () => {
+  it('keeps the page gutter by default and drops it inline', () => {
+    const { container, unmount } = render(
+      <TaskFilterChips
+        tasks={[task()]}
+        filters={{ status: ['TODO'] }}
+        members={members}
+        onClearDimension={jest.fn()}
+        onClearAll={jest.fn()}
+      />
+    )
+    expect(container.firstElementChild).toHaveClass('px-4')
+    unmount()
+
+    const inline = render(
+      <TaskFilterChips
+        tasks={[task()]}
+        filters={{ status: ['TODO'] }}
+        members={members}
+        onClearDimension={jest.fn()}
+        onClearAll={jest.fn()}
+        layout='inline'
+      />
+    )
+    expect(inline.container.firstElementChild).not.toHaveClass('px-4')
+  })
+
   it('renders nothing when no filter is active', () => {
     const { container } = renderChips({})
     expect(container).toBeEmptyDOMElement()

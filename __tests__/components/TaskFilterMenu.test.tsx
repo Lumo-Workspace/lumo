@@ -91,6 +91,23 @@ describe('TaskFilterMenu', () => {
     expect(screen.getByRole('button', { name: /filter/i })).toBeInTheDocument()
   })
 
+  it('shows a visible Filter label and active count in the labeled variant', () => {
+    render(
+      <TaskFilterMenu
+        tasks={[task(), task({ status: 'DONE' })]}
+        filters={{ status: ['DONE'] }}
+        members={members}
+        now={NOW}
+        onToggleValue={jest.fn()}
+        variant='labeled'
+      />
+    )
+    const trigger = screen.getByRole('button', { name: /filter/i })
+    expect(trigger).toHaveTextContent('Filter')
+    expect(trigger).toHaveTextContent('1')
+    expect(trigger).not.toHaveAttribute('aria-label')
+  })
+
   it('only offers contextual dimensions that can narrow the current scope', () => {
     // One project, one assignee, two statuses → Status narrows, the contextual
     // dimensions cannot. Assignee is always offered (see the test below).

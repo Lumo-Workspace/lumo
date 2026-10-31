@@ -36,6 +36,12 @@ interface TaskFilterMenuProps {
    */
   now: number | null
   onToggleValue: (dimension: FilterDimension, value: string) => void
+  /**
+   * `icon` (default) is the compact ghost trigger that sits beside the Display
+   * menu; `labeled` is an outline button with visible "Filter" text, for a
+   * toolbar that leads with the filter entry (My tasks).
+   */
+  variant?: 'icon' | 'labeled'
 }
 
 /**
@@ -53,6 +59,7 @@ export function TaskFilterMenu({
   members,
   now,
   onToggleValue,
+  variant = 'icon',
 }: TaskFilterMenuProps) {
   const intl = useIntl()
   const [open, setOpen] = useState(false)
@@ -76,30 +83,49 @@ export function TaskFilterMenu({
         if (!next) setDimension(null)
       }}
     >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            {/* Icon-only, matching the Display trigger beside it (LUM-721) — the
-                label survives as tooltip/aria copy. The count badge is the only
-                visible text, so an active filter is never silent. */}
-            <Button
-              variant='ghost'
-              size='sm'
-              aria-label={triggerLabel}
-              className='h-8 w-auto min-w-8 gap-1 px-1.5 text-muted-foreground hover:text-foreground'
-            >
-              <ListFilter size={14} />
-              {activeCount > 0 && (
-                <span className='min-w-4 rounded-sm bg-muted px-1 text-caption text-foreground'>
-                  {activeCount}
-                </span>
-              )}
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>{triggerLabel}</TooltipContent>
-      </Tooltip>
-      <PopoverContent align='end' className='w-56 p-2'>
+      {variant === 'labeled' ? (
+        <PopoverTrigger asChild>
+          {/* Visible label, so no tooltip; the count pill keeps an active
+              filter loud even when its chips have wrapped out of view. */}
+          <Button variant='outline' size='sm' className='gap-1.5'>
+            <ListFilter size={14} />
+            {triggerLabel}
+            {activeCount > 0 && (
+              <span className='min-w-4 rounded-full bg-primary px-1 text-center text-caption text-primary-foreground'>
+                {activeCount}
+              </span>
+            )}
+          </Button>
+        </PopoverTrigger>
+      ) : (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              {/* Icon-only, matching the Display trigger beside it (LUM-721) — the
+                  label survives as tooltip/aria copy. The count badge is the only
+                  visible text, so an active filter is never silent. */}
+              <Button
+                variant='ghost'
+                size='sm'
+                aria-label={triggerLabel}
+                className='h-8 w-auto min-w-8 gap-1 px-1.5 text-muted-foreground hover:text-foreground'
+              >
+                <ListFilter size={14} />
+                {activeCount > 0 && (
+                  <span className='min-w-4 rounded-sm bg-muted px-1 text-caption text-foreground'>
+                    {activeCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent>{triggerLabel}</TooltipContent>
+        </Tooltip>
+      )}
+      <PopoverContent
+        align={variant === 'labeled' ? 'start' : 'end'}
+        className='w-56 p-2'
+      >
         {dimensions.length === 0 ? (
           <p className='px-2 py-1.5 text-body text-muted-foreground'>
             {intl.formatMessage({

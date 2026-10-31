@@ -222,21 +222,22 @@ export function MyTasksPage({
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb */}
-      <PageBreadcrumb title={intl.formatMessage({ id: 'sidebar.myTasks' })} />
-
-      {/* Page header — Create Task button right-aligned */}
-      <header className='pt-4 pb-4 px-4 md:px-8 flex items-center justify-end shrink-0'>
-        <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
-          <Plus size={18} />
-          {intl.formatMessage({
-            id: 'task.create',
-            defaultMessage: 'Create Task',
-          })}
-        </Button>
-      </header>
+      {/* Breadcrumb — the page's one primary action rides in its action slot */}
+      <PageBreadcrumb
+        title={intl.formatMessage({ id: 'sidebar.myTasks' })}
+        actions={
+          <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
+            <Plus size={16} />
+            {intl.formatMessage({
+              id: 'task.create',
+              defaultMessage: 'Create Task',
+            })}
+          </Button>
+        }
+      />
 
       {/* Toolbar — relative so the selection bar can absolute-overlay it */}
-      <div className='h-12 shrink-0 relative bg-card'>
+      <div className='min-h-12 shrink-0 relative bg-card'>
         <TaskListToolbar
           completedFilter={options.completedFilter}
           onCompletedFilterChange={setCompletedFilter}
@@ -244,41 +245,51 @@ export function MyTasksPage({
           onOrderingChange={setOrdering}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          filterMenu={
-            <TaskFilterMenu
-              tasks={tasks}
-              filters={filters}
-              members={members}
-              now={now}
-              onToggleValue={toggleValue}
-            />
-          }
+          // Filter leads the left slot here, so the right side is view-only.
+          filterMenu={null}
           leftSlot={
-            sprintsAvailable ? (
-              <>
+            <>
+              <TaskFilterMenu
+                tasks={tasks}
+                filters={filters}
+                members={members}
+                now={now}
+                onToggleValue={toggleValue}
+                variant='labeled'
+              />
+              {sprintsAvailable && (
                 <Button
-                  variant={currentSprintOnly ? 'default' : 'outline'}
+                  variant='outline'
                   size='sm'
-                  className='gap-1.5 h-7 text-caption'
+                  aria-pressed={currentSprintOnly}
+                  className='gap-1.5 aria-pressed:border-foreground aria-pressed:bg-accent'
                   onClick={() => setCurrentSprintOnly(!currentSprintOnly)}
                 >
-                  <CalendarClock className='h-3 w-3' />
+                  <CalendarClock size={14} />
                   {intl.formatMessage({
                     id: 'myTasks.currentSprintOnly',
                     defaultMessage: 'Current sprint only',
                   })}
                 </Button>
-                {currentSprintOnly && noActiveSprint && (
-                  <span className='text-caption text-muted-foreground'>
-                    {intl.formatMessage({
-                      id: 'myTasks.noActiveSprint',
-                      defaultMessage:
-                        'No active sprint — start one from the Sprints page.',
-                    })}
-                  </span>
-                )}
-              </>
-            ) : null
+              )}
+              {sprintsAvailable && currentSprintOnly && noActiveSprint && (
+                <span className='text-caption text-muted-foreground'>
+                  {intl.formatMessage({
+                    id: 'myTasks.noActiveSprint',
+                    defaultMessage:
+                      'No active sprint — start one from the Sprints page.',
+                  })}
+                </span>
+              )}
+              <TaskFilterChips
+                tasks={tasks}
+                filters={filters}
+                members={members}
+                onClearDimension={clearDimension}
+                onClearAll={clearAll}
+                layout='inline'
+              />
+            </>
           }
         />
         {selected.size > 0 && (
@@ -291,14 +302,6 @@ export function MyTasksPage({
           />
         )}
       </div>
-
-      <TaskFilterChips
-        tasks={tasks}
-        filters={filters}
-        members={members}
-        onClearDimension={clearDimension}
-        onClearAll={clearAll}
-      />
 
       {/* Content */}
       <div className='flex-1 flex flex-col overflow-hidden'>
