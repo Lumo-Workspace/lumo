@@ -261,6 +261,20 @@ describe('waitlistAdmin', () => {
       expect(audit).not.toHaveBeenCalled()
     })
 
+    it('approve of an entry dismissed meanwhile is 409, not an audited no-op', async () => {
+      repo.findWaitlistEntryById
+        .mockResolvedValueOnce(row() as never)
+        .mockResolvedValueOnce(row({ status: 'DISMISSED' }) as never)
+      repo.approveWaitlistEntryIfPending.mockResolvedValue({
+        count: 0,
+      } as never)
+      await expect(
+        waitlistAdmin.approve('w1', 'admin-1')
+      ).rejects.toMatchObject({ status: 409, code: 'WAITLIST_DISMISSED' })
+      expect(audit).not.toHaveBeenCalled()
+      expect(send).not.toHaveBeenCalled()
+    })
+
     it('dismiss reports and audits only the ids it actually changed, deduped, with no email', async () => {
       // w2 is not PENDING (approved meanwhile, or unknown): count 0, skipped
       repo.dismissWaitlistEntryIfPending.mockImplementation(

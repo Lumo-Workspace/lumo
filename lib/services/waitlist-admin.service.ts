@@ -43,6 +43,13 @@ function notFound(): Error {
   })
 }
 
+function dismissedError(): Error {
+  return Object.assign(
+    new Error('Waitlist entry is dismissed; restore it first'),
+    { status: 409, code: 'WAITLIST_DISMISSED' }
+  )
+}
+
 async function requireEntry(id: string): Promise<WaitlistAdminItem> {
   const entry = await miscRepository.findWaitlistEntryById(id)
   if (!entry) throw notFound()
@@ -95,21 +102,16 @@ export const waitlistAdmin = {
     id: string,
     adminUserId: string
   ): Promise<{ entry: WaitlistAdminItem; email: WaitlistEmailOutcome }> {
-    const current = await requireEntry(id)
-    if (current.status === 'DISMISSED') {
-      throw Object.assign(
-        new Error('Waitlist entry is dismissed; restore it first'),
-        {
-          status: 409,
-          code: 'WAITLIST_DISMISSED',
-        }
-      )
-    }
+    if ((await requireEntry(id)).status === 'DISMISSED') throw dismissedError()
     // Conditional on PENDING: a double approve never overwrites approvedAt.
     const { count } = await miscRepository.approveWaitlistEntryIfPending(
       id,
       adminUserId
     )
+    // Nothing changed and it was dismissed meanwhile: refuse, as above.
+    if (count === 0 && (await requireEntry(id)).status === 'DISMISSED') {
+      throw dismissedError()
+    }
     // Audit before the email: a send/bookkeeping failure must not leave an
     // approval without its audit row. The email outcome lives in the response.
     await platformAdminAudit.record({
