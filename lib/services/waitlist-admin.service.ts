@@ -9,7 +9,11 @@ import { platformAdminAudit } from '@/lib/services/platform-admin-audit.service'
 
 /** LUM-1344: platform admin waitlist management (approve + invite email). */
 
-export type WaitlistEmailOutcome = 'sent' | 'skipped' | 'failed'
+/**
+ * `not_sent`: approve found the entry already approved, so no email went out
+ * (resend is the explicit way to send it again).
+ */
+export type WaitlistEmailOutcome = 'sent' | 'skipped' | 'failed' | 'not_sent'
 
 export interface WaitlistAdminItem {
   id: string
@@ -53,8 +57,9 @@ async function sendApprovalEmail(
     name: entry.name,
     signInUrl: `${appUrl}/signin`,
   })
-  // Unique per click on purpose: each approve/resend is a new email; the key
-  // only stops one click from sending twice.
+  // Unique per call on purpose: each approve/resend is a new email. A double
+  // approve is stopped in approve() (it sends only on PENDING -> APPROVED),
+  // not by this key.
   const result = await sendEmail(
     { to: [entry.email], subject, html },
     { idempotencyKey: `waitlist-approve/${entry.id}-${Date.now()}` }
@@ -106,6 +111,7 @@ export const waitlistAdmin = {
       metadata: { approvedNow: count > 0 },
     })
     const approved = await requireEntry(id)
+    if (count === 0) return { entry: approved, email: 'not_sent' }
     const email = await sendApprovalEmail(approved)
     const entry = email === 'sent' ? await requireEntry(id) : approved
     return { entry, email }

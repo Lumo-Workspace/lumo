@@ -89,9 +89,10 @@ describe('waitlistAdmin', () => {
     expect(res.entry.status).toBe('APPROVED')
   })
 
-  it('approve twice keeps the first approvedAt and still sends', async () => {
+  it('approve twice keeps the first approvedAt and sends no second email', async () => {
+    repo.approveWaitlistEntryIfPending.mockResolvedValue({ count: 0 } as never)
     repo.findWaitlistEntryById.mockResolvedValue(
-      row({ status: 'APPROVED', approvedAt: T }) as never
+      row({ status: 'APPROVED', approvedAt: T, inviteCount: 1 }) as never
     )
     const res = await waitlistAdmin.approve('w1', 'admin-2')
     // conditional update is the only write path; it is a no-op when approved
@@ -99,8 +100,11 @@ describe('waitlistAdmin', () => {
       'w1',
       'admin-2'
     )
-    expect(send).toHaveBeenCalledTimes(1)
+    expect(send).not.toHaveBeenCalled()
+    expect(repo.markWaitlistInvited).not.toHaveBeenCalled()
+    expect(res.email).toBe('not_sent')
     expect(res.entry.approvedAt).toEqual(T)
+    expect(res.entry.inviteCount).toBe(1)
   })
 
   it('approve does not bump inviteCount when email is skipped', async () => {
