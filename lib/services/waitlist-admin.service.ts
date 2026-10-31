@@ -150,26 +150,29 @@ export const waitlistAdmin = {
 
   /**
    * Dismiss PENDING entries (invalid or unwanted sign-ups). No email is sent.
-   * Ids that are unknown or not PENDING are skipped, not an error; each entry
-   * actually dismissed gets its own audit row.
+   * Each id is a conditional PENDING -> DISMISSED update of its own, so an
+   * entry approved meanwhile is skipped rather than reported; ids that are
+   * unknown or not PENDING are skipped, not an error. Each entry actually
+   * dismissed gets its own audit row, written right after its update (the
+   * same order as approve).
    */
   async dismiss(
     ids: string[],
     adminUserId: string
   ): Promise<{ dismissed: string[] }> {
-    const unique = [...new Set(ids)]
-    const pending = await miscRepository.findPendingWaitlistIds(unique)
-    if (pending.length === 0) return { dismissed: [] }
-    await miscRepository.dismissWaitlistEntriesIfPending(pending)
-    for (const targetId of pending) {
+    const dismissed: string[] = []
+    for (const id of new Set(ids)) {
+      const { count } = await miscRepository.dismissWaitlistEntryIfPending(id)
+      if (count === 0) continue
       await platformAdminAudit.record({
         adminUserId,
         action: 'waitlist.dismiss',
         targetType: 'waitlist',
-        targetId,
+        targetId: id,
       })
+      dismissed.push(id)
     }
-    return { dismissed: pending }
+    return { dismissed }
   },
 
   /** Undo a dismiss: DISMISSED -> PENDING. 409 for any other state. */

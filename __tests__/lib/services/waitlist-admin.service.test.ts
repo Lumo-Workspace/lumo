@@ -9,8 +9,7 @@ jest.mock('@/lib/repositories/misc.repository', () => ({
     findWaitlistEntryById: jest.fn(),
     approveWaitlistEntryIfPending: jest.fn(),
     markWaitlistInvited: jest.fn(),
-    findPendingWaitlistIds: jest.fn(),
-    dismissWaitlistEntriesIfPending: jest.fn(),
+    dismissWaitlistEntryIfPending: jest.fn(),
     restoreWaitlistEntryIfDismissed: jest.fn(),
   },
 }))
@@ -262,24 +261,18 @@ describe('waitlistAdmin', () => {
       expect(audit).not.toHaveBeenCalled()
     })
 
-    it('dismiss changes only PENDING ids, dedupes, audits each and sends no email', async () => {
-      repo.findPendingWaitlistIds.mockResolvedValue(['w1', 'w3'])
-      repo.dismissWaitlistEntriesIfPending.mockResolvedValue({
-        count: 2,
-      } as never)
+    it('dismiss reports and audits only the ids it actually changed, deduped, with no email', async () => {
+      // w2 is not PENDING (approved meanwhile, or unknown): count 0, skipped
+      repo.dismissWaitlistEntryIfPending.mockImplementation(
+        async (id: string) => ({ count: id === 'w2' ? 0 : 1 }) as never
+      )
       const res = await waitlistAdmin.dismiss(
         ['w1', 'w1', 'w2', 'w3'],
         'admin-1'
       )
-      expect(repo.findPendingWaitlistIds).toHaveBeenCalledWith([
-        'w1',
-        'w2',
-        'w3',
-      ])
-      expect(repo.dismissWaitlistEntriesIfPending).toHaveBeenCalledWith([
-        'w1',
-        'w3',
-      ])
+      expect(
+        repo.dismissWaitlistEntryIfPending.mock.calls.map(c => c[0])
+      ).toEqual(['w1', 'w2', 'w3'])
       expect(res).toEqual({ dismissed: ['w1', 'w3'] })
       expect(audit).toHaveBeenCalledTimes(2)
       expect(audit).toHaveBeenCalledWith({
@@ -288,14 +281,18 @@ describe('waitlistAdmin', () => {
         targetType: 'waitlist',
         targetId: 'w3',
       })
+      expect(audit).not.toHaveBeenCalledWith(
+        expect.objectContaining({ targetId: 'w2' })
+      )
       expect(send).not.toHaveBeenCalled()
     })
 
-    it('dismiss with nothing PENDING writes and audits nothing', async () => {
-      repo.findPendingWaitlistIds.mockResolvedValue([])
+    it('dismiss with nothing PENDING audits nothing', async () => {
+      repo.dismissWaitlistEntryIfPending.mockResolvedValue({
+        count: 0,
+      } as never)
       const res = await waitlistAdmin.dismiss(['w9'], 'admin-1')
       expect(res).toEqual({ dismissed: [] })
-      expect(repo.dismissWaitlistEntriesIfPending).not.toHaveBeenCalled()
       expect(audit).not.toHaveBeenCalled()
     })
 

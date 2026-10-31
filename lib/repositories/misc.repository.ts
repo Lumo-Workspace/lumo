@@ -130,20 +130,10 @@ export const miscRepository = {
     })
   },
 
-  /** Record a delivered invite email. */
-  /** Ids among these that are PENDING right now. */
-  async findPendingWaitlistIds(ids: string[]): Promise<string[]> {
-    const rows = await prisma.waitlistEntry.findMany({
-      where: { id: { in: ids }, status: 'PENDING' },
-      select: { id: true },
-    })
-    return rows.map(r => r.id)
-  },
-
-  /** PENDING -> DISMISSED only; entries in any other state are left alone. */
-  async dismissWaitlistEntriesIfPending(ids: string[]) {
+  /** PENDING -> DISMISSED for one entry; count 0 when it was not PENDING. */
+  async dismissWaitlistEntryIfPending(id: string) {
     return prisma.waitlistEntry.updateMany({
-      where: { id: { in: ids }, status: 'PENDING' },
+      where: { id, status: 'PENDING' },
       data: { status: 'DISMISSED' },
     })
   },
@@ -156,6 +146,7 @@ export const miscRepository = {
     })
   },
 
+  /** Record a delivered invite email. */
   async markWaitlistInvited(id: string) {
     return prisma.waitlistEntry.update({
       where: { id },
