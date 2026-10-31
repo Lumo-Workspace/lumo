@@ -33,9 +33,9 @@ interface TaskFilterChipsProps {
 
 /**
  * The active-filter chips row: one chip per filtered dimension, each removable
- * on its own, plus a clear-all. Renders `null` when nothing is filtered, so the
- * row only occupies space while it has something to say — the toolbar above it
- * keeps its fixed height either way.
+ * on its own, plus a clear-all. Renders `null` when nothing is filtered, so it
+ * only occupies space while it has something to say — as its own row under the
+ * toolbar (`row`), or inside the toolbar's left slot (`inline`).
  */
 export function TaskFilterChips({
   tasks,

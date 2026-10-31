@@ -221,7 +221,6 @@ export function MyTasksPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      {/* Breadcrumb */}
       {/* Breadcrumb — the page's one primary action rides in its action slot */}
       <PageBreadcrumb
         title={intl.formatMessage({ id: 'sidebar.myTasks' })}

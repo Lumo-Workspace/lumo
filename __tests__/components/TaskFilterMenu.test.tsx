@@ -104,8 +104,13 @@ describe('TaskFilterMenu', () => {
     )
     const trigger = screen.getByRole('button', { name: /filter/i })
     expect(trigger).toHaveTextContent('Filter')
-    expect(trigger).toHaveTextContent('1')
+    // The count pill is a direct child carrying only the active count.
+    expect(
+      [...trigger.querySelectorAll('span')].map(s => s.textContent)
+    ).toEqual(['1'])
+    // Visible label → no aria-label override and no tooltip wrapper.
     expect(trigger).not.toHaveAttribute('aria-label')
+    expect(trigger).not.toHaveAttribute('data-slot', 'tooltip-trigger')
   })
 
   it('only offers contextual dimensions that can narrow the current scope', () => {

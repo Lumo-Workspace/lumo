@@ -13,14 +13,15 @@ export function ViewToggle({
 }) {
   const intl = useIntl()
   return (
-    <div className='inline-flex items-center gap-1 rounded-md border border-border px-1 py-1 bg-card'>
+    // control-sm tall, so it lines up with the sm buttons beside it.
+    <div className='inline-flex h-control-sm items-center gap-0.5 rounded-md border border-border p-0.5 bg-card'>
       {(['list', 'board'] as const).map(mode => (
         <button
           key={mode}
           type='button'
           onClick={() => onChange(mode)}
           className={cn(
-            'inline-flex items-center justify-center h-7 w-7 rounded-sm transition-colors',
+            'inline-flex items-center justify-center h-6.5 w-7 rounded-sm transition-colors',
             value === mode
               ? 'bg-foreground text-background'
               : 'text-muted-foreground hover:text-foreground'
